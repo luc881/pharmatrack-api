@@ -2,6 +2,8 @@ from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
 
+from ..product_has_ingredients.schemas import ProductIngredientCreate, ProductIngredientAmount
+
 from possystem.types.products import (
     ProductTitleStr,
     ProductImageURL,
@@ -45,7 +47,6 @@ class ProductSimpleResponse(BaseModel):
     )
 
 
-
 # =========================================================
 # 🔹 Base schema
 # =========================================================
@@ -81,7 +82,7 @@ class ProductBase(BaseModel):
 class ProductCreate(ProductBase):
     brand_id: Optional[int] = Field(None)
     product_master_id: Optional[int] = Field(None)
-    ingredient_ids: Optional[List[int]] = None
+    ingredients: Optional[List[ProductIngredientCreate]] = None
 
     model_config = ConfigDict(
         extra="forbid",
@@ -106,11 +107,13 @@ class ProductCreate(ProductBase):
                 "is_active": True,
                 "brand_id": 1,
                 "product_master_id": None,
-                "ingredient_ids": [1, 2]
+                "ingredients": [
+                    {"ingredient_id": 1, "amount": "500 mg"},
+                    {"ingredient_id": 2, "amount": "5 mg"}
+                ]
             }
         }
     )
-
 
 
 # =========================================================
@@ -143,7 +146,7 @@ class ProductUpdate(BaseModel):
 
     brand_id: Optional[int] = None
     product_master_id: Optional[int] = None
-    ingredient_ids: Optional[List[int]] = None
+    ingredients: Optional[List[ProductIngredientCreate]] = None
 
     model_config = ConfigDict(
         extra="forbid",
@@ -166,11 +169,13 @@ class ProductUpdate(BaseModel):
                 "units_per_base": None,
                 "allow_without_stock": True,
                 "is_active": True,
-                "ingredient_ids": [1, 3]
+                "ingredients": [
+                    {"ingredient_id": 1, "amount": "500 mg"},
+                    {"ingredient_id": 2, "amount": "5 mg"}
+                ]
             }
         }
     )
-
 
 
 # =========================================================
@@ -214,15 +219,16 @@ class ProductResponse(ProductBase):
     )
 
 
-
 # =========================================================
-# 🧩 Detallado (con relaciones)
+# 🧩 Detallado (con relaciones reales)
 # =========================================================
 class ProductDetailsResponse(ProductResponse):
     brand: Optional["ProductBrandResponse"] = None
     product_master: Optional["ProductMasterResponse"] = None
     batches: Optional[List["ProductBatchResponse"]] = None
-    ingredients: Optional[List["IngredientResponse"]] = None
+
+    # AHORA CORRECTO ✔️
+    ingredients: Optional[List[ProductIngredientAmount]] = None
 
     model_config = ConfigDict(
         from_attributes=True,
@@ -251,10 +257,7 @@ class ProductDetailsResponse(ProductResponse):
                 "created_at": "2024-02-12T10:00:00Z",
                 "updated_at": "2024-02-15T13:22:00Z",
 
-                "brand": {
-                    "id": 1,
-                    "name": "Genfar"
-                },
+                "brand": {"id": 1, "name": "Genfar"},
 
                 "product_master": {
                     "id": 5,
@@ -272,23 +275,44 @@ class ProductDetailsResponse(ProductResponse):
                 ],
 
                 "ingredients": [
-                    {"id": 1, "name": "Ibuprofeno"},
-                    {"id": 2, "name": "Estearato de magnesio"}
+                    {
+                        "ingredient_id": 1,
+                        "amount": "500 mg",
+                        "ingredient": {"id": 1, "name": "Ibuprofeno"}
+                    }
                 ]
             }
         }
     )
 
 
-
 # =========================================================
 # 🔍 Search params
 # =========================================================
 class ProductSearchParams(BaseModel):
-    title: Optional[str] = Field(None, min_length=2, max_length=100)
-    is_active: Optional[bool] = None
-    brand_id: Optional[int] = None
-    product_master_id: Optional[int] = None
+    title: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=100,
+        description="Texto parcial para buscar en el título (ILIKE)"
+    )
+
+    is_active: Optional[bool] = Field(
+        None,
+        description="Filtrar productos activos/inactivos"
+    )
+
+    brand_id: Optional[int] = Field(
+        None,
+        ge=1,
+        description="ID de la marca"
+    )
+
+    product_master_id: Optional[int] = Field(
+        None,
+        ge=1,
+        description="ID del master"
+    )
 
     model_config = ConfigDict(
         extra="forbid",
@@ -301,7 +325,6 @@ class ProductSearchParams(BaseModel):
             }
         }
     )
-
 
 
 # =========================================================

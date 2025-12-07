@@ -1,12 +1,31 @@
-from sqlalchemy import Table, Column, ForeignKey, BigInteger, String
+from sqlalchemy import String, BigInteger, ForeignKey
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from ...db.session import Base
 
-product_has_ingredients = Table(
-    "product_has_ingredients",
-    Base.metadata,
-    Column("product_id", BigInteger, ForeignKey("products.id", ondelete="CASCADE"), primary_key=True),
-    Column("ingredient_id", BigInteger, ForeignKey("ingredients.id", ondelete="CASCADE"), primary_key=True),
+class ProductHasIngredient(Base):
+    __tablename__ = "product_has_ingredients"
 
-    # Cantidad de ingrediente, ej: "500 mg", "5%"
-    Column("amount", String(50), nullable=True)
-)
+    product_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("products.id", ondelete="CASCADE"),
+        primary_key=True
+    )
+
+    ingredient_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("ingredients.id", ondelete="CASCADE"),
+        primary_key=True
+    )
+
+    amount: Mapped[str] = mapped_column(String(50), nullable=True)
+
+    # Relaciones
+    ingredient: Mapped["Ingredient"] = relationship(
+        "Ingredient",
+        back_populates="products"
+    )
+
+    product: Mapped["Product"] = relationship(
+        "Product",
+        back_populates="ingredients"
+    )

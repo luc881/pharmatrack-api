@@ -3,7 +3,8 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime
 from ...db.session import Base
-from ..product_has_ingredients.orm import product_has_ingredients
+from ..product_has_ingredients.orm import ProductHasIngredient
+from typing import List
 
 
 class Ingredient(Base):
@@ -21,9 +22,8 @@ class Ingredient(Base):
     )
 
     # --- Relación muchos a muchos ---
-    products: Mapped[list["Product"]] = relationship(
-        "Product",
-        secondary=product_has_ingredients,
-        back_populates="ingredients",
-        lazy="selectin"
+    products: Mapped[list["ProductHasIngredient"]] = relationship(
+        "ProductHasIngredient",
+        back_populates="ingredient",
+        cascade="all, delete-orphan"
     )

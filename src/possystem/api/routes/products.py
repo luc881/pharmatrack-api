@@ -6,6 +6,9 @@ from starlette import status
 from ...models.products.orm import Product
 from ...models.products.schemas import ProductCreate, ProductResponse, ProductUpdate, ProductSearchParams, ProductDetailsResponse
 from ...utils.permissions import CAN_READ_PRODUCTS, CAN_CREATE_PRODUCTS, CAN_UPDATE_PRODUCTS, CAN_DELETE_PRODUCTS
+from possystem.models.product_has_ingredients.orm import ProductHasIngredient
+from possystem.models.ingredients.orm import Ingredient
+
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
@@ -22,7 +25,7 @@ router = APIRouter(
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCTS)
 async def read_all(db: db_dependency):
-    products = db.query(Product).all()
+    products = db.query(Product).order_by(Product.created_at.desc()).all()
     return products
 
 @router.get("/search",
@@ -66,49 +69,60 @@ async def read_product(product_id: int, db: db_dependency):
 async def create_product(product_request: ProductCreate, db: db_dependency):
 
     # 1. Validar SKU duplicado
-    existing_product = db.query(Product).filter(Product.sku == product_request.sku).first()
+    existing_product = (
+        db.query(Product)
+        .filter(Product.sku == product_request.sku)
+        .first()
+    )
+
     if existing_product:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Product with this SKU already exists."
         )
 
-    # 2. Crear modelo base sin ingredientes
+    # 2. Crear producto base SIN ingredients
     product_model = Product(
-        **product_request.model_dump(mode="json", exclude={"ingredient_ids"})
+        **product_request.model_dump(
+            mode="json",
+            exclude={"ingredients"},
+            exclude_none=True  # ⭐ evita mandar NULL innecesarios
+        )
     )
+
     db.add(product_model)
     db.commit()
     db.refresh(product_model)
 
-    # 3. Asignar ingredientes si se enviaron
-    if product_request.ingredient_ids:
-        from possystem.models.ingredients.orm import Ingredient
+    # 3. Asignar ingredientes con amount
+    if product_request.ingredients:
 
-        ingredients = (
-            db.query(Ingredient)
-            .filter(Ingredient.id.in_(product_request.ingredient_ids))
-            .all()
-        )
+        for ing in product_request.ingredients:
 
-        if not ingredients:
-            raise HTTPException(status_code=404, detail="No valid ingredients found")
+            # Validar existencia del ingrediente
+            ingredient_exists = db.query(Ingredient).filter(
+                Ingredient.id == ing.ingredient_id
+            ).first()
 
-        # Checar IDs faltantes (igual que roles)
-        found = {i.id for i in ingredients}
-        missing = set(product_request.ingredient_ids) - found
-        if missing:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Ingredients not found: {list(missing)}"
+            if not ingredient_exists:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Ingredient not found: {ing.ingredient_id}"
+                )
+
+            phi = ProductHasIngredient(
+                product_id=product_model.id,
+                ingredient_id=ing.ingredient_id,
+                amount=ing.amount
             )
 
-        # Asignación tipo "role.permissions.extend()"
-        product_model.ingredients.extend(ingredients)
-        db.commit()
-        db.refresh(product_model)
+            db.add(phi)
 
+        db.commit()
+
+    db.refresh(product_model)
     return product_model
+
 
 
 @router.put("/{product_id}",
@@ -122,55 +136,66 @@ async def update_product(product_id: int, product_request: ProductUpdate, db: db
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=404,
             detail="Product not found."
         )
 
     # 2. Validar SKU si cambia
     if product_request.sku and product_request.sku != product.sku:
-        sku_exists = db.query(Product).filter(Product.sku == product_request.sku).first()
+        sku_exists = (
+            db.query(Product)
+            .filter(Product.sku == product_request.sku)
+            .first()
+        )
+
         if sku_exists:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=400,
                 detail="Product with this SKU already exists."
             )
 
     # 3. Actualizar campos normales
     for key, value in product_request.model_dump(
-            mode="json",  # 👈 NECESARIO
-            exclude={"ingredient_ids"},
-            exclude_unset=True
+        mode="json",
+        exclude={"ingredients"},
+        exclude_unset=True
     ).items():
         setattr(product, key, value)
 
-    # 4. Actualizar ingredientes si se enviaron
-    if product_request.ingredient_ids is not None:
-        from possystem.models.ingredients.orm import Ingredient
+    # 4. Actualizar ingredientes si vienen en la petición
+    if product_request.ingredients is not None:
 
-        ingredients = (
-            db.query(Ingredient)
-            .filter(Ingredient.id.in_(product_request.ingredient_ids))
-            .all()
-        )
+        # 4.1 Borrar ingredientes actuales
+        db.query(ProductHasIngredient).filter(
+            ProductHasIngredient.product_id == product.id
+        ).delete()
 
-        if not ingredients and product_request.ingredient_ids:
-            raise HTTPException(status_code=404, detail="No valid ingredients found")
+        # 4.2 Insertar nuevos
+        for ing in product_request.ingredients:
 
-        # Buscar faltantes
-        found = {i.id for i in ingredients}
-        missing = set(product_request.ingredient_ids) - found
-        if missing:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Ingredients not found: {list(missing)}"
+            # Verificar ingrediente existe
+            ingredient_exists = db.query(Ingredient).filter(
+                Ingredient.id == ing.ingredient_id
+            ).first()
+
+            if not ingredient_exists:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Ingredient not found: {ing.ingredient_id}"
+                )
+
+            phi = ProductHasIngredient(
+                product_id=product.id,
+                ingredient_id=ing.ingredient_id,
+                amount=ing.amount
             )
 
-        # Reemplazar la lista completa (igual que roles)
-        product.ingredients = ingredients
+            db.add(phi)
 
     db.commit()
     db.refresh(product)
     return product
+
 
 
 @router.patch("/{product_id}/toggle-active",
