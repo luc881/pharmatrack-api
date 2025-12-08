@@ -1,11 +1,13 @@
-from fastapi import Depends, HTTPException, APIRouter
+from fastapi import Depends, HTTPException, APIRouter, Query
 from typing import Annotated
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from ...db.session import get_db
 from starlette import status
 from ...utils.permissions import CAN_READ_PRODUCT_BRANDS, CAN_CREATE_PRODUCT_BRANDS, CAN_UPDATE_PRODUCT_BRANDS, CAN_DELETE_PRODUCT_BRANDS
 from ...models.product_brand.orm import ProductBrand
-from ...models.product_brand.schemas import ProductBrandCreate, ProductBrandResponse, ProductBrandUpdate
+from ...models.product_brand.schemas import ProductBrandCreate, ProductBrandResponse, ProductBrandUpdate,ProductBrandSearchParams, ProductBrandDetailsResponse
+from ...models.products.orm import Product
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
@@ -42,6 +44,64 @@ async def read_brand(brand_id: int, db: db_dependency):
         )
 
     return brand
+
+
+@router.get("/search/",
+            response_model=list[ProductBrandDetailsResponse],
+            summary="Search product brands with filters",
+            description="Advanced filtering of product brands, including product attributes.",
+            status_code=status.HTTP_200_OK,
+            dependencies=CAN_READ_PRODUCT_BRANDS)
+async def search_brands(
+    params: ProductBrandSearchParams = Depends(),
+    db: db_dependency = None
+):
+    query = db.query(ProductBrand)
+
+    # -------------------------
+    # 📌 Filtros directos
+    # -------------------------
+    if params.name:
+        query = query.filter(ProductBrand.name.ilike(f"%{params.name}%"))
+
+    if params.has_logo is not None:
+        if params.has_logo:
+            query = query.filter(ProductBrand.logo.isnot(None))
+        else:
+            query = query.filter(ProductBrand.logo.is_(None))
+
+    # -------------------------
+    # 📌 Filtro por productos activos
+    # -------------------------
+    if params.is_active is not None:
+        query = query.join(ProductBrand.products).filter(
+            Product.is_active == params.is_active
+        )
+
+    # -------------------------
+    # 📌 Filtro por título del producto (ILIKE)
+    # -------------------------
+    if params.product_title:
+        query = query.join(ProductBrand.products).filter(
+            Product.title.ilike(f"%{params.product_title}%")
+        )
+
+    # -------------------------
+    # 📌 Filtro por mínimo número de productos
+    # -------------------------
+    if params.min_products is not None:
+        query = (
+            query.join(ProductBrand.products)
+                 .group_by(ProductBrand.id)
+                 .having(func.count(Product.id) >= params.min_products)
+        )
+
+    # Evitar repetidos si hubo joins
+    query = query.distinct()
+
+    brands = query.all()
+    return brands
+
 
 
 @router.post("/",

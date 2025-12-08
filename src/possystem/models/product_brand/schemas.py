@@ -103,6 +103,55 @@ class ProductBrandDetailsResponse(ProductBrandResponse):
 
 
 # =========================================================
+# 🔍 Search params
+# =========================================================
+class ProductBrandSearchParams(BaseModel):
+    name: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=200,
+        description="Texto parcial para buscar en el nombre de la marca (ILIKE)"
+    )
+
+    has_logo: Optional[bool] = Field(
+        None,
+        description="Filtrar si la marca tiene logo (True) o no (False)"
+    )
+
+    is_active: Optional[bool] = Field(
+        None,
+        description="Filtrar solo las marcas cuyos productos activos/inactivos existan"
+    )
+
+    product_title: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=100,
+        description="Buscar marcas que contengan un producto con un título que haga match (ILIKE)"
+    )
+
+    min_products: Optional[int] = Field(
+        None,
+        ge=0,
+        description="Marca debe tener al menos esta cantidad de productos asociados"
+    )
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "name": "gen",
+                "has_logo": True,
+                "is_active": True,
+                "product_title": "para",
+                "min_products": 1
+            }
+        }
+    )
+
+
+
+# =========================================================
 # 🔁 Forward references
 # =========================================================
 if TYPE_CHECKING:
