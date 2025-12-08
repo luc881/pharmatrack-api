@@ -26,6 +26,32 @@ async def read_all(db: db_dependency):
     product_masters = db.query(ProductMaster).all()
     return product_masters
 
+@router.get(
+    "/{master_id}",
+    response_model=ProductMasterResponse,
+    summary="Retrieve a product master by ID",
+    description="Get a single Product Master record by its unique ID.",
+    status_code=status.HTTP_200_OK,
+    dependencies=CAN_READ_PRODUCT_MASTERS
+)
+async def read_product_master(
+    master_id: int,
+    db: db_dependency
+):
+    master = (
+        db.query(ProductMaster)
+        .filter(ProductMaster.id == master_id)
+        .first()
+    )
+
+    if not master:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product master {master_id} not found."
+        )
+
+    return master
+
 @router.post(
     "/",
     response_model=ProductMasterResponse,
