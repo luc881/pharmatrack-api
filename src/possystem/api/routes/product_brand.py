@@ -25,6 +25,25 @@ async def read_all(db: db_dependency):
     product_brands = db.query(ProductBrand).all()
     return product_brands
 
+@router.get("/{brand_id}",
+            response_model=ProductBrandResponse,
+            summary="Get a product brand by ID",
+            description="Retrieve a product brand using its ID.",
+            status_code=status.HTTP_200_OK,
+            dependencies=CAN_READ_PRODUCT_BRANDS)
+async def read_brand(brand_id: int, db: db_dependency):
+
+    brand = db.query(ProductBrand).filter(ProductBrand.id == brand_id).first()
+
+    if not brand:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Brand with id {brand_id} not found."
+        )
+
+    return brand
+
+
 @router.post("/",
              response_model=ProductBrandResponse,
              summary="Create a new product brand",
