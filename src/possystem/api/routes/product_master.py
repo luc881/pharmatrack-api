@@ -78,3 +78,77 @@ async def create_product_master(
     db.refresh(new_master)
 
     return new_master
+
+@router.put(
+    "/{master_id}",
+    response_model=ProductMasterResponse,
+    summary="Update an existing product master",
+    description="Updates Product Master fields. Supports partial updates.",
+    status_code=status.HTTP_200_OK,
+    dependencies=CAN_UPDATE_PRODUCT_MASTERS
+)
+async def update_product_master(
+    master_id: int,
+    payload: ProductMasterUpdate,   # ahora soporta parcial
+    db: db_dependency
+):
+    # Buscar el master
+    master = (
+        db.query(ProductMaster)
+        .filter(ProductMaster.id == master_id)
+        .first()
+    )
+
+    if not master:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product master {master_id} not found."
+        )
+
+    # Obtener únicamente campos enviados
+    update_data = payload.model_dump(exclude_unset=True)
+
+    # ============================
+    # Validar categoría si viene
+    # ============================
+    if "product_category_id" in update_data:
+        category = (
+            db.query(ProductCategory)
+            .filter(ProductCategory.id == update_data["product_category_id"])
+            .first()
+        )
+        if not category:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Product category {update_data['product_category_id']} does not exist."
+            )
+
+    # ============================
+    # Validar nombre si viene
+    # ============================
+    if "name" in update_data:
+        duplicate = (
+            db.query(ProductMaster)
+            .filter(
+                ProductMaster.name.ilike(update_data["name"]),
+                ProductMaster.id != master_id
+            )
+            .first()
+        )
+        if duplicate:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Another product master with name '{update_data['name']}' already exists."
+            )
+
+    # ============================
+    # Actualizar los campos enviados
+    # ============================
+    for key, value in update_data.items():
+        setattr(master, key, value)
+
+    db.commit()
+    db.refresh(master)
+
+    return master
+

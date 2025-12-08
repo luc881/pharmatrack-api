@@ -36,7 +36,7 @@ class ProductMasterCreate(ProductMasterBase):
 
 
 # =========================================================
-# 🟡 Update (PATCH)
+# 🟡 Update
 # =========================================================
 class ProductMasterUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=250)
