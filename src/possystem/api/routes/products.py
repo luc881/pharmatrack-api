@@ -61,66 +61,73 @@ async def read_product(product_id: int, db: db_dependency):
 
 
 
-@router.post("/",
-            response_model=ProductDetailsResponse,
-            summary="Create a new product",
-            status_code=status.HTTP_201_CREATED,
-            dependencies=CAN_CREATE_PRODUCTS)
+@router.post(
+    "/",
+    response_model=ProductDetailsResponse,
+    summary="Create a new product",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=CAN_CREATE_PRODUCTS
+)
 async def create_product(product_request: ProductCreate, db: db_dependency):
 
     # 1. Validar SKU duplicado
-    existing_product = (
-        db.query(Product)
-        .filter(Product.sku == product_request.sku)
-        .first()
-    )
-
-    if existing_product:
+    if db.query(Product).filter(Product.sku == product_request.sku).first():
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=400,
             detail="Product with this SKU already exists."
         )
 
-    # 2. Crear producto base SIN ingredients
+    # 2. Crear producto base
     product_model = Product(
         **product_request.model_dump(
             mode="json",
             exclude={"ingredients"},
-            exclude_none=True  # ⭐ evita mandar NULL innecesarios
+            exclude_none=True
         )
     )
-
     db.add(product_model)
     db.commit()
     db.refresh(product_model)
 
-    # 3. Asignar ingredientes con amount
+    # 3. Ingredientes
     if product_request.ingredients:
 
-        for ing in product_request.ingredients:
+        # Deduplicar (pythonico)
+        unique_ingredients = {
+            ing.ingredient_id: ing
+            for ing in product_request.ingredients
+        }
 
-            # Validar existencia del ingrediente
-            ingredient_exists = db.query(Ingredient).filter(
-                Ingredient.id == ing.ingredient_id
-            ).first()
+        # Validar existencia
+        ingredient_ids = list(unique_ingredients.keys())
 
-            if not ingredient_exists:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Ingredient not found: {ing.ingredient_id}"
-                )
+        valid_ids = {
+            row[0]
+            for row in db.query(Ingredient.id).filter(
+                Ingredient.id.in_(ingredient_ids)
+            ).all()
+        }
 
-            phi = ProductHasIngredient(
-                product_id=product_model.id,
-                ingredient_id=ing.ingredient_id,
-                amount=ing.amount
+        missing = [i for i in ingredient_ids if i not in valid_ids]
+        if missing:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Ingredient not found: {missing}"
             )
 
-            db.add(phi)
+        # Insertar todos de una vez
+        db.add_all([
+            ProductHasIngredient(
+                product_id=product_model.id,
+                ingredient_id=ing_id,
+                amount=unique_ingredients[ing_id].amount
+            )
+            for ing_id in unique_ingredients
+        ])
 
-        db.commit()
-
+    db.commit()
     db.refresh(product_model)
+
     return product_model
 
 
