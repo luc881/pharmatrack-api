@@ -54,3 +54,44 @@ async def create_brand(payload: ProductBrandCreate, db: db_dependency):
     db.refresh(new_brand)
 
     return new_brand
+
+
+@router.put("/{brand_id}",
+            response_model=ProductBrandResponse,
+            summary="Update a product brand",
+            description="Update an existing product brand with the provided data.",
+            status_code=status.HTTP_200_OK,
+            dependencies=CAN_UPDATE_PRODUCT_BRANDS)
+async def update_brand(brand_id: int, payload: ProductBrandUpdate, db: db_dependency):
+
+    brand = db.query(ProductBrand).filter(ProductBrand.id == brand_id).first()
+
+    if not brand:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Brand with id {brand_id} not found."
+        )
+
+    # Si viene el nombre, validar duplicado con otra marca
+    if payload.name:
+        existing_brand = db.query(ProductBrand).filter(
+            ProductBrand.name == payload.name,
+            ProductBrand.id != brand_id
+        ).first()
+
+        if existing_brand:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"The brand name '{payload.name}' is already in use."
+            )
+
+    # Actualizar solo los campos enviados en el payload
+    update_data = payload.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        setattr(brand, field, value)
+
+    db.commit()
+    db.refresh(brand)
+
+    return brand
