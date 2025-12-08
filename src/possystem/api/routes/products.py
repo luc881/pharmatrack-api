@@ -132,14 +132,16 @@ async def create_product(product_request: ProductCreate, db: db_dependency):
 
 
 
-@router.put("/{product_id}",
-            response_model=ProductDetailsResponse,
-            summary="Update an existing product",
-            status_code=status.HTTP_200_OK,
-            dependencies=CAN_UPDATE_PRODUCTS)
+@router.put(
+    "/{product_id}",
+    response_model=ProductDetailsResponse,
+    summary="Update an existing product",
+    status_code=status.HTTP_200_OK,
+    dependencies=CAN_UPDATE_PRODUCTS
+)
 async def update_product(product_id: int, product_request: ProductUpdate, db: db_dependency):
 
-    # 1. Verificar existe
+    # 1. Verificar que exista el producto
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(
@@ -147,61 +149,70 @@ async def update_product(product_id: int, product_request: ProductUpdate, db: db
             detail="Product not found."
         )
 
-    # 2. Validar SKU si cambia
+    # 2. Validar que el SKU no esté duplicado (si viene y cambió)
     if product_request.sku and product_request.sku != product.sku:
-        sku_exists = (
-            db.query(Product)
-            .filter(Product.sku == product_request.sku)
-            .first()
-        )
-
-        if sku_exists:
+        if db.query(Product).filter(Product.sku == product_request.sku).first():
             raise HTTPException(
                 status_code=400,
                 detail="Product with this SKU already exists."
             )
 
-    # 3. Actualizar campos normales
-    for key, value in product_request.model_dump(
+    # 3. Actualizar campos simples del modelo
+    update_data = product_request.model_dump(
         mode="json",
         exclude={"ingredients"},
         exclude_unset=True
-    ).items():
+    )
+    for key, value in update_data.items():
         setattr(product, key, value)
 
     # 4. Actualizar ingredientes si vienen en la petición
     if product_request.ingredients is not None:
 
-        # 4.1 Borrar ingredientes actuales
+        # 4.1 Deduplicar ingredientes (igual que en POST)
+        unique_ingredients = {
+            ing.ingredient_id: ing
+            for ing in product_request.ingredients
+        }
+
+        ingredient_ids = list(unique_ingredients.keys())
+
+        # 4.2 Validar existencia de ingredientes masivamente
+        valid_ids = {
+            row[0]
+            for row in db.query(Ingredient.id).filter(
+                Ingredient.id.in_(ingredient_ids)
+            ).all()
+        }
+
+        missing = [i for i in ingredient_ids if i not in valid_ids]
+        if missing:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Ingredient not found: {missing}"
+            )
+
+        # 4.3 Borrar ingredientes actuales
         db.query(ProductHasIngredient).filter(
             ProductHasIngredient.product_id == product.id
         ).delete()
 
-        # 4.2 Insertar nuevos
-        for ing in product_request.ingredients:
-
-            # Verificar ingrediente existe
-            ingredient_exists = db.query(Ingredient).filter(
-                Ingredient.id == ing.ingredient_id
-            ).first()
-
-            if not ingredient_exists:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Ingredient not found: {ing.ingredient_id}"
-                )
-
-            phi = ProductHasIngredient(
+        # 4.4 Insertar todos de una vez
+        db.add_all([
+            ProductHasIngredient(
                 product_id=product.id,
-                ingredient_id=ing.ingredient_id,
-                amount=ing.amount
+                ingredient_id=ing_id,
+                amount=unique_ingredients[ing_id].amount
             )
+            for ing_id in unique_ingredients
+        ])
 
-            db.add(phi)
-
+    # Guardar cambios
     db.commit()
     db.refresh(product)
+
     return product
+
 
 
 
