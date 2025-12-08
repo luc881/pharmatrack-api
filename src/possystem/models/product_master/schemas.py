@@ -5,19 +5,22 @@ from pydantic import BaseModel, Field, ConfigDict
 from ..product_categories.schemas import ProductCategoryResponse
 from ..products.schemas import ProductSimpleResponse
 
+from possystem.models.products.orm import Product
+from possystem.models.product_categories.orm import ProductCategory
+
+
 
 # =========================================================
-# 🔹 Base schema (campos compartidos)
+# 🔹 Base schema
 # =========================================================
 class ProductMasterBase(BaseModel):
     name: str = Field(..., max_length=250)
     description: Optional[str] = Field(None, max_length=2000)
-
-    product_category_id: int = Field(..., gt=0, description="ID de la categoría del medicamento")
+    product_category_id: int = Field(..., gt=0)
 
 
 # =========================================================
-# 🟢 Create schema
+# 🟢 Create
 # =========================================================
 class ProductMasterCreate(ProductMasterBase):
     model_config = ConfigDict(
@@ -33,7 +36,7 @@ class ProductMasterCreate(ProductMasterBase):
 
 
 # =========================================================
-# 🟡 Update schema
+# 🟡 Update (PATCH)
 # =========================================================
 class ProductMasterUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=250)
@@ -44,7 +47,7 @@ class ProductMasterUpdate(BaseModel):
         extra="forbid",
         json_schema_extra={
             "example": {
-                "description": "Analgesico suave ampliamente utilizado",
+                "description": "Analgésico suave ampliamente utilizado",
                 "product_category_id": 3
             }
         }
@@ -52,7 +55,7 @@ class ProductMasterUpdate(BaseModel):
 
 
 # =========================================================
-# 🔵 Response simple
+# 🔵 Simple Response
 # =========================================================
 class ProductMasterResponse(ProductMasterBase):
     id: int
@@ -69,7 +72,6 @@ class ProductMasterDetailsResponse(ProductMasterResponse):
     products: Optional[List[ProductSimpleResponse]] = None
 
     model_config = ConfigDict(from_attributes=True)
-
 
 
 # =========================================================
