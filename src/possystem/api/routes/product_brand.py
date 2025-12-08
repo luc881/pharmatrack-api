@@ -95,3 +95,24 @@ async def update_brand(brand_id: int, payload: ProductBrandUpdate, db: db_depend
     db.refresh(brand)
 
     return brand
+
+
+@router.delete("/{brand_id}",
+               summary="Delete a product brand",
+               description="Remove a product brand from the database.",
+               status_code=status.HTTP_204_NO_CONTENT,
+               dependencies=CAN_DELETE_PRODUCT_BRANDS)
+async def delete_brand(brand_id: int, db: db_dependency):
+
+    brand = db.query(ProductBrand).filter(ProductBrand.id == brand_id).first()
+
+    if not brand:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Brand with id {brand_id} not found."
+        )
+
+    db.delete(brand)
+    db.commit()
+
+    return None
