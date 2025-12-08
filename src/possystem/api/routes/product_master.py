@@ -152,3 +152,34 @@ async def update_product_master(
 
     return master
 
+@router.delete(
+    "/{master_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a product master",
+    description="Deletes a product master by ID. Fails if products depend on it.",
+    dependencies=CAN_DELETE_PRODUCT_MASTERS
+)
+async def delete_product_master(
+    master_id: int,
+    db: db_dependency
+):
+    master = db.query(ProductMaster).filter(ProductMaster.id == master_id).first()
+
+    if not master:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product master {master_id} not found."
+        )
+
+    # Intentar eliminación (puede fallar por FK si tiene dependencias)
+    try:
+        db.delete(master)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete product master because related products exist."
+        )
+
+    return None
