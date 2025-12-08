@@ -24,3 +24,33 @@ router = APIRouter(
 async def read_all(db: db_dependency):
     product_brands = db.query(ProductBrand).all()
     return product_brands
+
+@router.post("/",
+             response_model=ProductBrandResponse,
+             summary="Create a new product brand",
+             description="Create a new product brand using the provided data.",
+             status_code=status.HTTP_201_CREATED,
+             dependencies=CAN_CREATE_PRODUCT_BRANDS)
+async def create_brand(payload: ProductBrandCreate, db: db_dependency):
+    # Check if brand name already exists
+    existing_brand = db.query(ProductBrand).filter(
+        ProductBrand.name == payload.name
+    ).first()
+
+    if existing_brand:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"The brand '{payload.name}' already exists."
+        )
+
+    # Create the new brand
+    new_brand = ProductBrand(
+        name=payload.name,
+        logo=payload.logo
+    )
+
+    db.add(new_brand)
+    db.commit()
+    db.refresh(new_brand)
+
+    return new_brand
