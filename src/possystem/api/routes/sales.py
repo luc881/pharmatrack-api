@@ -37,11 +37,7 @@ VALID_SALE_STATUS = {"draft", "completed", "cancelled", "refunded"}
     dependencies=CAN_READ_SALES,
 )
 async def read_all(db: db_dependency):
-    sales = (
-        db.query(Sale)
-        .all()
-    )
-    return sales
+    return db.query(Sale).all()
 
 
 # -----------------------
@@ -104,13 +100,7 @@ async def update(
     sale: SaleUpdate,
     db: db_dependency,
 ):
-    existing_sale = (
-        db.query(Sale)
-        .filter(
-            Sale.id == sale_id,
-        )
-        .first()
-    )
+    existing_sale = db.query(Sale).filter(Sale.id == sale_id).first()
 
     if not existing_sale:
         raise HTTPException(
@@ -149,26 +139,20 @@ async def update(
 
 
 # -----------------------
-# DELETE (SOFT DELETE)
+# DELETE (HARD DELETE)
 # -----------------------
 @router.delete(
     "/{sale_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a sale",
-    description="Soft delete a sale by its ID.",
+    description="Permanently delete a sale by its ID.",
     dependencies=CAN_DELETE_SALES,
 )
 async def delete(
     sale_id: int,
     db: db_dependency,
 ):
-    existing_sale = (
-        db.query(Sale)
-        .filter(
-            Sale.id == sale_id,
-        )
-        .first()
-    )
+    existing_sale = db.query(Sale).filter(Sale.id == sale_id).first()
 
     if not existing_sale:
         raise HTTPException(
@@ -176,6 +160,7 @@ async def delete(
             detail="Sale not found.",
         )
 
+    db.delete(existing_sale)
     db.commit()
 
     return
