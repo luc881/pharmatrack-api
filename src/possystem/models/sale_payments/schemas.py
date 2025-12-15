@@ -1,5 +1,6 @@
 from typing import Optional
 from datetime import datetime
+from decimal import Decimal
 from pydantic import BaseModel, Field
 
 
@@ -7,27 +8,47 @@ from pydantic import BaseModel, Field
 # Base schema (shared fields)
 # -----------------------
 class SalePaymentBase(BaseModel):
-    method_payment: str = Field(..., max_length=100, description="Método de pago utilizado")
-    n_transaction: Optional[str] = Field(None, max_length=100, description="Número de transacción")
-    bank: Optional[str] = Field(None, max_length=100, description="Banco emisor/receptor")
-    amount: float = Field(..., gt=0, description="Monto del pago")
+    method_payment: str = Field(
+        ...,
+        max_length=30,
+        description="Método de pago (cash | card | transfer)"
+    )
+    transaction_number: Optional[str] = Field(
+        None,
+        max_length=100,
+        description="Número de transacción"
+    )
+    bank: Optional[str] = Field(
+        None,
+        max_length=100,
+        description="Banco emisor o receptor"
+    )
+    amount: Decimal = Field(
+        ...,
+        gt=0,
+        description="Monto del pago"
+    )
 
 
 # -----------------------
 # Create schema
 # -----------------------
 class SalePaymentCreate(SalePaymentBase):
-    sale_id: int = Field(..., gt=0, description="ID de la venta asociada")
+    sale_id: int = Field(
+        ...,
+        gt=0,
+        description="ID de la venta asociada"
+    )
 
     model_config = {
         "extra": "forbid",
         "json_schema_extra": {
             "example": {
                 "sale_id": 10,
-                "method_payment": "Tarjeta de crédito",
-                "n_transaction": "TX123456",
+                "method_payment": "card",
+                "transaction_number": "TX123456",
                 "bank": "BBVA",
-                "amount": 118.0
+                "amount": "118.00"
             }
         }
     }
@@ -37,20 +58,18 @@ class SalePaymentCreate(SalePaymentBase):
 # Update schema (all optional)
 # -----------------------
 class SalePaymentUpdate(BaseModel):
-    method_payment: Optional[str] = Field(None, max_length=100)
-    n_transaction: Optional[str] = Field(None, max_length=100)
+    method_payment: Optional[str] = Field(None, max_length=30)
+    transaction_number: Optional[str] = Field(None, max_length=100)
     bank: Optional[str] = Field(None, max_length=100)
-    amount: Optional[float] = Field(None, gt=0)
-
-    deleted_at: Optional[datetime] = None
+    amount: Optional[Decimal] = Field(None, gt=0)
 
     model_config = {
         "extra": "forbid",
         "json_schema_extra": {
             "example": {
-                "method_payment": "Transferencia",
+                "method_payment": "transfer",
                 "bank": "Santander",
-                "amount": 118.0
+                "amount": "118.00"
             }
         }
     }
@@ -62,9 +81,8 @@ class SalePaymentUpdate(BaseModel):
 class SalePaymentResponse(SalePaymentBase):
     id: int
     sale_id: int
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    deleted_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
 
     model_config = {
         "from_attributes": True,
@@ -72,13 +90,12 @@ class SalePaymentResponse(SalePaymentBase):
             "example": {
                 "id": 55,
                 "sale_id": 10,
-                "method_payment": "Tarjeta de crédito",
-                "n_transaction": "TX123456",
+                "method_payment": "card",
+                "transaction_number": "TX123456",
                 "bank": "BBVA",
-                "amount": 118.0,
-                "created_at": "2024-07-01T10:00:00",
-                "updated_at": "2024-07-05T10:30:00",
-                "deleted_at": None
+                "amount": "118.00",
+                "created_at": "2025-02-10T14:30:00",
+                "updated_at": "2025-02-10T14:30:00"
             }
         }
     }
@@ -87,7 +104,7 @@ class SalePaymentResponse(SalePaymentBase):
 # -----------------------
 # Response with relation
 # -----------------------
-class SalePaymentDetailsResponse(SalePaymentResponse):
+class SalePaymentDetailResponse(SalePaymentResponse):
     sale: Optional["SaleResponse"] = None
 
     model_config = {
@@ -95,13 +112,13 @@ class SalePaymentDetailsResponse(SalePaymentResponse):
         "json_schema_extra": {
             "example": {
                 "id": 55,
-                "method_payment": "Transferencia",
+                "method_payment": "transfer",
                 "bank": "Santander",
-                "amount": 118.0,
+                "amount": "118.00",
                 "sale": {
                     "id": 10,
-                    "total": 118.0,
-                    "state_payment": 3
+                    "total": "118.00",
+                    "status": "completed"
                 }
             }
         }
@@ -113,10 +130,18 @@ class SalePaymentDetailsResponse(SalePaymentResponse):
 # -----------------------
 class SalePaymentSearchParams(BaseModel):
     sale_id: Optional[int] = Field(None, gt=0, description="Filtrar por ID de venta")
-    method_payment: Optional[str] = Field(None, max_length=100, description="Filtrar por método de pago")
-    bank: Optional[str] = Field(None, max_length=100, description="Filtrar por banco")
-    date_from: Optional[datetime] = Field(None, description="Filtrar desde esta fecha")
-    date_to: Optional[datetime] = Field(None, description="Filtrar hasta esta fecha")
+    method_payment: Optional[str] = Field(
+        None,
+        max_length=30,
+        description="Filtrar por método de pago"
+    )
+    bank: Optional[str] = Field(
+        None,
+        max_length=100,
+        description="Filtrar por banco"
+    )
+    date_from: Optional[datetime] = Field(None, description="Fecha inicio")
+    date_to: Optional[datetime] = Field(None, description="Fecha fin")
 
 
 # -----------------------
