@@ -58,9 +58,15 @@ async def create(sale_payment: SalePaymentCreate, db: db_dependency):
     dependencies=CAN_UPDATE_SALE_PAYMENTS
 )
 async def update(sale_payment_id: int, sale_payment: SalePaymentUpdate, db: db_dependency):
-    existing_sale_payment = db.query(SalePayment).filter(SalePayment.id == sale_payment_id, SalePayment.deleted_at.is_(None)).first()
+    existing_sale_payment = db.query(SalePayment).filter(SalePayment.id == sale_payment_id).first()
     if not existing_sale_payment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sale payment not found")
+
+    # check if the associated sale exists if sale_id is being updated
+    if sale_payment.model_dump().get("sale_id") is not None:
+        sale = db.query(Sale).filter(Sale.id == sale_payment.model_dump().get("sale_id")).first()
+        if not sale:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Associated sale not found")
 
     for key, value in sale_payment.model_dump(exclude_unset=True).items():
         setattr(existing_sale_payment, key, value)
@@ -77,7 +83,7 @@ async def update(sale_payment_id: int, sale_payment: SalePaymentUpdate, db: db_d
     dependencies=CAN_DELETE_SALE_PAYMENTS
 )
 async def delete(sale_payment_id: int, db: db_dependency):
-    existing_sale_payment = db.query(SalePayment).filter(SalePayment.id == sale_payment_id, SalePayment.deleted_at.is_(None)).first()
+    existing_sale_payment = db.query(SalePayment).filter(SalePayment.id == sale_payment_id).first()
     if not existing_sale_payment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sale payment not found")
 

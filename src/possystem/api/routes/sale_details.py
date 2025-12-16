@@ -85,11 +85,7 @@ def create(sale_detail: SaleDetailCreate, db: db_dependency):
     status_code=status.HTTP_200_OK,
     dependencies=CAN_UPDATE_SALE_DETAILS,
 )
-def update(
-    sale_detail_id: int,
-    sale_detail: SaleDetailUpdate,
-    db: db_dependency,
-):
+def update(sale_detail_id: int, sale_detail: SaleDetailUpdate, db: db_dependency,):
     existing_sale_detail = (
         db.query(SaleDetail)
         .filter(SaleDetail.id == sale_detail_id)

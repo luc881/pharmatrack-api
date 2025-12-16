@@ -58,6 +58,7 @@ class SalePaymentCreate(SalePaymentBase):
 # Update schema (all optional)
 # -----------------------
 class SalePaymentUpdate(BaseModel):
+    sale_id: Optional[int] = Field(None, gt=0)
     method_payment: Optional[str] = Field(None, max_length=30)
     transaction_number: Optional[str] = Field(None, max_length=100)
     bank: Optional[str] = Field(None, max_length=100)
