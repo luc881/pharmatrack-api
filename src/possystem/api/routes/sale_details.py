@@ -104,46 +104,61 @@ def create(sale_detail: SaleDetailCreate, db: db_dependency):
 # -----------------------
 # UPDATE
 # -----------------------
+
+
 @router.put(
     "/{sale_detail_id}",
     response_model=SaleDetailResponse,
-    summary="Update a sale detail",
-    status_code=status.HTTP_200_OK,
     dependencies=CAN_UPDATE_SALE_DETAILS,
 )
-def update(sale_detail_id: int, sale_detail: SaleDetailUpdate, db: db_dependency,):
-    existing_sale_detail = (
-        db.query(SaleDetail)
-        .filter(SaleDetail.id == sale_detail_id)
-        .first()
-    )
+def update(
+    sale_detail_id: int,
+    sale_detail: SaleDetailUpdate,
+    db: db_dependency,
+):
+    detail = db.query(SaleDetail).filter(SaleDetail.id == sale_detail_id).first()
+    if not detail:
+        raise HTTPException(status_code=404, detail="Sale detail not found")
 
-    if not existing_sale_detail:
+    sale = detail.sale
+    if sale.status != "draft":
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Sale detail not found",
+            status_code=400,
+            detail="Cannot modify details of a non-draft sale",
         )
 
-    # Validate new product if provided
-    if sale_detail.product_id is not None:
+    data = sale_detail.model_dump(exclude_unset=True)
+
+    # ✅ Validar cambio de producto
+    if "product_id" in data:
         product = (
             db.query(Product)
-            .filter(Product.id == sale_detail.product_id)
+            .filter(Product.id == data["product_id"])
             .first()
         )
         if not product:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=404,
                 detail="Associated product not found",
             )
 
-    for key, value in sale_detail.model_dump(exclude_unset=True).items():
-        setattr(existing_sale_detail, key, value)
+    # 📝 Aplicar cambios
+    for key, value in data.items():
+        setattr(detail, key, value)
+
+    # 🔥 Recalcular línea
+    line_subtotal = (detail.price_unit * detail.quantity) - detail.discount
+    detail.total = line_subtotal + detail.tax
+
+    # 🔁 Recalcular venta
+    recalc_sale_totals(db, sale)
 
     db.commit()
-    db.refresh(existing_sale_detail)
+    db.refresh(detail)
 
-    return existing_sale_detail
+    return detail
+
+
 
 
 # -----------------------
