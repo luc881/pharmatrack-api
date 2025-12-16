@@ -1,6 +1,6 @@
 from decimal import Decimal
 from sqlalchemy.orm import Session
-from ...models.sales.orm import Sale
+from ..models.sales.orm import Sale
 
 def recalc_sale_totals(db: Session, sale: Sale) -> None:
     subtotal = Decimal("0")

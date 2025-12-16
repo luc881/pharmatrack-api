@@ -18,6 +18,8 @@ from ...utils.permissions import (
     CAN_UPDATE_SALE_DETAILS,
     CAN_DELETE_SALE_DETAILS,
 )
+from ...utils.sales_calculations import recalc_sale_totals
+from decimal import Decimal
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
@@ -43,36 +45,60 @@ def read_all(db: db_dependency):
 # -----------------------
 # CREATE
 # -----------------------
+
+
 @router.post(
     "/",
     response_model=SaleDetailResponse,
-    summary="Create a new sale detail",
     status_code=status.HTTP_201_CREATED,
     dependencies=CAN_CREATE_SALE_DETAILS,
 )
 def create(sale_detail: SaleDetailCreate, db: db_dependency):
-    # Validate sale exists
+
     sale = db.query(Sale).filter(Sale.id == sale_detail.sale_id).first()
     if not sale:
+        raise HTTPException(status_code=404, detail="Associated sale not found")
+
+    if sale.status != "draft":
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Associated sale not found",
+            status_code=400,
+            detail="Cannot add details to a non-draft sale",
         )
 
-    # Validate product exists
     product = db.query(Product).filter(Product.id == sale_detail.product_id).first()
     if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Associated product not found",
-        )
+        raise HTTPException(status_code=404, detail="Associated product not found")
 
-    new_sale_detail = SaleDetail(**sale_detail.model_dump())
-    db.add(new_sale_detail)
+    # 🔥 Calculamos nosotros
+    line_subtotal = (
+        Decimal(sale_detail.price_unit) * Decimal(sale_detail.quantity)
+    ) - Decimal(sale_detail.discount or 0)
+
+    tax = Decimal(sale_detail.tax or 0)
+    total = line_subtotal + tax
+
+    new_detail = SaleDetail(
+        sale_id=sale.id,
+        product_id=product.id,
+        quantity=sale_detail.quantity,
+        price_unit=sale_detail.price_unit,
+        discount=sale_detail.discount or 0,
+        tax=tax,
+        total=total,
+        description=sale_detail.description,
+    )
+
+    db.add(new_detail)
+    db.flush()  # 👈 importante
+
+    # 🔁 Recalcula la venta
+    recalc_sale_totals(db, sale)
+
     db.commit()
-    db.refresh(new_sale_detail)
+    db.refresh(new_detail)
 
-    return new_sale_detail
+    return new_detail
+
 
 
 # -----------------------

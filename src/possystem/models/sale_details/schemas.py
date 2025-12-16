@@ -59,6 +59,9 @@ class SaleDetailCreate(SaleDetailBase):
         gt=0,
         description="ID de la venta asociada"
     )
+    total: Optional[Decimal] = Field(
+        None,
+    )
 
     model_config = {
         "extra": "forbid",
