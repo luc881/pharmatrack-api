@@ -1,17 +1,23 @@
 from fastapi import Depends, HTTPException, APIRouter
 from typing import Annotated
 from sqlalchemy.orm import Session
-from ...db.session import get_db
 from starlette import status
-from datetime import datetime, timezone
-from ...models.sale_details.schemas import SaleDetailCreate, SaleDetailResponse, SaleDetailUpdate
-from ...models.sale_details.orm import SaleDetail
-from ...utils.permissions import CAN_READ_SALE_DETAILS, CAN_CREATE_SALE_DETAILS, CAN_UPDATE_SALE_DETAILS, CAN_DELETE_SALE_DETAILS
 
+from ...db.session import get_db
+from ...models.sale_details.schemas import (
+    SaleDetailCreate,
+    SaleDetailResponse,
+    SaleDetailUpdate,
+)
+from ...models.sale_details.orm import SaleDetail
 from ...models.sales.orm import Sale
 from ...models.products.orm import Product
-from ...models.product_categories.orm import ProductCategory
-
+from ...utils.permissions import (
+    CAN_READ_SALE_DETAILS,
+    CAN_CREATE_SALE_DETAILS,
+    CAN_UPDATE_SALE_DETAILS,
+    CAN_DELETE_SALE_DETAILS,
+)
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
@@ -20,118 +26,125 @@ router = APIRouter(
     tags=["Sale Details"]
 )
 
+# -----------------------
+# GET ALL
+# -----------------------
 @router.get(
     "/",
     response_model=list[SaleDetailResponse],
     summary="List all sale details",
-    description="Retrieve all sale details currently stored in the database.",
     status_code=status.HTTP_200_OK,
-    dependencies=CAN_READ_SALE_DETAILS
+    dependencies=CAN_READ_SALE_DETAILS,
 )
-async def read_all(db: db_dependency):
-    sale_details = db.query(SaleDetail).all()
-    return sale_details
+def read_all(db: db_dependency):
+    return db.query(SaleDetail).all()
 
+
+# -----------------------
+# CREATE
+# -----------------------
 @router.post(
     "/",
     response_model=SaleDetailResponse,
     summary="Create a new sale detail",
-    description="Create a new sale detail with the provided details.",
     status_code=status.HTTP_201_CREATED,
-    dependencies=CAN_CREATE_SALE_DETAILS
+    dependencies=CAN_CREATE_SALE_DETAILS,
 )
-async def create(sale_detail: SaleDetailCreate, db: db_dependency):
-    # Check if the associated sale exists
+def create(sale_detail: SaleDetailCreate, db: db_dependency):
+    # Validate sale exists
     sale = db.query(Sale).filter(Sale.id == sale_detail.sale_id).first()
     if not sale:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Associated sale not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Associated sale not found",
+        )
 
-    # Check if the associated product exists
+    # Validate product exists
     product = db.query(Product).filter(Product.id == sale_detail.product_id).first()
     if not product:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Associated product not found")
-
-    # Check if the associated product category exists (if provided)
-    if sale_detail.product_category_id is not None:
-        product_category = db.query(ProductCategory).filter(ProductCategory.id == sale_detail.product_category_id).first()
-        if not product_category:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Associated product category not found")
-
-    # Check if the associated warehouse exists (if provided)
-    # if sale_detail.warehouse_id is not None:
-    #     warehouse = db.query(Warehouse).filter(Warehouse.id == sale_detail.warehouse_id).first()
-    #     if not warehouse:
-    #         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Associated warehouse not found")
-
-    # Check if the associated unit exists (if provided)
-    # if sale_detail.unit_id is not None:
-    #     unit = db.query(Unit).filter(Unit.id == sale_detail.unit_id).first()
-    #     if not unit:
-    #         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Associated unit not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Associated product not found",
+        )
 
     new_sale_detail = SaleDetail(**sale_detail.model_dump())
     db.add(new_sale_detail)
     db.commit()
     db.refresh(new_sale_detail)
+
     return new_sale_detail
 
+
+# -----------------------
+# UPDATE
+# -----------------------
 @router.put(
     "/{sale_detail_id}",
     response_model=SaleDetailResponse,
     summary="Update a sale detail",
-    description="Update the details of an existing sale detail by its ID.",
     status_code=status.HTTP_200_OK,
-    dependencies=CAN_UPDATE_SALE_DETAILS
+    dependencies=CAN_UPDATE_SALE_DETAILS,
 )
-async def update(sale_detail_id: int, sale_detail: SaleDetailUpdate, db: db_dependency):
-    existing_sale_detail = db.query(SaleDetail).filter(SaleDetail.id == sale_detail_id, SaleDetail.deleted_at.is_(None)).first()
+def update(
+    sale_detail_id: int,
+    sale_detail: SaleDetailUpdate,
+    db: db_dependency,
+):
+    existing_sale_detail = (
+        db.query(SaleDetail)
+        .filter(SaleDetail.id == sale_detail_id)
+        .first()
+    )
+
     if not existing_sale_detail:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sale detail not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Sale detail not found",
+        )
 
-    # If product_id is being updated, check if the new product exists
+    # Validate new product if provided
     if sale_detail.product_id is not None:
-        product = db.query(Product).filter(Product.id == sale_detail.product_id).first()
+        product = (
+            db.query(Product)
+            .filter(Product.id == sale_detail.product_id)
+            .first()
+        )
         if not product:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Associated product not found")
-
-    # If product_category_id is being updated, check if the new product category exists
-    if sale_detail.product_category_id is not None:
-        product_category = db.query(ProductCategory).filter(ProductCategory.id == sale_detail.product_category_id).first()
-        if not product_category:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Associated product category not found")
-
-    # If warehouse_id is being updated, check if the new warehouse exists
-    # if sale_detail.warehouse_id is not None:
-    #     warehouse = db.query(Warehouse).filter(Warehouse.id == sale_detail.warehouse_id).first()
-    #     if not warehouse:
-    #         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Associated warehouse not found")
-
-    # If unit_id is being updated, check if the new unit exists
-    # if sale_detail.unit_id is not None:
-    #     unit = db.query(Unit).filter(Unit.id == sale_detail.unit_id).first()
-    #     if not unit:
-    #         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Associated unit not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Associated product not found",
+            )
 
     for key, value in sale_detail.model_dump(exclude_unset=True).items():
         setattr(existing_sale_detail, key, value)
 
     db.commit()
     db.refresh(existing_sale_detail)
+
     return existing_sale_detail
 
 
+# -----------------------
+# DELETE (HARD DELETE)
+# -----------------------
 @router.delete(
     "/{sale_detail_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a sale detail",
-    description="Soft delete a sale detail by its ID.",
-    dependencies=CAN_DELETE_SALE_DETAILS
+    dependencies=CAN_DELETE_SALE_DETAILS,
 )
-async def delete(sale_detail_id: int, db: db_dependency):
-    existing_sale_detail = db.query(SaleDetail).filter(SaleDetail.id == sale_detail_id, SaleDetail.deleted_at.is_(None)).first()
-    if not existing_sale_detail:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sale detail not found")
+def delete(sale_detail_id: int, db: db_dependency):
+    existing_sale_detail = (
+        db.query(SaleDetail)
+        .filter(SaleDetail.id == sale_detail_id)
+        .first()
+    )
 
-    existing_sale_detail.deleted_at = datetime.now(timezone.utc)
+    if not existing_sale_detail:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Sale detail not found",
+        )
+
+    db.delete(existing_sale_detail)
     db.commit()
-    return

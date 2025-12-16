@@ -81,6 +81,8 @@ class SaleDetailCreate(SaleDetailBase):
 # Update schema (all optional)
 # -----------------------
 class SaleDetailUpdate(BaseModel):
+    product_id: Optional[int] = Field(None, gt=0)
+
     quantity: Optional[Decimal] = Field(None, gt=0)
     price_unit: Optional[Decimal] = Field(None, ge=0)
     discount: Optional[Decimal] = Field(None, ge=0)
@@ -92,12 +94,12 @@ class SaleDetailUpdate(BaseModel):
         "extra": "forbid",
         "json_schema_extra": {
             "example": {
+                "product_id": 12,
                 "quantity": "2.00",
                 "total": "96.00"
             }
         }
     }
-
 
 # -----------------------
 # Response schema
