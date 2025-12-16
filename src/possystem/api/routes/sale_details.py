@@ -167,21 +167,25 @@ def update(
 @router.delete(
     "/{sale_detail_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Delete a sale detail",
     dependencies=CAN_DELETE_SALE_DETAILS,
 )
 def delete(sale_detail_id: int, db: db_dependency):
-    existing_sale_detail = (
-        db.query(SaleDetail)
-        .filter(SaleDetail.id == sale_detail_id)
-        .first()
-    )
+    detail = db.query(SaleDetail).filter(SaleDetail.id == sale_detail_id).first()
+    if not detail:
+        raise HTTPException(status_code=404, detail="Sale detail not found")
 
-    if not existing_sale_detail:
+    sale = detail.sale
+    if sale.status != "draft":
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Sale detail not found",
+            status_code=400,
+            detail="Cannot delete details of a non-draft sale",
         )
 
-    db.delete(existing_sale_detail)
+    db.delete(detail)
+    db.flush()
+
+    # 🔁 Recalcular venta
+    recalc_sale_totals(db, sale)
+
     db.commit()
+
