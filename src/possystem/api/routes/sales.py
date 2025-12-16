@@ -131,6 +131,12 @@ async def update(
             detail="Invalid sale status.",
         )
 
+    if existing_sale.status != "draft":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only draft sales can be modified.",
+        )
+
     for key, value in sale.model_dump(exclude_unset=True).items():
         setattr(existing_sale, key, value)
 
