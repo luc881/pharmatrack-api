@@ -46,8 +46,6 @@ async def read_all(db: db_dependency):
 @router.post(
     "/",
     response_model=SaleResponse,
-    summary="Create a new sale",
-    description="Create a new sale with the provided details.",
     status_code=status.HTTP_201_CREATED,
     dependencies=CAN_CREATE_SALES,
 )
@@ -69,19 +67,23 @@ async def create(
             detail="Branch ID does not exist.",
         )
 
-    # Validate status
-    if sale.status not in VALID_SALE_STATUS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid sale status.",
-        )
+    new_sale = Sale(
+        user_id=sale.user_id,
+        branch_id=sale.branch_id,
+        description=sale.description,
+        status="draft",  # 👈 SIEMPRE draft al crear
+        subtotal=0,
+        tax=0,
+        discount=0,
+        total=0,
+    )
 
-    new_sale = Sale(**sale.model_dump())
     db.add(new_sale)
     db.commit()
     db.refresh(new_sale)
 
     return new_sale
+
 
 
 # -----------------------
