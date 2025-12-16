@@ -14,6 +14,10 @@ from ...utils.permissions import (
     CAN_UPDATE_SALES,
     CAN_DELETE_SALES,
 )
+from ...utils.sales_stock import allocate_batches_for_sale_detail
+from sqlalchemy.orm import joinedload
+from ...utils.sales_calculations import recalc_sale_totals
+
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
@@ -83,6 +87,50 @@ async def create(
     db.refresh(new_sale)
 
     return new_sale
+
+
+
+
+@router.post(
+    "/{sale_id}/complete",
+    status_code=status.HTTP_200_OK,
+    dependencies=CAN_UPDATE_SALES,
+)
+def complete_sale(sale_id: int, db: db_dependency):
+
+    sale = (
+        db.query(Sale)
+        .options(joinedload(Sale.sale_details))
+        .filter(Sale.id == sale_id)
+        .first()
+    )
+
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+
+    if sale.status != "draft":
+        raise HTTPException(
+            status_code=400,
+            detail="Only draft sales can be completed",
+        )
+
+    if not sale.sale_details:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot complete an empty sale",
+        )
+
+    for detail in sale.sale_details:
+        allocate_batches_for_sale_detail(db, detail)
+
+    recalc_sale_totals(db, sale)
+    sale.status = "completed"
+
+    db.commit()
+    db.refresh(sale)
+
+    return sale
+
 
 
 

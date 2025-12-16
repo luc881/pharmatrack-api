@@ -27,11 +27,10 @@ class SaleBase(BaseModel):
 # -----------------------
 # Create schema
 # -----------------------
-class SaleCreate(SaleBase):
-    """
-    Schema usado para crear una venta.
-    Los totales deben venir ya calculados desde el backend.
-    """
+class SaleCreate(BaseModel):
+    user_id: int = Field(..., gt=0)
+    branch_id: int = Field(..., gt=0)
+    description: Optional[str] = None
 
     model_config = {
         "extra": "forbid",
@@ -39,11 +38,6 @@ class SaleCreate(SaleBase):
             "example": {
                 "user_id": 1,
                 "branch_id": 2,
-                "subtotal": "100.00",
-                "tax": "16.00",
-                "discount": "5.00",
-                "total": "111.00",
-                "status": "completed",
                 "description": "Venta de medicamentos varios"
             }
         }
