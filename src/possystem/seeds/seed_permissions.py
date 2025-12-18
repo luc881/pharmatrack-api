@@ -73,6 +73,18 @@ PERMISSIONS = [
 
     # Product batches
     "productbatches.read", "productbatches.create", "productbatches.update", "productbatches.delete",
+
+    # Product Ingredients
+    "ingredients.read", "ingredients.create", "ingredients.update", "ingredients.delete",
+
+    # Product Brands
+    "productbrands.read", "productbrands.create", "productbrands.update", "productbrands.delete",
+
+    # Product Master
+    "productmasters.read", "productmasters.create", "productmasters.update", "productmasters.delete",
+
+    # Sale Batch Usage
+    "salebatchusages.read", "salebatchusages.create", "salebatchusages.update", "salebatchusages.delete",
 ]
 
 
