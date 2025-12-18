@@ -53,15 +53,12 @@ class SaleDetailBase(BaseModel):
 # -----------------------
 # Create schema
 # -----------------------
-class SaleDetailCreate(SaleDetailBase):
-    sale_id: int = Field(
-        ...,
-        gt=0,
-        description="ID de la venta asociada"
-    )
-    total: Optional[Decimal] = Field(
-        None,
-    )
+class SaleDetailCreate(BaseModel):
+    sale_id: int = Field(..., gt=0)
+    product_id: int = Field(..., gt=0)
+    quantity: Decimal = Field(..., gt=0)
+    discount: Decimal = Field(0, ge=0)
+    description: Optional[str] = None
 
     model_config = {
         "extra": "forbid",
@@ -70,10 +67,7 @@ class SaleDetailCreate(SaleDetailBase):
                 "sale_id": 10,
                 "product_id": 5,
                 "quantity": "3.00",
-                "price_unit": "50.00",
                 "discount": "5.00",
-                "tax": "0.00",
-                "total": "145.00",
                 "description": "Caja de paracetamol 500mg"
             }
         }
@@ -85,12 +79,8 @@ class SaleDetailCreate(SaleDetailBase):
 # -----------------------
 class SaleDetailUpdate(BaseModel):
     product_id: Optional[int] = Field(None, gt=0)
-
     quantity: Optional[Decimal] = Field(None, gt=0)
-    price_unit: Optional[Decimal] = Field(None, ge=0)
     discount: Optional[Decimal] = Field(None, ge=0)
-    tax: Optional[Decimal] = Field(None, ge=0)
-    total: Optional[Decimal] = Field(None, ge=0)
     description: Optional[str] = None
 
     model_config = {
@@ -107,9 +97,16 @@ class SaleDetailUpdate(BaseModel):
 # -----------------------
 # Response schema
 # -----------------------
-class SaleDetailResponse(SaleDetailBase):
+class SaleDetailResponse(BaseModel):
     id: int
     sale_id: int
+    product_id: int
+    quantity: Decimal
+    price_unit: Decimal
+    discount: Decimal
+    tax: Decimal
+    total: Decimal
+    description: Optional[str]
     created_at: datetime
     updated_at: datetime
 

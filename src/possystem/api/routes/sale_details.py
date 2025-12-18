@@ -47,6 +47,8 @@ def read_all(db: db_dependency):
 # -----------------------
 
 
+from decimal import Decimal
+
 @router.post(
     "/",
     response_model=SaleDetailResponse,
@@ -69,19 +71,26 @@ def create(sale_detail: SaleDetailCreate, db: db_dependency):
     if not product:
         raise HTTPException(status_code=404, detail="Associated product not found")
 
-    # 🔥 Calculamos nosotros
-    line_subtotal = (
-        Decimal(sale_detail.price_unit) * Decimal(sale_detail.quantity)
-    ) - Decimal(sale_detail.discount or 0)
+    # 🧠 Precio SIEMPRE del producto
+    price_unit = Decimal(product.price_retail)
 
-    tax = Decimal(sale_detail.tax or 0)
+    # 🔢 Subtotal
+    line_subtotal = (price_unit * Decimal(sale_detail.quantity)) - Decimal(
+        sale_detail.discount or 0
+    )
+
+    # 🧾 Impuesto automático (si aplica)
+    tax = Decimal(0)
+    if product.is_taxable and product.tax_percentage:
+        tax = (line_subtotal * Decimal(product.tax_percentage)) / Decimal(100)
+
     total = line_subtotal + tax
 
     new_detail = SaleDetail(
         sale_id=sale.id,
         product_id=product.id,
         quantity=sale_detail.quantity,
-        price_unit=sale_detail.price_unit,
+        price_unit=price_unit,
         discount=sale_detail.discount or 0,
         tax=tax,
         total=total,
@@ -89,15 +98,16 @@ def create(sale_detail: SaleDetailCreate, db: db_dependency):
     )
 
     db.add(new_detail)
-    db.flush()  # 👈 importante
+    db.flush()
 
-    # 🔁 Recalcula la venta
+    # 🔁 Recalcular venta
     recalc_sale_totals(db, sale)
 
     db.commit()
     db.refresh(new_detail)
 
     return new_detail
+
 
 
 
@@ -129,26 +139,42 @@ def update(
 
     data = sale_detail.model_dump(exclude_unset=True)
 
-    # ✅ Validar cambio de producto
+    product = detail.product
+
+    # 🔁 Cambio de producto
     if "product_id" in data:
-        product = (
-            db.query(Product)
-            .filter(Product.id == data["product_id"])
-            .first()
-        )
+        product = db.query(Product).filter(
+            Product.id == data["product_id"]
+        ).first()
+
         if not product:
             raise HTTPException(
                 status_code=404,
                 detail="Associated product not found",
             )
 
-    # 📝 Aplicar cambios
-    for key, value in data.items():
-        setattr(detail, key, value)
+        detail.product_id = product.id
+        detail.price_unit = Decimal(product.price_retail)
+
+    # 🔁 Otros campos
+    if "quantity" in data:
+        detail.quantity = data["quantity"]
+
+    if "discount" in data:
+        detail.discount = data["discount"]
+
+    if "description" in data:
+        detail.description = data["description"]
 
     # 🔥 Recalcular línea
     line_subtotal = (detail.price_unit * detail.quantity) - detail.discount
-    detail.total = line_subtotal + detail.tax
+
+    tax = Decimal(0)
+    if product.is_taxable and product.tax_percentage:
+        tax = (line_subtotal * Decimal(product.tax_percentage)) / Decimal(100)
+
+    detail.tax = tax
+    detail.total = line_subtotal + tax
 
     # 🔁 Recalcular venta
     recalc_sale_totals(db, sale)
@@ -157,6 +183,8 @@ def update(
     db.refresh(detail)
 
     return detail
+
+
 
 
 
