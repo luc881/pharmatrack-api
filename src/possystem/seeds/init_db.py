@@ -5,6 +5,7 @@ from possystem.seeds.seed_permissions import seed_permissions
 from possystem.seeds.seed_roles import seed_roles
 from possystem.seeds.seed_product_categories import seed_product_categories
 from possystem.seeds.seed_superuser import seed_superuser
+from possystem.seeds.seed_branches import seed_branches
 
 
 def init_db():
@@ -19,6 +20,9 @@ def init_db():
 
         print("🔹 Iniciando seeding de categorías de productos...")
         seed_product_categories(db)
+
+        print("🔹 Iniciando seeding de sucursales...")
+        seed_branches(db)
 
         print("🔹 Creando superusuario...")
         seed_superuser(db)
