@@ -11,7 +11,6 @@ class RefundProductBase(BaseModel):
     sale_detail_id: Optional[int] = Field(None, gt=0, description="Detalle de venta relacionado")
     is_reintegrable: Optional[bool] = Field(True, description="True si el producto se puede reintegrar al inventario")
     user_id: Optional[int] = Field(None, gt=0, description="Usuario que registró la devolución")
-    description: Optional[str] = Field(None, description="Descripción del motivo de devolución")
 
 
 # -----------------------
@@ -27,7 +26,6 @@ class RefundProductCreate(RefundProductBase):
                 "sale_detail_id": 100,
                 "is_reintegrable": True,
                 "user_id": 10,
-                "description": "Producto con defecto de fábrica"
             }
         }
     }
@@ -41,7 +39,6 @@ class RefundProductUpdate(BaseModel):
     quantity: Optional[float] = Field(None, gt=0)
     sale_detail_id: Optional[int] = Field(None, gt=0)
     is_reintegrable: Optional[bool] = None
-    description: Optional[str] = None
     user_id: Optional[int] = Field(None, gt=0)
     deleted_at: Optional[datetime] = None
 
@@ -51,7 +48,6 @@ class RefundProductUpdate(BaseModel):
             "example": {
                 "quantity": 2,
                 "is_reintegrable": False,
-                "description": "Producto devuelto dañado"
             }
         }
     }
@@ -76,7 +72,6 @@ class RefundProductResponse(RefundProductBase):
                 "sale_detail_id": 100,
                 "is_reintegrable": True,
                 "user_id": 10,
-                "description": "Producto con defecto de fábrica",
                 "created_at": "2025-01-01T10:00:00",
                 "updated_at": "2025-01-01T11:00:00",
                 "deleted_at": None
@@ -103,7 +98,6 @@ class RefundProductWithRelations(RefundProductResponse):
                 "sale_detail_id": 100,
                 "is_reintegrable": True,
                 "user_id": 10,
-                "description": "Producto con defecto de fábrica",
                 "created_at": "2025-01-01T10:00:00",
                 "updated_at": "2025-01-01T11:00:00",
                 "product": {"id": 12, "name": "Laptop X"},
