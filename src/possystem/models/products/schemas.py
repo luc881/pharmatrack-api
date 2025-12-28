@@ -21,6 +21,7 @@ from possystem.types.products import (
     AllowWithoutStockFlag,
     ProductUnitName,
     ProductBaseUnitName,
+    IsUnitSaleFlag,
 )
 
 # =========================================================
@@ -68,6 +69,8 @@ class ProductBase(BaseModel):
     allow_warranty: AllowWarrantyFlag = False
     warranty_days: Optional[WarrantyDays] = None
 
+    # 🔹 NUEVO
+    is_unit_sale: IsUnitSaleFlag = False
     unit_name: ProductUnitName = Field(default="pieza")
     base_unit_name: Optional[ProductBaseUnitName] = None
     units_per_base: Optional[float] = None
@@ -105,6 +108,7 @@ class ProductCreate(ProductBase):
                 "units_per_base": None,
                 "allow_without_stock": True,
                 "is_active": True,
+                "is_unit_sale": False,
                 "brand_id": 1,
                 "product_master_id": None,
                 "ingredients": [
@@ -137,6 +141,8 @@ class ProductUpdate(BaseModel):
     allow_warranty: Optional[AllowWarrantyFlag] = None
     warranty_days: Optional[WarrantyDays] = None
 
+    # 🔹 NUEVO
+    is_unit_sale: Optional[IsUnitSaleFlag] = None
     unit_name: Optional[ProductUnitName] = None
     base_unit_name: Optional[ProductBaseUnitName] = None
     units_per_base: Optional[float] = None
@@ -168,6 +174,7 @@ class ProductUpdate(BaseModel):
                 "base_unit_name": None,
                 "units_per_base": None,
                 "allow_without_stock": True,
+                "is_unit_sale": False,
                 "is_active": True,
                 "ingredients": [
                     {"ingredient_id": 1, "amount": "500 mg"},
@@ -210,6 +217,7 @@ class ProductResponse(ProductBase):
                 "units_per_base": None,
                 "allow_without_stock": True,
                 "is_active": True,
+                "is_unit_sale": False,
                 "brand_id": 1,
                 "product_master_id": None,
                 "created_at": "2024-02-12T10:00:00Z",
@@ -251,6 +259,7 @@ class ProductDetailsResponse(ProductResponse):
                 "base_unit_name": None,
                 "units_per_base": None,
                 "allow_without_stock": True,
+                "is_unit_sale": False,
                 "is_active": True,
                 "brand_id": 1,
                 "product_master_id": 5,
@@ -295,6 +304,12 @@ class ProductSearchParams(BaseModel):
         min_length=1,
         max_length=100,
         description="Texto parcial para buscar en el título (ILIKE)"
+    )
+
+    # 🔹 NUEVO
+    is_unit_sale: Optional[bool] = Field(
+        None,
+        description="Filtrar productos de venta suelta o presentación"
     )
 
     is_active: Optional[bool] = Field(

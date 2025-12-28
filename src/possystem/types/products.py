@@ -49,6 +49,12 @@ ProductSKUStr = Annotated[
 # ⚖️ Unidades y fraccionamiento
 # -------------------------------
 
+IsUnitSaleFlag = Annotated[
+    bool,
+    Field(description="Indica si el producto se vende por unidad suelta")
+]
+
+
 ProductUnitName = Annotated[
     str,
     StringConstraints(

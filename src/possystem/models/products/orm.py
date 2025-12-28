@@ -54,6 +54,28 @@ class Product(Base):
     base_unit_name: Mapped[str] = mapped_column(String(50), nullable=True)
     units_per_base: Mapped[float] = mapped_column(Double, nullable=True)
 
+    # --- Unidad de venta ---
+    is_unit_sale: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        server_default="0"
+    )
+
+    unit_name: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False
+    )
+
+    base_unit_name: Mapped[str] = mapped_column(
+        String(50),
+        nullable=True
+    )
+
+    units_per_base: Mapped[float] = mapped_column(
+        Double,
+        nullable=True
+    )
+
     # --- Tiempos ---
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=False),

@@ -9,6 +9,7 @@ from ...utils.permissions import CAN_READ_PRODUCTS, CAN_CREATE_PRODUCTS, CAN_UPD
 from possystem.models.product_has_ingredients.orm import ProductHasIngredient
 from possystem.models.ingredients.orm import Ingredient
 from sqlalchemy.exc import SQLAlchemyError
+from possystem.utils.validators import validate_units_schema, merge_product_units, validate_unit_name_for_sale, normalize_units
 
 
 
@@ -63,6 +64,7 @@ async def read_product(product_id: int, db: db_dependency):
 
 
 
+
 @router.post(
     "/",
     response_model=ProductDetailsResponse,
@@ -71,6 +73,11 @@ async def read_product(product_id: int, db: db_dependency):
     dependencies=CAN_CREATE_PRODUCTS
 )
 async def create_product(product_request: ProductCreate, db: db_dependency):
+    # 🔹 VALIDACIÓN DE UNIDADES
+    normalize_units(product_request)
+    validate_units_schema(product_request)
+    validate_unit_name_for_sale(product_request)
+
     # 1. Validar SKU
     if db.query(Product).filter(Product.sku == product_request.sku).first():
         raise HTTPException(status_code=400, detail="Product with this SKU already exists.")
@@ -98,7 +105,12 @@ async def create_product(product_request: ProductCreate, db: db_dependency):
                 detail=f"Ingredient not found: {list(missing)}"
             )
 
-    # 4. Crear producto (ya todo validado)
+    # 4. Validar Product Master si se provee
+    if product_request.product_master_id:
+        if not db.query(Product).filter(Product.id == product_request.product_master_id).first():
+            raise HTTPException(status_code=404, detail="Product Master not found.")
+
+    # 5. Crear producto (ya todo validado)
     product_model = Product(
         **product_request.model_dump(
             mode="json",
@@ -110,7 +122,7 @@ async def create_product(product_request: ProductCreate, db: db_dependency):
     db.add(product_model)
     db.flush()  # 👈 obtiene ID sin commit
 
-    # 5. Insertar ingredientes
+    # 6. Insertar ingredientes
     if product_request.ingredients:
         db.add_all([
             ProductHasIngredient(
@@ -139,6 +151,12 @@ async def update_product(product_id: int, product_request: ProductUpdate, db: db
     if not product:
         raise HTTPException(status_code=404, detail="Product not found.")
 
+    # 🔹 VALIDAR UNIDADES (estado final)
+    merged = merge_product_units(product, product_request)
+    normalize_units(merged)
+    validate_units_schema(merged)
+    validate_unit_name_for_sale(merged)
+
     # Validar SKU
     if product_request.sku and product_request.sku != product.sku:
         if db.query(Product).filter(Product.sku == product_request.sku).first():
@@ -148,6 +166,11 @@ async def update_product(product_id: int, product_request: ProductUpdate, db: db
     if product_request.brand_id:
         if not db.query(Product).filter(Product.id == product_request.brand_id).first():
             raise HTTPException(status_code=404, detail="Brand not found.")
+
+    # Validar Product Master si se provee
+    if product_request.product_master_id:
+        if not db.query(Product).filter(Product.id == product_request.product_master_id).first():
+            raise HTTPException(status_code=404, detail="Product Master not found.")
 
     # Validar ingredientes ANTES de modificar nada
     if product_request.ingredients is not None:
