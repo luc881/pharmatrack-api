@@ -37,12 +37,12 @@ class Product(Base):
     description: Mapped[str] = mapped_column(Text, nullable=True)
     sku: Mapped[str] = mapped_column(String(100), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
-    allow_without_stock: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
+    # allow_without_stock: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
 
     # --- Descuentos / impuestos ---
-    is_discount: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")
+    # is_discount: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")
     max_discount: Mapped[float] = mapped_column(Double, nullable=True)
-    is_taxable: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
+    # is_taxable: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
     tax_percentage: Mapped[float] = mapped_column(Double, nullable=True)
 
     # --- Garantía ---

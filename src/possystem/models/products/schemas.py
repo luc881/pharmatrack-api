@@ -11,17 +11,12 @@ from possystem.types.products import (
     ProductSKUStr,
     PriceRetail,
     PriceCost,
-    DiscountPercentage,
-    TaxPercentage,
     WarrantyDays,
-    IsDiscountFlag,
-    IsActiveFlag,
-    IsTaxableFlag,
     AllowWarrantyFlag,
-    AllowWithoutStockFlag,
     ProductUnitName,
     ProductBaseUnitName,
     IsUnitSaleFlag,
+    IsActiveFlag,
 )
 
 # =========================================================
@@ -61,11 +56,6 @@ class ProductBase(BaseModel):
     description: Optional[ProductDescriptionStr] = None
     sku: Optional[ProductSKUStr] = None
 
-    is_discount: IsDiscountFlag = False
-    max_discount: Optional[DiscountPercentage] = None
-    is_taxable: IsTaxableFlag = True
-    tax_percentage: Optional[TaxPercentage] = None
-
     allow_warranty: AllowWarrantyFlag = False
     warranty_days: Optional[WarrantyDays] = None
 
@@ -75,7 +65,6 @@ class ProductBase(BaseModel):
     base_unit_name: Optional[ProductBaseUnitName] = None
     units_per_base: Optional[float] = None
 
-    allow_without_stock: AllowWithoutStockFlag = True
     is_active: IsActiveFlag = True
 
 
@@ -97,16 +86,11 @@ class ProductCreate(ProductBase):
                 "price_cost": 30.0,
                 "description": "Caja con 10 tabletas",
                 "sku": "IBU400",
-                "is_discount": False,
-                "max_discount": 0,
-                "is_taxable": True,
-                "tax_percentage": 16,
                 "allow_warranty": False,
                 "warranty_days": None,
                 "unit_name": "pieza",
                 "base_unit_name": None,
                 "units_per_base": None,
-                "allow_without_stock": True,
                 "is_active": True,
                 "is_unit_sale": False,
                 "brand_id": 1,
@@ -133,11 +117,6 @@ class ProductUpdate(BaseModel):
     description: Optional[ProductDescriptionStr] = None
     sku: Optional[ProductSKUStr] = None
 
-    is_discount: Optional[IsDiscountFlag] = None
-    max_discount: Optional[DiscountPercentage] = None
-    is_taxable: Optional[IsTaxableFlag] = None
-    tax_percentage: Optional[TaxPercentage] = None
-
     allow_warranty: Optional[AllowWarrantyFlag] = None
     warranty_days: Optional[WarrantyDays] = None
 
@@ -147,7 +126,6 @@ class ProductUpdate(BaseModel):
     base_unit_name: Optional[ProductBaseUnitName] = None
     units_per_base: Optional[float] = None
 
-    allow_without_stock: Optional[AllowWithoutStockFlag] = None
     is_active: Optional[IsActiveFlag] = None
 
     brand_id: Optional[int] = None
@@ -164,16 +142,9 @@ class ProductUpdate(BaseModel):
                 "price_cost": 31.0,
                 "description": "Nueva caja de 12 tabletas",
                 "sku": "IBU400",
-                "is_discount": True,
-                "max_discount": 10,
-                "is_taxable": True,
-                "tax_percentage": 16,
-                "allow_warranty": False,
-                "warranty_days": None,
                 "unit_name": "pieza",
                 "base_unit_name": None,
                 "units_per_base": None,
-                "allow_without_stock": True,
                 "is_unit_sale": False,
                 "is_active": True,
                 "ingredients": [
@@ -206,18 +177,11 @@ class ProductResponse(ProductBase):
                 "price_cost": 30.0,
                 "description": "Caja con 10 tabletas",
                 "sku": "IBU400",
-                "is_discount": False,
-                "max_discount": 0,
-                "is_taxable": True,
-                "tax_percentage": 16,
-                "allow_warranty": False,
-                "warranty_days": None,
                 "unit_name": "pieza",
                 "base_unit_name": None,
                 "units_per_base": None,
-                "allow_without_stock": True,
-                "is_active": True,
                 "is_unit_sale": False,
+                "is_active": True,
                 "brand_id": 1,
                 "product_master_id": None,
                 "created_at": "2024-02-12T10:00:00Z",
@@ -235,7 +199,6 @@ class ProductDetailsResponse(ProductResponse):
     product_master: Optional["ProductMasterResponse"] = None
     batches: Optional[List["ProductBatchResponse"]] = None
 
-    # AHORA CORRECTO ✔️
     ingredients: Optional[List[ProductIngredientAmount]] = None
 
     model_config = ConfigDict(
@@ -249,16 +212,9 @@ class ProductDetailsResponse(ProductResponse):
                 "price_cost": 30.0,
                 "description": "Caja con 10 tabletas",
                 "sku": "IBU400",
-                "is_discount": False,
-                "max_discount": 0,
-                "is_taxable": True,
-                "tax_percentage": 16,
-                "allow_warranty": False,
-                "warranty_days": None,
                 "unit_name": "pieza",
                 "base_unit_name": None,
                 "units_per_base": None,
-                "allow_without_stock": True,
                 "is_unit_sale": False,
                 "is_active": True,
                 "brand_id": 1,
