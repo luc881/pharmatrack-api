@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException, APIRouter
 from typing import Annotated
 from sqlalchemy.orm import Session
 from starlette import status
+from sqlalchemy import func
 
 from ...db.session import get_db
 from ...models.sales.schemas import SaleCreate, SaleResponse, SaleUpdate
@@ -18,7 +19,6 @@ from ...utils.sales_stock import allocate_batches_for_sale_detail
 from sqlalchemy.orm import joinedload
 from ...utils.sales_calculations import recalc_sale_totals
 
-
 db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(
@@ -26,7 +26,8 @@ router = APIRouter(
     tags=["Sales"],
 )
 
-VALID_SALE_STATUS = {"draft", "completed", "cancelled", "refunded"}
+# ACTUALIZAR ESTADOS VÁLIDOS PARA INCLUIR LOS NUEVOS
+VALID_SALE_STATUS = {"draft", "completed", "cancelled", "refunded", "partially_refunded"}
 
 
 # -----------------------
@@ -54,8 +55,8 @@ async def read_all(db: db_dependency):
     dependencies=CAN_CREATE_SALES,
 )
 async def create(
-    sale: SaleCreate,
-    db: db_dependency,
+        sale: SaleCreate,
+        db: db_dependency,
 ):
     # Validate user exists
     if not db.query(User).filter_by(id=sale.user_id).first():
@@ -89,15 +90,12 @@ async def create(
     return new_sale
 
 
-
-
 @router.post(
     "/{sale_id}/complete",
     status_code=status.HTTP_200_OK,
     dependencies=CAN_UPDATE_SALES,
 )
 def complete_sale(sale_id: int, db: db_dependency):
-
     sale = (
         db.query(Sale)
         .options(joinedload(Sale.sale_details))
@@ -132,8 +130,6 @@ def complete_sale(sale_id: int, db: db_dependency):
     return sale
 
 
-
-
 # -----------------------
 # UPDATE
 # -----------------------
@@ -146,9 +142,9 @@ def complete_sale(sale_id: int, db: db_dependency):
     dependencies=CAN_UPDATE_SALES,
 )
 async def update(
-    sale_id: int,
-    sale: SaleUpdate,
-    db: db_dependency,
+        sale_id: int,
+        sale: SaleUpdate,
+        db: db_dependency,
 ):
     existing_sale = db.query(Sale).filter(Sale.id == sale_id).first()
 
@@ -179,6 +175,13 @@ async def update(
             detail="Invalid sale status.",
         )
 
+    # Solo permitir cambiar estado manualmente si no es un estado relacionado con refunds
+    if sale.status in ["refunded", "partially_refunded"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Refund statuses can only be set automatically by the refund system.",
+        )
+
     if existing_sale.status != "draft":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -205,8 +208,8 @@ async def update(
     dependencies=CAN_DELETE_SALES,
 )
 async def delete(
-    sale_id: int,
-    db: db_dependency,
+        sale_id: int,
+        db: db_dependency,
 ):
     existing_sale = db.query(Sale).filter(Sale.id == sale_id).first()
 
@@ -215,6 +218,25 @@ async def delete(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Sale not found.",
         )
+
+    # Prevenir borrado de ventas que tienen refunds
+    from ...models.refund_products.orm import RefundProduct
+    from ...models.sale_details.orm import SaleDetail
+
+    # Verificar si alguno de los sale_details de esta venta tiene refunds
+    sale_details = db.query(SaleDetail.id).filter(SaleDetail.sale_id == sale_id).all()
+    sale_detail_ids = [sd.id for sd in sale_details]
+
+    if sale_detail_ids:
+        refund_count = db.query(func.count(RefundProduct.id)).filter(
+            RefundProduct.sale_detail_id.in_(sale_detail_ids)
+        ).scalar() or 0
+
+        if refund_count > 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot delete a sale that has refunds. Cancel the refunds first.",
+            )
 
     db.delete(existing_sale)
     db.commit()

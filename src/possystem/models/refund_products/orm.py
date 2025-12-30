@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Double, SmallInteger, TIMESTAMP, ForeignKey, Text, Boolean
+from sqlalchemy import BigInteger, Double, SmallInteger, TIMESTAMP, ForeignKey, Text, Boolean, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ...db.session import Base
@@ -14,6 +14,7 @@ class RefundProduct(Base):
     is_reintegrable: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
+    reintegrated_batches: Mapped[dict] = mapped_column(JSON, default={})
 
     # Relationships
     product: Mapped["Product"] = relationship("Product", back_populates="refund_products")

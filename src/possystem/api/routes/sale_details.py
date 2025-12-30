@@ -81,7 +81,7 @@ def create(sale_detail: SaleDetailCreate, db: db_dependency):
 
     # 🧾 Impuesto automático (si aplica)
     tax = Decimal(0)
-    if product.is_taxable and product.tax_percentage:
+    if product.tax_percentage:
         tax = (line_subtotal * Decimal(product.tax_percentage)) / Decimal(100)
 
     total = line_subtotal + tax
@@ -170,7 +170,7 @@ def update(
     line_subtotal = (detail.price_unit * detail.quantity) - detail.discount
 
     tax = Decimal(0)
-    if product.is_taxable and product.tax_percentage:
+    if product.tax_percentage:
         tax = (line_subtotal * Decimal(product.tax_percentage)) / Decimal(100)
 
     detail.tax = tax

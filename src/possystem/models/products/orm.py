@@ -6,7 +6,6 @@ from ...db.session import Base
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime
 from ..product_has_ingredients.orm import ProductHasIngredient
-from typing import List
 
 
 
@@ -40,9 +39,7 @@ class Product(Base):
     # allow_without_stock: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
 
     # --- Descuentos / impuestos ---
-    # is_discount: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")
     max_discount: Mapped[float] = mapped_column(Double, nullable=True)
-    # is_taxable: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
     tax_percentage: Mapped[float] = mapped_column(Double, nullable=True)
 
     # --- Garantía ---
@@ -50,11 +47,6 @@ class Product(Base):
     warranty_days: Mapped[float] = mapped_column(Double, nullable=True)
 
     # --- Unidades / fraccionamiento ---
-    unit_name: Mapped[str] = mapped_column(String(50), nullable=False, default="pieza")
-    base_unit_name: Mapped[str] = mapped_column(String(50), nullable=True)
-    units_per_base: Mapped[float] = mapped_column(Double, nullable=True)
-
-    # --- Unidad de venta ---
     is_unit_sale: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,

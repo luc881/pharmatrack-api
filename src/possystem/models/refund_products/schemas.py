@@ -1,4 +1,4 @@
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Dict
 from datetime import datetime
 from pydantic import BaseModel, Field
 
@@ -61,6 +61,8 @@ class RefundProductResponse(RefundProductBase):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None
+    reintegrated_batches: Optional[Dict[str, float]] = Field(default_factory=dict)
+
 
     model_config = {
         "from_attributes": True,
