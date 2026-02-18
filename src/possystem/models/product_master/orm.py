@@ -15,12 +15,6 @@ class ProductMaster(Base):
     name: Mapped[str] = mapped_column(String(250), nullable=False)
     description: Mapped[str] = mapped_column(String(2000), nullable=True)
 
-    product_category_id: Mapped[int] = mapped_column(
-        BigInteger,
-        ForeignKey("product_categories.id", ondelete="RESTRICT"),
-        nullable=False
-    )
-
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=False),
         server_default=func.now(),
@@ -34,7 +28,3 @@ class ProductMaster(Base):
         cascade="all, delete-orphan"
     )
 
-    category: Mapped["ProductCategory"] = relationship(
-        "ProductCategory",
-        back_populates="masters"
-    )

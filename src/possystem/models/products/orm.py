@@ -28,6 +28,12 @@ class Product(Base):
         nullable=True
     )
 
+    product_category_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("product_categories.id", ondelete="RESTRICT"),
+        nullable=False
+    )
+
     # --- Precios ---
     price_retail: Mapped[float] = mapped_column(Double, nullable=False)
     price_cost: Mapped[float] = mapped_column(Double, nullable=False)
@@ -92,6 +98,10 @@ class Product(Base):
 
     master = relationship("ProductMaster", back_populates="products")
     brand = relationship("ProductBrand", back_populates="products")
+    category: Mapped["ProductCategory"] = relationship(
+        "ProductCategory",
+        back_populates="products"
+    )
 
     ingredients: Mapped[list["ProductHasIngredient"]] = relationship(
         "ProductHasIngredient",
