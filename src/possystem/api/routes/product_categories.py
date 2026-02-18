@@ -4,8 +4,9 @@ from sqlalchemy.orm import Session
 from ...db.session import get_db
 from starlette import status
 from ...models.product_categories.orm import ProductCategory
-from ...models.product_categories.schemas import ProductCategoryCreate, ProductCategoryResponse, ProductCategoryUpdate
+from ...models.product_categories.schemas import ProductCategoryCreate, ProductCategoryResponse, ProductCategoryUpdate, ProductCategoryTreeResponse
 from ...utils.permissions import CAN_READ_PRODUCT_CATEGORIES, CAN_CREATE_PRODUCT_CATEGORIES, CAN_UPDATE_PRODUCT_CATEGORIES, CAN_DELETE_PRODUCT_CATEGORIES
+from ...utils.product_categories_tree import build_category_tree
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
@@ -26,6 +27,16 @@ async def read_all(db: db_dependency):
     return product_categories
 
 @router.get(
+    "/tree",
+    response_model=list[ProductCategoryTreeResponse],
+    summary="Get category tree",
+)
+async def get_category_tree(db: db_dependency):
+    categories = db.query(ProductCategory).all()
+    tree = build_category_tree(categories)
+    return tree
+
+@router.get(
     "/{category_id}",
     response_model=ProductCategoryResponse,
     summary="Get category by ID",
@@ -38,6 +49,8 @@ async def read_one(category_id: int, db: db_dependency):
     if not category:
         raise HTTPException(status_code=404, detail="Category not found.")
     return category
+
+
 
 @router.post("/",
                 response_model=ProductCategoryResponse,

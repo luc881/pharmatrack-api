@@ -66,7 +66,7 @@ class ProductCategoryResponse(ProductCategoryBase):
     )
 
 class ProductCategoryTreeResponse(ProductCategoryResponse):
-    children: List["ProductCategoryTreeResponse"] = []
+    children: List["ProductCategoryTreeResponse"] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -88,5 +88,7 @@ if TYPE_CHECKING:
     from ..products.schemas import ProductResponse
 
 # Pydantic v2
+from ..products.schemas import ProductResponse
+
 ProductCategoryTreeResponse.model_rebuild()
 ProductCategoryDetailsResponse.model_rebuild()

@@ -40,7 +40,8 @@ class ProductCategory(Base):
     children = relationship(
         "ProductCategory",
         back_populates="parent",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        lazy="selectin"
     )
 
     products = relationship("Product", back_populates="category")
