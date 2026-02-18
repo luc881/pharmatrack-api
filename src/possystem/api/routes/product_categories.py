@@ -37,6 +37,16 @@ async def get_category_tree(db: db_dependency):
     return tree
 
 @router.get(
+    "/roots",
+    response_model=list[ProductCategoryResponse],
+    summary="Get root categories",
+)
+async def get_root_categories(db: db_dependency):
+    roots = db.query(ProductCategory).filter(ProductCategory.parent_id == None).all()
+    return roots
+
+
+@router.get(
     "/{category_id}",
     response_model=ProductCategoryResponse,
     summary="Get category by ID",
