@@ -184,20 +184,22 @@ async def update(category_id: int, product_category: ProductCategoryUpdate, db: 
     return existing_category
 
 
-@router.delete(
-    "/{category_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Delete a product category",
-    description="Delete an existing product category by its ID.",
-    dependencies=CAN_DELETE_PRODUCT_CATEGORIES
-)
+@router.delete("/{category_id}", status_code=204)
 async def delete(category_id: int, db: db_dependency):
-    existing_category = db.query(ProductCategory).filter(ProductCategory.id == category_id).first()
-    if not existing_category:
+    category = db.get(ProductCategory, category_id)
+    if not category:
+        raise HTTPException(404, "Product category not found.")
+
+    # Prevent delete if has children
+    has_children = db.query(ProductCategory).filter(
+        ProductCategory.parent_id == category_id
+    ).first()
+
+    if has_children:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Product category not found."
+            400,
+            "Cannot delete category with subcategories"
         )
-    db.delete(existing_category)
+
+    db.delete(category)
     db.commit()
-    return None
