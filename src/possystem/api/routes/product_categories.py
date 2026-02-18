@@ -6,7 +6,7 @@ from starlette import status
 from ...models.product_categories.orm import ProductCategory
 from ...models.product_categories.schemas import ProductCategoryCreate, ProductCategoryResponse, ProductCategoryUpdate, ProductCategoryTreeResponse
 from ...utils.permissions import CAN_READ_PRODUCT_CATEGORIES, CAN_CREATE_PRODUCT_CATEGORIES, CAN_UPDATE_PRODUCT_CATEGORIES, CAN_DELETE_PRODUCT_CATEGORIES
-from ...utils.product_categories_tree import build_category_tree, serialize_category_tree
+from ...utils.product_categories_tree import build_category_tree, serialize_category_tree, check_category_cycle
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
@@ -133,6 +133,7 @@ async def create(product_category: ProductCategoryCreate, db: db_dependency):
     dependencies=CAN_UPDATE_PRODUCT_CATEGORIES,
 )
 async def update(category_id: int, product_category: ProductCategoryUpdate, db: db_dependency):
+
     existing_category = db.get(ProductCategory, category_id)
     if not existing_category:
         raise HTTPException(
@@ -140,7 +141,7 @@ async def update(category_id: int, product_category: ProductCategoryUpdate, db: 
             detail="Product category not found.",
         )
 
-    # ✅ Check for duplicate names if name is provided
+    # ✅ Check duplicate name
     if product_category.name:
         name_conflict = db.query(ProductCategory).filter(
             ProductCategory.name == product_category.name,
@@ -152,7 +153,28 @@ async def update(category_id: int, product_category: ProductCategoryUpdate, db: 
                 detail="Another product category with this name already exists.",
             )
 
-    # ✅ More compact update logic (like in products)
+    # ✅ Parent validation
+    if product_category.parent_id is not None:
+
+        # Cannot be its own parent
+        if product_category.parent_id == category_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Category cannot be its own parent"
+            )
+
+        # Parent must exist
+        parent = db.get(ProductCategory, product_category.parent_id)
+        if not parent:
+            raise HTTPException(
+                status_code=400,
+                detail="Parent category not found"
+            )
+
+        # Prevent cycles
+        check_category_cycle(db, category_id, product_category.parent_id)
+
+    # ✅ Update fields
     update_data = product_category.model_dump(exclude_unset=True, mode="json")
     for key, value in update_data.items():
         setattr(existing_category, key, value)
