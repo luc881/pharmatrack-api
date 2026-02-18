@@ -6,7 +6,7 @@ from starlette import status
 from ...models.product_categories.orm import ProductCategory
 from ...models.product_categories.schemas import ProductCategoryCreate, ProductCategoryResponse, ProductCategoryUpdate, ProductCategoryTreeResponse
 from ...utils.permissions import CAN_READ_PRODUCT_CATEGORIES, CAN_CREATE_PRODUCT_CATEGORIES, CAN_UPDATE_PRODUCT_CATEGORIES, CAN_DELETE_PRODUCT_CATEGORIES
-from ...utils.product_categories_tree import build_category_tree
+from ...utils.product_categories_tree import build_category_tree, serialize_category_tree
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
@@ -46,6 +46,8 @@ async def get_root_categories(db: db_dependency):
     return roots
 
 
+
+
 @router.get(
     "/{category_id}",
     response_model=ProductCategoryResponse,
@@ -59,6 +61,29 @@ async def read_one(category_id: int, db: db_dependency):
     if not category:
         raise HTTPException(status_code=404, detail="Category not found.")
     return category
+
+@router.get(
+    "/{category_id}/tree",
+    response_model=ProductCategoryTreeResponse,
+)
+async def get_subtree(category_id: int, db: db_dependency):
+    categories = db.query(ProductCategory).all()
+    root = db.get(ProductCategory, category_id)
+
+    if not root:
+        raise HTTPException(404, "Category not found")
+
+    tree = build_category_tree(categories, root.id)
+
+    return {
+        "id": root.id,
+        "name": root.name,
+        "image": root.image,
+        "is_active": root.is_active,
+        "children": tree,
+    }
+
+
 
 
 
