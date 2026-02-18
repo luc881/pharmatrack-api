@@ -1,120 +1,92 @@
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
+
 from ...types.products_categories import (
     CategoryNameStr,
     CategoryImageURL,
     IsCategoryActiveFlag
 )
 
-
-# Base schema (shared fields)
 class ProductCategoryBase(BaseModel):
     name: CategoryNameStr = Field(...)
     image: Optional[CategoryImageURL] = None
     is_active: Optional[IsCategoryActiveFlag] = True
+    parent_id: Optional[int] = Field(
+        None,
+        description="ID de la categoría padre (NULL si es raíz)"
+    )
 
-
-# Schema for creation
 class ProductCategoryCreate(ProductCategoryBase):
     model_config = ConfigDict(
-        extra= "forbid",
-        json_schema_extra= {
+        extra="forbid",
+        json_schema_extra={
             "example": {
-                "name": "Bebidas",
-                "image": "http://example.com/bebidas.png",
-                "is_active": True
+                "name": "Analgésicos",
+                "image": None,
+                "is_active": True,
+                "parent_id": 1
             }
         }
     )
 
-
-# Schema for update (all optional)
-class ProductCategoryUpdate(ProductCategoryBase):
+class ProductCategoryUpdate(BaseModel):
     name: Optional[CategoryNameStr] = None
+    image: Optional[CategoryImageURL] = None
+    is_active: Optional[IsCategoryActiveFlag] = None
+    parent_id: Optional[int] = None
 
     model_config = ConfigDict(
-        extra= "forbid",
-        json_schema_extra= {
+        extra="forbid",
+        json_schema_extra={
             "example": {
-                "name": "Snacks",
-                "image": "http://example.com/snacks.png",
-                "is_active": False
+                "name": "Analgésicos y antipiréticos",
+                "parent_id": 1
             }
         }
     )
 
-
-# Schema for response (basic)
 class ProductCategoryResponse(ProductCategoryBase):
     id: int
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(
-        from_attributes= True,
-        json_schema_extra= {
+        from_attributes=True,
+        json_schema_extra={
             "example": {
-                "id": 1,
-                "name": "Bebidas",
-                "image": "http://example.com/bebidas.png",
+                "id": 2,
+                "name": "Analgésicos",
+                "parent_id": 1,
                 "is_active": True,
                 "created_at": "2024-07-01T12:00:00",
-                "updated_at": "2024-07-02T09:30:00",
+                "updated_at": "2024-07-02T09:30:00"
             }
         }
     )
 
+class ProductCategoryTreeResponse(ProductCategoryResponse):
+    children: List["ProductCategoryTreeResponse"] = []
 
-# Schema for detailed response (with relationships)
+    model_config = ConfigDict(from_attributes=True)
+
 class ProductCategoryDetailsResponse(ProductCategoryResponse):
     products: Optional[List["ProductResponse"]] = None
-    # sale_details: Optional[List["SaleDetailResponse"]] = None
+    children: Optional[List["ProductCategoryTreeResponse"]] = None
 
-    model_config = ConfigDict(
-        from_attributes= True,
-        json_schema_extra= {
-            "example": {
-                "id": 1,
-                "name": "Bebidas",
-                "image": "http://example.com/bebidas.png",
-                "is_active": True,
-                "created_at": "2024-07-01T12:00:00",
-                "updated_at": "2024-07-02T09:30:00",
-                "products": [
-                    {
-                        "id": 10,
-                        "name": "Refresco Cola 600ml",
-                        "price": 15.5,
-                        "is_active": True
-                    }
-                ],
-                "sale_details": [
-                    {
-                        "id": 50,
-                        "sale_id": 5,
-                        "product_category_id": 1,
-                        "quantity": 20,
-                        "price": 310.0
-                    }
-                ]
-            }
-        }
-    )
+    model_config = ConfigDict(from_attributes=True)
 
-
-# Schema for search filters
 class ProductCategorySearchParams(BaseModel):
-    name: Optional[str] = Field(None, max_length=250, description="Filtrar por nombre de categoría")
-    is_active: Optional[bool] = Field(None, description="Filtrar por estado de la categoría")
+    name: Optional[str] = Field(None, max_length=250)
+    is_active: Optional[bool] = None
+    parent_id: Optional[int] = None
 
-    model_config = ConfigDict(
-        extra= "forbid"
-    )
+    model_config = ConfigDict(extra="forbid")
 
-
-# Forward reference resolution
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..products.schemas import ProductResponse
-    from ..sales.schemas import SaleDetailResponse
+
+# Pydantic v2
+ProductCategoryTreeResponse.model_rebuild()
+ProductCategoryDetailsResponse.model_rebuild()
