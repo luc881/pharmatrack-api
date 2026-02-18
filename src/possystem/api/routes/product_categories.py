@@ -87,25 +87,42 @@ async def get_subtree(category_id: int, db: db_dependency):
 
 
 
-@router.post("/",
-                response_model=ProductCategoryResponse,
-                summary="Create a new product category",
-                description="Create a new product category with the provided details.",
-                status_code=status.HTTP_201_CREATED,
-                dependencies=CAN_CREATE_PRODUCT_CATEGORIES
-                )
+@router.post(
+    "/",
+    response_model=ProductCategoryResponse,
+    summary="Create a new product category",
+    description="Create a new product category with the provided details.",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=CAN_CREATE_PRODUCT_CATEGORIES
+)
 async def create(product_category: ProductCategoryCreate, db: db_dependency):
-    existing_category = db.query(ProductCategory).filter(ProductCategory.name == product_category.name).first()
+
+    # ✅ Check duplicate name
+    existing_category = db.query(ProductCategory).filter(
+        ProductCategory.name == product_category.name
+    ).first()
     if existing_category:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Product category with this name already exists."
         )
+
+    # ✅ Validate parent category exists
+    if product_category.parent_id is not None:
+        parent = db.get(ProductCategory, product_category.parent_id)
+        if not parent:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Parent category not found"
+            )
+
+    # ✅ Create category
     new_category = ProductCategory(**product_category.model_dump(mode="json"))
     db.add(new_category)
     db.commit()
     db.refresh(new_category)
     return new_category
+
 
 @router.put(
     "/{category_id}",
