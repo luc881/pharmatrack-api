@@ -59,21 +59,25 @@ class ProductBase(BaseModel):
     allow_warranty: AllowWarrantyFlag = False
     warranty_days: Optional[WarrantyDays] = None
 
-    # 🔹 NUEVO
+    # Units
     is_unit_sale: IsUnitSaleFlag = False
     unit_name: ProductUnitName = Field(default="pieza")
     base_unit_name: Optional[ProductBaseUnitName] = None
     units_per_base: Optional[float] = None
 
+    # 🔥 REQUIRED CATEGORY
+    product_category_id: int = Field(..., ge=1)
+
     is_active: IsActiveFlag = True
+
 
 
 # =========================================================
 # 🟢 Create
 # =========================================================
 class ProductCreate(ProductBase):
-    brand_id: Optional[int] = Field(None)
-    product_master_id: Optional[int] = Field(None)
+    brand_id: Optional[int] = None
+    product_master_id: Optional[int] = None
     ingredients: Optional[List[ProductIngredientCreate]] = None
 
     model_config = ConfigDict(
@@ -86,22 +90,29 @@ class ProductCreate(ProductBase):
                 "price_cost": 30.0,
                 "description": "Caja con 10 tabletas",
                 "sku": "IBU400",
+
                 "allow_warranty": False,
                 "warranty_days": None,
+
+                "is_unit_sale": False,
                 "unit_name": "pieza",
                 "base_unit_name": None,
                 "units_per_base": None,
+
+                "product_category_id": 3,  # 🔥 REQUIRED
+
                 "is_active": True,
-                "is_unit_sale": False,
                 "brand_id": 1,
-                "product_master_id": None,
+                "product_master_id": 5,
+
                 "ingredients": [
-                    {"ingredient_id": 1, "amount": "500 mg"},
+                    {"ingredient_id": 1, "amount": "400 mg"},
                     {"ingredient_id": 2, "amount": "5 mg"}
                 ]
             }
         }
     )
+
 
 
 # =========================================================
@@ -120,11 +131,13 @@ class ProductUpdate(BaseModel):
     allow_warranty: Optional[AllowWarrantyFlag] = None
     warranty_days: Optional[WarrantyDays] = None
 
-    # 🔹 NUEVO
     is_unit_sale: Optional[IsUnitSaleFlag] = None
     unit_name: Optional[ProductUnitName] = None
     base_unit_name: Optional[ProductBaseUnitName] = None
     units_per_base: Optional[float] = None
+
+    # 🔥 Category update
+    product_category_id: Optional[int] = None
 
     is_active: Optional[IsActiveFlag] = None
 
@@ -142,18 +155,26 @@ class ProductUpdate(BaseModel):
                 "price_cost": 31.0,
                 "description": "Nueva caja de 12 tabletas",
                 "sku": "IBU400",
+
+                "is_unit_sale": False,
                 "unit_name": "pieza",
                 "base_unit_name": None,
                 "units_per_base": None,
-                "is_unit_sale": False,
+
+                "product_category_id": 4,  # 🔥 UPDATED CATEGORY
+
                 "is_active": True,
+                "brand_id": 1,
+                "product_master_id": 5,
+
                 "ingredients": [
-                    {"ingredient_id": 1, "amount": "500 mg"},
+                    {"ingredient_id": 1, "amount": "400 mg"},
                     {"ingredient_id": 2, "amount": "5 mg"}
                 ]
             }
         }
     )
+
 
 
 # =========================================================
@@ -163,6 +184,7 @@ class ProductResponse(ProductBase):
     id: int
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
     brand_id: Optional[int] = None
     product_master_id: Optional[int] = None
 
@@ -177,18 +199,24 @@ class ProductResponse(ProductBase):
                 "price_cost": 30.0,
                 "description": "Caja con 10 tabletas",
                 "sku": "IBU400",
+
+                "is_unit_sale": False,
                 "unit_name": "pieza",
                 "base_unit_name": None,
                 "units_per_base": None,
-                "is_unit_sale": False,
+
+                "product_category_id": 3,
+
                 "is_active": True,
                 "brand_id": 1,
-                "product_master_id": None,
-                "created_at": "2024-02-12T10:00:00Z",
-                "updated_at": "2024-02-15T13:22:00Z"
+                "product_master_id": 5,
+
+                "created_at": "2024-02-12T10:00:00",
+                "updated_at": "2024-02-15T13:22:00"
             }
         }
     )
+
 
 
 # =========================================================
@@ -197,58 +225,11 @@ class ProductResponse(ProductBase):
 class ProductDetailsResponse(ProductResponse):
     brand: Optional["ProductBrandResponse"] = None
     product_master: Optional["ProductMasterResponse"] = None
+    category: Optional["ProductCategoryResponse"] = None  # 🔥 NEW
     batches: Optional[List["ProductBatchResponse"]] = None
-
     ingredients: Optional[List[ProductIngredientAmount]] = None
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        json_schema_extra={
-            "example": {
-                "id": 12,
-                "title": "Ibuprofeno 400mg",
-                "image": "https://example.com/img.png",
-                "price_retail": 45.5,
-                "price_cost": 30.0,
-                "description": "Caja con 10 tabletas",
-                "sku": "IBU400",
-                "unit_name": "pieza",
-                "base_unit_name": None,
-                "units_per_base": None,
-                "is_unit_sale": False,
-                "is_active": True,
-                "brand_id": 1,
-                "product_master_id": 5,
-                "created_at": "2024-02-12T10:00:00Z",
-                "updated_at": "2024-02-15T13:22:00Z",
-
-                "brand": {"id": 1, "name": "Genfar"},
-
-                "product_master": {
-                    "id": 5,
-                    "name": "Analgésicos",
-                    "description": "Medicamentos para dolor"
-                },
-
-                "batches": [
-                    {
-                        "id": 101,
-                        "batch_number": "L202401A",
-                        "expiration_date": "2026-01-01",
-                        "quantity": 35
-                    }
-                ],
-
-                "ingredients": [
-                    {
-                        "ingredient_id": 1,
-                        "amount": "500 mg",
-                        "ingredient": {"id": 1, "name": "Ibuprofeno"}
-                    }
-                ]
-            }
-        }
-    )
+    model_config = ConfigDict(from_attributes=True)
 
 
 # =========================================================
@@ -301,8 +282,13 @@ class ProductSearchParams(BaseModel):
 # =========================================================
 # 🔁 Forward references
 # =========================================================
-if TYPE_CHECKING:
-    from ..product_batch.schemas import ProductBatchResponse
-    from ..product_brands.schemas import ProductBrandResponse
-    from ..product_master.schemas import ProductMasterResponse
-    from ..ingredients.schemas import IngredientResponse
+# --- Forward references runtime ---
+
+from ..product_brand.schemas import ProductBrandResponse
+from ..product_master.schemas import ProductMasterResponse
+from ..product_categories.schemas import ProductCategoryResponse
+from ..product_batch.schemas import ProductBatchResponse
+from ..ingredients.schemas import IngredientResponse
+
+ProductDetailsResponse.model_rebuild()
+
