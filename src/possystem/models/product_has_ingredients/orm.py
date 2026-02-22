@@ -1,6 +1,7 @@
-from sqlalchemy import String, BigInteger, ForeignKey
+from sqlalchemy import String, BigInteger, ForeignKey, Double
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from ...db.session import Base
+
 
 class ProductHasIngredient(Base):
     __tablename__ = "product_has_ingredients"
@@ -17,7 +18,11 @@ class ProductHasIngredient(Base):
         primary_key=True
     )
 
-    amount: Mapped[str] = mapped_column(String(50), nullable=True)
+    # ✅ Dosis numérica
+    amount: Mapped[float] = mapped_column(Double, nullable=True)
+
+    # ✅ Unidad (mg, g, ml, IU, etc.)
+    unit: Mapped[str] = mapped_column(String(20), nullable=True)
 
     # Relaciones
     ingredient: Mapped["Ingredient"] = relationship(

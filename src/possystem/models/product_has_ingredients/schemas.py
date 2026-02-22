@@ -1,51 +1,77 @@
 from typing import Optional, TYPE_CHECKING
+from enum import Enum
 from pydantic import BaseModel, Field, ConfigDict
+from typing_extensions import Literal
 
 # =========================================================
-# 🔹 Base
+# 🔹 Enum de unidades de medida
 # =========================================================
+
+class UnitEnum(str, Enum):
+    mg = "mg"
+    g = "g"
+    ml = "ml"
+    IU = "IU"
+    mcg = "mcg"
+    mmol = "mmol"
+    percent = "%"
+
+
+# =========================================================
+# 🔹 Base schema
+# =========================================================
+
 class ProductIngredientBase(BaseModel):
     ingredient_id: int = Field(..., description="Ingredient ID")
-    amount: Optional[str] = Field(
-        None, max_length=50, description="Amount of ingredient (e.g., '500 mg')"
+    amount: Optional[float] = Field(
+        None, description="Numeric dose amount (e.g., 500)"
+    )
+    unit: Optional[UnitEnum] = Field(
+        None, description="Unit of measurement"
     )
 
 
 # =========================================================
-# 🟢 Create
+# 🟢 Create schema
 # =========================================================
+
 class ProductIngredientCreate(ProductIngredientBase):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "ingredient_id": 1,
-                "amount": "500 mg"
+                "amount": 500,
+                "unit": "mg"
             }
         }
     )
 
 
 # =========================================================
-# 🟡 Update
+# 🟡 Update schema
 # =========================================================
+
 class ProductIngredientUpdate(BaseModel):
-    amount: Optional[str] = Field(None, max_length=50)
+    amount: Optional[float] = Field(None, description="Updated numeric dose")
+    unit: Optional[UnitEnum] = Field(None, description="Updated unit")
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "amount": "650 mg"
+                "amount": 650,
+                "unit": "mg"
             }
         }
     )
 
 
 # =========================================================
-# 🔵 Response (pivot table)
+# 🔵 Pivot table Response
 # =========================================================
+
 class ProductIngredientResponse(ProductIngredientBase):
     product_id: int
-    ingredient: Optional["IngredientResponse"] = None  # relación
+    ingredient: Optional["IngredientResponse"] = None
 
     model_config = ConfigDict(
         from_attributes=True,
@@ -53,7 +79,8 @@ class ProductIngredientResponse(ProductIngredientBase):
             "example": {
                 "product_id": 20,
                 "ingredient_id": 1,
-                "amount": "500 mg",
+                "amount": 500,
+                "unit": "mg",
                 "ingredient": {
                     "id": 1,
                     "name": "Ibuprofeno"
@@ -64,13 +91,15 @@ class ProductIngredientResponse(ProductIngredientBase):
 
 
 # =========================================================
-# 🧩 Para ProductDetailsResponse
+# 🧩 Embedded ingredient detail (for Product details)
 # =========================================================
+
 class ProductIngredientAmount(BaseModel):
     ingredient_id: int
-    amount: Optional[str] = None
+    amount: Optional[float] = None
+    unit: Optional[UnitEnum] = None
 
-    # RELACIÓN COMPLETA
+    # Full ingredient relationship
     ingredient: Optional["IngredientResponse"] = None
 
     model_config = ConfigDict(
@@ -78,7 +107,8 @@ class ProductIngredientAmount(BaseModel):
         json_schema_extra={
             "example": {
                 "ingredient_id": 1,
-                "amount": "500 mg",
+                "amount": 500,
+                "unit": "mg",
                 "ingredient": {
                     "id": 1,
                     "name": "Ibuprofeno"
@@ -91,5 +121,6 @@ class ProductIngredientAmount(BaseModel):
 # =========================================================
 # 🔁 Forward references
 # =========================================================
+
 if TYPE_CHECKING:
     from ..ingredients.schemas import IngredientResponse
