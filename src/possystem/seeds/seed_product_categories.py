@@ -1,7 +1,5 @@
 from sqlalchemy.orm import Session
-from possystem.db.session import SessionLocal
 from possystem.models.product_categories.orm import ProductCategory
-
 
 # --- Categorías base de la farmacia ---
 PRODUCT_CATEGORIES = [
@@ -20,18 +18,31 @@ PRODUCT_CATEGORIES = [
     {
         "name": "Material de curación",
         "children": [
-            {"name": "Gasas"},
-            {"name": "Vendas"},
-            {"name": "Jeringas"},
-            {"name": "Guantes"},
+            {"name": "Jeringas y agujas"},
+            {"name": "Catéteres y sondas"},
+            {"name": "Gasas y vendas"},
+            {"name": "Cintas y parches"},
+            {"name": "Algodón y torundas"},
+            {"name": "Antisépticos y soluciones"},
+            {"name": "Oxígeno y terapia respiratoria"},
+            {"name": "Instrumental médico"},
+            {"name": "Equipos y dispositivos médicos"},
+            {"name": "Ortopedia y soporte"},
+            {"name": "Desechables hospitalarios"},
+            {"name": "Otros insumos médicos"},
         ],
     },
     {
         "name": "Cuidado personal y belleza",
         "children": [
-            {"name": "Higiene bucal"},
-            {"name": "Cuidado del cabello"},
-            {"name": "Dermocosmética"},
+            {"name": "Higiene personal"},
+            {"name": "Cuidado de la piel"},
+            {"name": "Cabello"},
+            {"name": "Higiene dental"},
+            {"name": "Salud sexual"},
+            {"name": "Bebé y maternidad"},
+            {"name": "Accesorios y herramientas"},
+            {"name": "Dispositivos médicos"},
         ],
     },
     {
@@ -45,15 +56,31 @@ PRODUCT_CATEGORIES = [
     {
         "name": "Alimentos y bebidas",
         "children": [
+            {"name": "Chocolates"},
+            {"name": "Caramelos y chicles"},
             {"name": "Bebidas"},
-            {"name": "Golosinas"},
+            {"name": "Paletas"},
+            {"name": "Otros dulces"},
         ],
     },
     {
         "name": "Servicios farmacéuticos",
         "children": [
-            {"name": "Toma de presión"},
-            {"name": "Glucosa"},
+            {"name": "Consultas"},
+            {"name": "Procedimientos"},
+            {"name": "Diagnósticos rápidos"},
+            {"name": "Documentos médicos"},
+        ],
+    },
+    {
+        "name": "Miscelánea y hogar",
+        "children": [
+            {"name": "Pilas y energía"},
+            {"name": "Limpieza y desinfección"},
+            {"name": "Papelería y oficina"},
+            {"name": "Adhesivos y ferretería ligera"},
+            {"name": "Higiene del hogar"},
+            {"name": "Veterinaria"},
         ],
     },
     {
@@ -65,8 +92,7 @@ PRODUCT_CATEGORIES = [
 
 
 
-from sqlalchemy.orm import Session
-from possystem.models.product_categories.orm import ProductCategory
+
 
 
 def get_or_create_category(db: Session, name: str, parent: ProductCategory | None = None):

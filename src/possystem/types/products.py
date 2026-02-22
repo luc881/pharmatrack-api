@@ -8,12 +8,14 @@ from pydantic.types import NonNegativeFloat
 # 🔤 String types
 # -------------------------------
 
+# ⚠️ Títulos reales tienen #, %, etc.
 ProductTitleStr = Annotated[
     str,
     StringConstraints(
         min_length=1,
         max_length=250,
-        pattern=r"^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\-.,'\"() ]+$"
+        # allow # % + and more real-world symbols
+        pattern=r"^[\w\sáéíóúÁÉÍÓÚñÑ\-.,'\"()&#/%+]+$"
     ),
     Field(description="Título del producto")
 ]
@@ -34,12 +36,13 @@ ProductImageURL = Annotated[
     Field(description="Imagen del producto")
 ]
 
+# ⚠️ SKU real puede tener espacios, slash, #
 ProductSKUStr = Annotated[
     str,
     StringConstraints(
         min_length=1,
         max_length=100,
-        pattern=r"^[A-Z0-9\-_.]+$"
+        pattern=r"^[A-Za-z0-9áéíóúÁÉÍÓÚñÑ\-_. /#]+$"
     ),
     Field(description="Código SKU del producto")
 ]
@@ -54,13 +57,13 @@ IsUnitSaleFlag = Annotated[
     Field(description="Indica si el producto se vende por unidad suelta")
 ]
 
-
+# Unidades reales pueden tener números (ej: ml, 10ml, gr)
 ProductUnitName = Annotated[
     str,
     StringConstraints(
         min_length=1,
         max_length=50,
-        pattern=r"^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]+$"
+        pattern=r"^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]+$"
     ),
     Field(description="Nombre de la unidad principal (ej. pieza, caja)")
 ]
@@ -70,7 +73,7 @@ ProductBaseUnitName = Annotated[
     StringConstraints(
         min_length=1,
         max_length=50,
-        pattern=r"^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]+$"
+        pattern=r"^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]+$"
     ),
     Field(description="Nombre de la unidad base o fraccionada (ej. tableta, sobre)")
 ]
