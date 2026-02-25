@@ -8,12 +8,31 @@ PRODUCT_CATEGORIES = [
         "name": "Medicamentos",
         "children": [
             {"name": "Analgésicos"},
-            {"name": "Antibióticos"},
             {"name": "Antiinflamatorios"},
             {"name": "Antigripales"},
+            {"name": "Antibióticos"},
+            {"name": "Antivirales"},
+            {"name": "Antifúngicos"},
+            {"name": "Antiparasitarios"},
+
             {"name": "Antihipertensivos"},
+            {"name": "Anticoagulantes"},
+            {"name": "Hipolipemiantes"},
+
             {"name": "Diabetes"},
-        ],
+            {"name": "Hormonas"},
+
+            {"name": "Antialérgicos"},
+            {"name": "Broncodilatadores"},
+            {"name": "Antitusivos"},
+            {"name": "Mucolíticos"},
+
+            {"name": "Gastrointestinales"},
+            {"name": "Oftalmológicos"},
+            {"name": "Dermatológicos"},
+            {"name": "Anticonceptivos"},
+            {"name": "Pediátricos"}
+        ]
     },
     {
         "name": "Material de curación",
@@ -49,9 +68,18 @@ PRODUCT_CATEGORIES = [
         "name": "Suplementos y nutrición",
         "children": [
             {"name": "Vitaminas"},
-            {"name": "Proteínas"},
             {"name": "Minerales"},
-        ],
+            {"name": "Proteínas"},
+            {"name": "Probióticos y prebióticos"},
+            {"name": "Antioxidantes"},
+            {"name": "Nutrición infantil"},
+            {"name": "Nutrición especializada"},
+            {"name": "Herbolaria"},
+            {"name": "Omega y lípidos"},
+            {"name": "Colágeno y belleza"},
+            {"name": "Salud digestiva"},
+            {"name": "Salud del sueño"}
+        ]
     },
     {
         "name": "Alimentos y bebidas",

@@ -11,6 +11,8 @@ from possystem.seeds.seed_products_otros import seed_otros
 from possystem.seeds.seed_products_saludybelleza import seed_salud_belleza
 from possystem.seeds.seed_products_serviciosmedicos import seed_servicios_medicos
 from possystem.seeds.seed_products_equipomedico import seed_material_curacion
+from possystem.seeds.seed_products_suplementos import seed_suplementos
+from possystem.seeds.seed_products_medicamentos import seed_medicamentos
 
 
 def init_db():
@@ -43,6 +45,13 @@ def init_db():
 
         print("🔹 Seeding de material de curación...")
         seed_material_curacion(db)
+
+        print("🔹 Seeding de productos de suplementos...")
+        seed_suplementos(db)
+
+        print("🔹 Seeding de productos de medicamentos...")
+
+        seed_medicamentos(db)
 
         print("🔹 Creando superusuario...")
         seed_superuser(db)

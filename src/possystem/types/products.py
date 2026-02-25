@@ -14,8 +14,7 @@ ProductTitleStr = Annotated[
     StringConstraints(
         min_length=1,
         max_length=250,
-        # allow # % + and more real-world symbols
-        pattern=r"^[\w\sáéíóúÁÉÍÓÚñÑ\-.,'\"()&#/%+]+$"
+        pattern=r"^[^<>]+$"
     ),
     Field(description="Título del producto")
 ]
