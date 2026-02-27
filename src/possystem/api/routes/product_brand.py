@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, APIRouter, Query
+from fastapi import Depends, HTTPException, APIRouter
 from typing import Annotated
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -6,7 +6,13 @@ from ...db.session import get_db
 from starlette import status
 from ...utils.permissions import CAN_READ_PRODUCT_BRANDS, CAN_CREATE_PRODUCT_BRANDS, CAN_UPDATE_PRODUCT_BRANDS, CAN_DELETE_PRODUCT_BRANDS
 from ...models.product_brand.orm import ProductBrand
-from ...models.product_brand.schemas import ProductBrandCreate, ProductBrandResponse, ProductBrandUpdate,ProductBrandSearchParams, ProductBrandDetailsResponse
+from ...models.product_brand.schemas import (
+    ProductBrandCreate,
+    ProductBrandResponse,
+    ProductBrandUpdate,
+    ProductBrandSearchParams,
+    ProductBrandDetailsResponse,
+)
 from ...models.products.orm import Product
 
 db_dependency = Annotated[Session, Depends(get_db)]
@@ -17,6 +23,7 @@ router = APIRouter(
     tags=["Products Brand"]
 )
 
+
 @router.get("/",
             response_model=list[ProductBrandResponse],
             summary="List all product brands",
@@ -24,26 +31,7 @@ router = APIRouter(
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCT_BRANDS)
 async def read_all(db: db_dependency):
-    product_brands = db.query(ProductBrand).all()
-    return product_brands
-
-@router.get("/{brand_id}",
-            response_model=ProductBrandResponse,
-            summary="Get a product brand by ID",
-            description="Retrieve a product brand using its ID.",
-            status_code=status.HTTP_200_OK,
-            dependencies=CAN_READ_PRODUCT_BRANDS)
-async def read_brand(brand_id: int, db: db_dependency):
-
-    brand = db.query(ProductBrand).filter(ProductBrand.id == brand_id).first()
-
-    if not brand:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Brand with id {brand_id} not found."
-        )
-
-    return brand
+    return db.query(ProductBrand).order_by(ProductBrand.name.asc()).all()
 
 
 @router.get("/search/",
@@ -58,9 +46,6 @@ async def search_brands(
 ):
     query = db.query(ProductBrand)
 
-    # -------------------------
-    # 📌 Filtros directos
-    # -------------------------
     if params.name:
         query = query.filter(ProductBrand.name.ilike(f"%{params.name}%"))
 
@@ -70,25 +55,16 @@ async def search_brands(
         else:
             query = query.filter(ProductBrand.logo.is_(None))
 
-    # -------------------------
-    # 📌 Filtro por productos activos
-    # -------------------------
     if params.is_active is not None:
         query = query.join(ProductBrand.products).filter(
             Product.is_active == params.is_active
         )
 
-    # -------------------------
-    # 📌 Filtro por título del producto (ILIKE)
-    # -------------------------
     if params.product_title:
         query = query.join(ProductBrand.products).filter(
             Product.title.ilike(f"%{params.product_title}%")
         )
 
-    # -------------------------
-    # 📌 Filtro por mínimo número de productos
-    # -------------------------
     if params.min_products is not None:
         query = (
             query.join(ProductBrand.products)
@@ -96,12 +72,23 @@ async def search_brands(
                  .having(func.count(Product.id) >= params.min_products)
         )
 
-    # Evitar repetidos si hubo joins
-    query = query.distinct()
+    return query.distinct().all()
 
-    brands = query.all()
-    return brands
 
+@router.get("/{brand_id}",
+            response_model=ProductBrandResponse,
+            summary="Get a product brand by ID",
+            description="Retrieve a product brand using its ID.",
+            status_code=status.HTTP_200_OK,
+            dependencies=CAN_READ_PRODUCT_BRANDS)
+async def read_brand(brand_id: int, db: db_dependency):
+    brand = db.query(ProductBrand).filter(ProductBrand.id == brand_id).first()
+    if not brand:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Brand with id {brand_id} not found."
+        )
+    return brand
 
 
 @router.post("/",
@@ -111,27 +98,20 @@ async def search_brands(
              status_code=status.HTTP_201_CREATED,
              dependencies=CAN_CREATE_PRODUCT_BRANDS)
 async def create_brand(payload: ProductBrandCreate, db: db_dependency):
-    # Check if brand name already exists
-    existing_brand = db.query(ProductBrand).filter(
-        ProductBrand.name == payload.name
+    # Duplicate check via slug (handles case and accent variants)
+    existing = db.query(ProductBrand).filter(
+        ProductBrand.slug == payload.slug
     ).first()
-
-    if existing_brand:
+    if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"The brand '{payload.name}' already exists."
         )
 
-    # Create the new brand
-    new_brand = ProductBrand(
-        name=payload.name,
-        logo=payload.logo
-    )
-
+    new_brand = ProductBrand(**payload.model_dump())
     db.add(new_brand)
     db.commit()
     db.refresh(new_brand)
-
     return new_brand
 
 
@@ -142,37 +122,30 @@ async def create_brand(payload: ProductBrandCreate, db: db_dependency):
             status_code=status.HTTP_200_OK,
             dependencies=CAN_UPDATE_PRODUCT_BRANDS)
 async def update_brand(brand_id: int, payload: ProductBrandUpdate, db: db_dependency):
-
     brand = db.query(ProductBrand).filter(ProductBrand.id == brand_id).first()
-
     if not brand:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Brand with id {brand_id} not found."
         )
 
-    # Si viene el nombre, validar duplicado con otra marca
-    if payload.name:
-        existing_brand = db.query(ProductBrand).filter(
-            ProductBrand.name == payload.name,
+    # Si el nombre cambió, verificar que el nuevo slug no esté en uso
+    if payload.slug and payload.slug != brand.slug:
+        existing = db.query(ProductBrand).filter(
+            ProductBrand.slug == payload.slug,
             ProductBrand.id != brand_id
         ).first()
-
-        if existing_brand:
+        if existing:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"The brand name '{payload.name}' is already in use."
             )
 
-    # Actualizar solo los campos enviados en el payload
-    update_data = payload.model_dump(exclude_unset=True)
-
-    for field, value in update_data.items():
+    for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(brand, field, value)
 
     db.commit()
     db.refresh(brand)
-
     return brand
 
 
@@ -182,9 +155,7 @@ async def update_brand(brand_id: int, payload: ProductBrandUpdate, db: db_depend
                status_code=status.HTTP_204_NO_CONTENT,
                dependencies=CAN_DELETE_PRODUCT_BRANDS)
 async def delete_brand(brand_id: int, db: db_dependency):
-
     brand = db.query(ProductBrand).filter(ProductBrand.id == brand_id).first()
-
     if not brand:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -193,5 +164,4 @@ async def delete_brand(brand_id: int, db: db_dependency):
 
     db.delete(brand)
     db.commit()
-
     return None

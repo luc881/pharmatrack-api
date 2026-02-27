@@ -1,7 +1,8 @@
 from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
+from possystem.utils.slugify import slugify
 from ..products.schemas import ProductSimpleResponse
 
 
@@ -17,6 +18,13 @@ class ProductBrandBase(BaseModel):
 # 🟢 Create
 # =========================================================
 class ProductBrandCreate(ProductBrandBase):
+    slug: Optional[str] = Field(None, exclude=True)
+
+    @model_validator(mode="after")
+    def generate_slug(self) -> "ProductBrandCreate":
+        self.slug = slugify(self.name)
+        return self
+
     model_config = ConfigDict(
         extra="forbid",
         json_schema_extra={
@@ -34,6 +42,13 @@ class ProductBrandCreate(ProductBrandBase):
 class ProductBrandUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=200)
     logo: Optional[str] = Field(None, max_length=255)
+    slug: Optional[str] = Field(None, exclude=True)
+
+    @model_validator(mode="after")
+    def generate_slug_if_name_changed(self) -> "ProductBrandUpdate":
+        if self.name is not None:
+            self.slug = slugify(self.name)
+        return self
 
     model_config = ConfigDict(
         extra="forbid",
@@ -51,6 +66,7 @@ class ProductBrandUpdate(BaseModel):
 # =========================================================
 class ProductBrandResponse(ProductBrandBase):
     id: int
+    slug: str
     created_at: Optional[datetime]
 
     model_config = ConfigDict(
@@ -59,6 +75,7 @@ class ProductBrandResponse(ProductBrandBase):
             "example": {
                 "id": 1,
                 "name": "Genoma Lab",
+                "slug": "genoma-lab",
                 "logo": "https://example.com/logos/genomalab.png",
                 "created_at": "2024-02-12T10:00:00Z"
             }
@@ -78,9 +95,9 @@ class ProductBrandDetailsResponse(ProductBrandResponse):
             "example": {
                 "id": 1,
                 "name": "Genoma Lab",
+                "slug": "genoma-lab",
                 "logo": "https://example.com/logos/genomalab.png",
                 "created_at": "2024-02-12T10:00:00Z",
-
                 "products": [
                     {
                         "id": 10,
@@ -148,7 +165,6 @@ class ProductBrandSearchParams(BaseModel):
             }
         }
     )
-
 
 
 # =========================================================
