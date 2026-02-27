@@ -8,12 +8,12 @@ from datetime import datetime
 from ..product_has_ingredients.orm import ProductHasIngredient
 
 
-
 class Product(Base):
     __tablename__ = "products"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(250), nullable=False)
+    slug: Mapped[str] = mapped_column(String(350), nullable=False, unique=True, index=True)
     image: Mapped[str] = mapped_column(String(250), nullable=True)
 
     brand_id: Mapped[int] = mapped_column(
@@ -42,7 +42,6 @@ class Product(Base):
     description: Mapped[str] = mapped_column(Text, nullable=True)
     sku: Mapped[str] = mapped_column(String(100), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
-    # allow_without_stock: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
 
     # --- Descuentos / impuestos ---
     max_discount: Mapped[float] = mapped_column(Double, nullable=True)
@@ -53,26 +52,10 @@ class Product(Base):
     warranty_days: Mapped[float] = mapped_column(Double, nullable=True)
 
     # --- Unidades / fraccionamiento ---
-    is_unit_sale: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        server_default="0"
-    )
-
-    unit_name: Mapped[str] = mapped_column(
-        String(50),
-        nullable=False
-    )
-
-    base_unit_name: Mapped[str] = mapped_column(
-        String(50),
-        nullable=True
-    )
-
-    units_per_base: Mapped[float] = mapped_column(
-        Double,
-        nullable=True
-    )
+    is_unit_sale: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")
+    unit_name: Mapped[str] = mapped_column(String(50), nullable=False)
+    base_unit_name: Mapped[str] = mapped_column(String(50), nullable=True)
+    units_per_base: Mapped[float] = mapped_column(Double, nullable=True)
 
     # --- Tiempos ---
     created_at: Mapped[datetime] = mapped_column(

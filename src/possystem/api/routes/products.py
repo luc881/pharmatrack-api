@@ -12,17 +12,17 @@ from ...models.products.schemas import (
     ProductDetailsResponse,
     PaginationParams,
     PaginatedResponse,
+    _product_slug,
 )
 from ...utils.permissions import CAN_READ_PRODUCTS, CAN_CREATE_PRODUCTS, CAN_UPDATE_PRODUCTS, CAN_DELETE_PRODUCTS
 from possystem.models.product_has_ingredients.orm import ProductHasIngredient
 from possystem.models.ingredients.orm import Ingredient
 from sqlalchemy.exc import SQLAlchemyError
-from possystem.utils.validators import validate_units_schema, merge_product_units, validate_unit_name_for_sale, normalize_units
+from possystem.utils.validators import validate_units_schema, merge_product_units, validate_unit_name_for_sale, \
+    normalize_units
 from possystem.utils.pagination import paginate
 
-
 db_dependency = Annotated[Session, Depends(get_db)]
-
 
 router = APIRouter(
     prefix="/products",
@@ -48,9 +48,9 @@ async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCTS)
 async def search_products(
-    db: db_dependency,
-    params: ProductSearchParams = Depends(),
-    pagination: PaginationParams = Depends()
+        db: db_dependency,
+        params: ProductSearchParams = Depends(),
+        pagination: PaginationParams = Depends()
 ):
     query = db.query(Product)
 
@@ -101,12 +101,19 @@ async def create_product(product_request: ProductCreate, db: db_dependency):
     if db.query(Product).filter(Product.sku == product_request.sku).first():
         raise HTTPException(status_code=400, detail="Product with this SKU already exists.")
 
-    # 2. Validar marca
+    # 2. Validar slug único
+    if db.query(Product).filter(Product.slug == product_request.slug).first():
+        raise HTTPException(
+            status_code=400,
+            detail="A product with this title and SKU combination already exists."
+        )
+
+    # 3. Validar marca
     if product_request.brand_id:
         if not db.query(Product).filter(Product.id == product_request.brand_id).first():
             raise HTTPException(status_code=404, detail="Brand not found.")
 
-    # 3. Validar ingredientes ANTES
+    # 4. Validar ingredientes ANTES
     if product_request.ingredients:
         ingredient_ids = {ing.ingredient_id for ing in product_request.ingredients}
 
@@ -124,12 +131,12 @@ async def create_product(product_request: ProductCreate, db: db_dependency):
                 detail=f"Ingredient not found: {list(missing)}"
             )
 
-    # 4. Validar Product Master si se provee
+    # 5. Validar Product Master si se provee
     if product_request.product_master_id:
         if not db.query(Product).filter(Product.id == product_request.product_master_id).first():
             raise HTTPException(status_code=404, detail="Product Master not found.")
 
-    # 5. Crear producto (ya todo validado)
+    # 6. Crear producto (ya todo validado)
     product_model = Product(
         **product_request.model_dump(
             mode="json",
@@ -139,9 +146,9 @@ async def create_product(product_request: ProductCreate, db: db_dependency):
     )
 
     db.add(product_model)
-    db.flush()  # 👈 obtiene ID sin commit
+    db.flush()  # obtiene ID sin commit
 
-    # 6. Insertar ingredientes
+    # 7. Insertar ingredientes
     if product_request.ingredients:
         db.add_all([
             ProductHasIngredient(
@@ -164,7 +171,6 @@ async def create_product(product_request: ProductCreate, db: db_dependency):
     dependencies=CAN_UPDATE_PRODUCTS
 )
 async def update_product(product_id: int, product_request: ProductUpdate, db: db_dependency):
-
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found.")
@@ -179,6 +185,24 @@ async def update_product(product_id: int, product_request: ProductUpdate, db: db
     if product_request.sku and product_request.sku != product.sku:
         if db.query(Product).filter(Product.sku == product_request.sku).first():
             raise HTTPException(status_code=400, detail="Product with this SKU already exists.")
+
+    # Validar slug: si cambió title o sku, recalcular con los valores finales y verificar unicidad
+    if product_request.title is not None or product_request.sku is not None:
+        final_title = product_request.title or product.title
+        final_sku = product_request.sku if product_request.sku is not None else product.sku
+        new_slug = _product_slug(final_title, final_sku)
+
+        if new_slug != product.slug:
+            if db.query(Product).filter(
+                Product.slug == new_slug,
+                Product.id != product_id
+            ).first():
+                raise HTTPException(
+                    status_code=400,
+                    detail="A product with this title and SKU combination already exists."
+                )
+            # Asignar el slug recalculado al request para que se persista
+            product_request.slug = new_slug
 
     # Validar marca
     if product_request.brand_id:
@@ -209,10 +233,7 @@ async def update_product(product_id: int, product_request: ProductUpdate, db: db
             )
 
     try:
-        # Transacción atómica
         with db.begin():
-
-            # Actualizar campos simples
             update_data = product_request.model_dump(
                 mode="json",
                 exclude={"ingredients"},
@@ -221,7 +242,6 @@ async def update_product(product_id: int, product_request: ProductUpdate, db: db
             for key, value in update_data.items():
                 setattr(product, key, value)
 
-            # Ingredientes
             if product_request.ingredients is not None:
                 db.query(ProductHasIngredient).filter(
                     ProductHasIngredient.product_id == product.id
@@ -245,10 +265,10 @@ async def update_product(product_id: int, product_request: ProductUpdate, db: db
 
 
 @router.patch("/{product_id}/toggle-active",
-            response_model=ProductResponse,
-            summary="Toggle product availability",
-            description="Activate or deactivate a product quickly.",
-            dependencies=CAN_UPDATE_PRODUCTS)
+              response_model=ProductResponse,
+              summary="Toggle product availability",
+              description="Activate or deactivate a product quickly.",
+              dependencies=CAN_UPDATE_PRODUCTS)
 async def toggle_product_active(product_id: int, db: db_dependency):
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
@@ -261,10 +281,10 @@ async def toggle_product_active(product_id: int, db: db_dependency):
 
 
 @router.delete("/{product_id}",
-            summary="Delete a product",
-            description="Delete a product by its ID.",
-            status_code=status.HTTP_204_NO_CONTENT,
-            dependencies=CAN_DELETE_PRODUCTS)
+               summary="Delete a product",
+               description="Delete a product by its ID.",
+               status_code=status.HTTP_204_NO_CONTENT,
+               dependencies=CAN_DELETE_PRODUCTS)
 async def delete_product(product_id: int, db: db_dependency):
     existing_product = db.query(Product).filter(Product.id == product_id).first()
     if not existing_product:

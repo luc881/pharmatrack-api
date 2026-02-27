@@ -1,6 +1,6 @@
 from typing import Optional, List, Generic, TypeVar, TYPE_CHECKING
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 from ..product_has_ingredients.schemas import ProductIngredientCreate, ProductIngredientAmount
 
@@ -18,6 +18,8 @@ from possystem.types.products import (
     IsUnitSaleFlag,
     IsActiveFlag,
 )
+from possystem.utils.slugify import slugify
+
 
 # =========================================================
 # 🔹 Paginación genérica (reutilizable en toda la API)
@@ -92,6 +94,21 @@ class ProductSimpleResponse(BaseModel):
 
 
 # =========================================================
+# 🔹 Helper interno: genera slug de producto
+# =========================================================
+def _product_slug(title: str, sku: Optional[str]) -> str:
+    """
+    Combines title + sku (if present) into a single slug.
+    "Ibuprofeno 400mg" + "IBU400"  →  "ibuprofeno-400mg-ibu400"
+    "Ibuprofeno 400mg" + None      →  "ibuprofeno-400mg"
+    """
+    parts = [title]
+    if sku:
+        parts.append(sku)
+    return slugify(" ".join(parts))
+
+
+# =========================================================
 # 🔹 Base schema
 # =========================================================
 class ProductBase(BaseModel):
@@ -119,7 +136,6 @@ class ProductBase(BaseModel):
     is_active: IsActiveFlag = True
 
 
-
 # =========================================================
 # 🟢 Create
 # =========================================================
@@ -127,6 +143,14 @@ class ProductCreate(ProductBase):
     brand_id: Optional[int] = None
     product_master_id: Optional[int] = None
     ingredients: Optional[List[ProductIngredientCreate]] = None
+
+    # Auto-generated, not exposed in API docs
+    slug: Optional[str] = Field(None, exclude=True)
+
+    @model_validator(mode="after")
+    def generate_slug(self) -> "ProductCreate":
+        self.slug = _product_slug(self.title, self.sku)
+        return self
 
     model_config = ConfigDict(
         extra="forbid",
@@ -162,7 +186,6 @@ class ProductCreate(ProductBase):
     )
 
 
-
 # =========================================================
 # 🟡 Update
 # =========================================================
@@ -191,6 +214,19 @@ class ProductUpdate(BaseModel):
     brand_id: Optional[int] = None
     product_master_id: Optional[int] = None
     ingredients: Optional[List[ProductIngredientCreate]] = None
+
+    # Auto-generated when title or sku change, not exposed in API docs
+    slug: Optional[str] = Field(None, exclude=True)
+
+    @model_validator(mode="after")
+    def generate_slug_if_changed(self) -> "ProductUpdate":
+        # Only regenerate if at least title or sku was explicitly sent
+        if self.title is not None or self.sku is not None:
+            self.slug = _product_slug(
+                self.title or "",   # title might not be sent; handled in endpoint
+                self.sku
+            )
+        return self
 
     model_config = ConfigDict(
         extra="forbid",
@@ -223,12 +259,12 @@ class ProductUpdate(BaseModel):
     )
 
 
-
 # =========================================================
 # 🔵 Response (sin relaciones)
 # =========================================================
 class ProductResponse(ProductBase):
     id: int
+    slug: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -241,6 +277,7 @@ class ProductResponse(ProductBase):
             "example": {
                 "id": 12,
                 "title": "Ibuprofeno 400mg",
+                "slug": "ibuprofeno-400mg-ibu400",
                 "image": "https://example.com/img.png",
                 "price_retail": 45.5,
                 "price_cost": 30.0,
@@ -263,7 +300,6 @@ class ProductResponse(ProductBase):
             }
         }
     )
-
 
 
 # =========================================================
