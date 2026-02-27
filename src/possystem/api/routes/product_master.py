@@ -5,8 +5,14 @@ from ...db.session import get_db
 from starlette import status
 from ...utils.permissions import CAN_READ_PRODUCT_MASTERS, CAN_CREATE_PRODUCT_MASTERS, CAN_UPDATE_PRODUCT_MASTERS, CAN_DELETE_PRODUCT_MASTERS
 from ...models.product_master.orm import ProductMaster
-from ...models.product_master.schemas import ProductMasterCreate, ProductMasterResponse, ProductMasterUpdate
-from ...models.product_categories.orm import ProductCategory
+from ...models.product_master.schemas import (
+    ProductMasterCreate,
+    ProductMasterResponse,
+    ProductMasterUpdate,
+    PaginatedResponse,
+    PaginationParams,
+)
+from possystem.utils.pagination import paginate
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
@@ -16,15 +22,17 @@ router = APIRouter(
     tags=["Products Master"]
 )
 
+
 @router.get("/",
-            response_model=list[ProductMasterResponse],
+            response_model=PaginatedResponse[ProductMasterResponse],
             summary="List all product masters",
             description="Retrieve all product masters currently stored in the database.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCT_MASTERS)
-async def read_all(db: db_dependency):
-    product_masters = db.query(ProductMaster).all()
-    return product_masters
+async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
+    query = db.query(ProductMaster).order_by(ProductMaster.id.asc())
+    return paginate(query, pagination)
+
 
 @router.get(
     "/{master_id}",
@@ -52,6 +60,7 @@ async def read_product_master(
 
     return master
 
+
 @router.post(
     "/",
     response_model=ProductMasterResponse,
@@ -65,7 +74,7 @@ async def create_product_master(
     db: db_dependency
 ):
     # --------------------------------------------
-    # 🔍 Validar si ya existe un master con el mismo nombre (opcional)
+    # 🔍 Validar si ya existe un master con el mismo nombre
     # --------------------------------------------
     existing = db.query(ProductMaster).filter(
         ProductMaster.name.ilike(payload.name)
@@ -77,18 +86,6 @@ async def create_product_master(
             detail=f"Product master with name '{payload.name}' already exists."
         )
 
-    # --------------------------------------------
-    # 🔍 Validar que la categoría exista
-    # --------------------------------------------
-    category = db.query(ProductCategory).filter(
-        ProductCategory.id == payload.product_category_id
-    ).first()
-
-    if not category:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Product category {payload.product_category_id} does not exist."
-        )
 
     # --------------------------------------------
     # 🟢 Crear el registro
@@ -96,7 +93,6 @@ async def create_product_master(
     new_master = ProductMaster(
         name=payload.name,
         description=payload.description,
-        product_category_id=payload.product_category_id
     )
 
     db.add(new_master)
@@ -104,6 +100,7 @@ async def create_product_master(
     db.refresh(new_master)
 
     return new_master
+
 
 @router.put(
     "/{master_id}",
@@ -115,10 +112,9 @@ async def create_product_master(
 )
 async def update_product_master(
     master_id: int,
-    payload: ProductMasterUpdate,   # ahora soporta parcial
+    payload: ProductMasterUpdate,
     db: db_dependency
 ):
-    # Buscar el master
     master = (
         db.query(ProductMaster)
         .filter(ProductMaster.id == master_id)
@@ -131,23 +127,8 @@ async def update_product_master(
             detail=f"Product master {master_id} not found."
         )
 
-    # Obtener únicamente campos enviados
     update_data = payload.model_dump(exclude_unset=True)
 
-    # ============================
-    # Validar categoría si viene
-    # ============================
-    if "product_category_id" in update_data:
-        category = (
-            db.query(ProductCategory)
-            .filter(ProductCategory.id == update_data["product_category_id"])
-            .first()
-        )
-        if not category:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Product category {update_data['product_category_id']} does not exist."
-            )
 
     # ============================
     # Validar nombre si viene
@@ -178,6 +159,7 @@ async def update_product_master(
 
     return master
 
+
 @router.delete(
     "/{master_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -197,7 +179,6 @@ async def delete_product_master(
             detail=f"Product master {master_id} not found."
         )
 
-    # Intentar eliminación (puede fallar por FK si tiene dependencias)
     try:
         db.delete(master)
         db.commit()

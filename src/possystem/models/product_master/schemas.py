@@ -1,9 +1,9 @@
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
 
 from ..product_categories.schemas import ProductCategoryResponse
-from ..products.schemas import ProductSimpleResponse
+from ..products.schemas import ProductSimpleResponse, PaginatedResponse, PaginationParams
 
 
 # =========================================================
@@ -23,7 +23,8 @@ class ProductMasterCreate(ProductMasterBase):
         json_schema_extra={
             "example": {
                 "name": "Paracetamol",
-                "description": "Medicamento analgésico y antipirético."
+                "description": "Medicamento analgésico y antipirético.",
+                "product_category_id": 1
             }
         }
     )
@@ -66,8 +67,14 @@ class ProductMasterDetailsResponse(ProductMasterResponse):
 
 
 # =========================================================
-# 🔁 Forward references
+# 🔁 Re-exportar para uso en otros módulos
 # =========================================================
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from ..products.schemas import ProductSimpleResponse
+__all__ = [
+    "ProductMasterBase",
+    "ProductMasterCreate",
+    "ProductMasterUpdate",
+    "ProductMasterResponse",
+    "ProductMasterDetailsResponse",
+    "PaginatedResponse",
+    "PaginationParams",
+]
