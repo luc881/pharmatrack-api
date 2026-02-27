@@ -1,11 +1,14 @@
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 import re
+
 from possystem.types.ingredients import (
     IngredientTitleStr,
     IngredientDescriptionStr,
 )
+from possystem.models.products.schemas import PaginatedResponse, PaginationParams
+from possystem.utils.slugify import slugify
 
 
 # =========================================================
@@ -28,6 +31,14 @@ class IngredientBase(BaseModel):
 # 🟢 Create
 # =========================================================
 class IngredientCreate(IngredientBase):
+    # slug is auto-generated from name, not exposed to the user
+    slug: Optional[str] = Field(None, exclude=True)
+
+    @model_validator(mode="after")
+    def generate_slug(self) -> "IngredientCreate":
+        self.slug = slugify(self.name)
+        return self
+
     model_config = ConfigDict(
         extra="forbid",
         json_schema_extra={
@@ -45,6 +56,7 @@ class IngredientCreate(IngredientBase):
 class IngredientUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=255)
     description: Optional[str] = None
+    slug: Optional[str] = Field(None, exclude=True)
 
     @field_validator("name")
     @classmethod
@@ -56,6 +68,12 @@ class IngredientUpdate(BaseModel):
             raise ValueError("Invalid ingredient name")
         return v
 
+    @model_validator(mode="after")
+    def generate_slug_if_name_changed(self) -> "IngredientUpdate":
+        if self.name is not None:
+            self.slug = slugify(self.name)
+        return self
+
     model_config = ConfigDict(extra="forbid")
 
 
@@ -64,7 +82,21 @@ class IngredientUpdate(BaseModel):
 # =========================================================
 class IngredientResponse(IngredientBase):
     id: int
+    slug: str
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# =========================================================
+# 🔁 Re-exportar para uso en el router
+# =========================================================
+__all__ = [
+    "IngredientBase",
+    "IngredientCreate",
+    "IngredientUpdate",
+    "IngredientResponse",
+    "PaginatedResponse",
+    "PaginationParams",
+]
