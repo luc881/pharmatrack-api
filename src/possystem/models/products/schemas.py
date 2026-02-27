@@ -1,4 +1,4 @@
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List, Generic, TypeVar, TYPE_CHECKING
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -18,6 +18,54 @@ from possystem.types.products import (
     IsUnitSaleFlag,
     IsActiveFlag,
 )
+
+# =========================================================
+# 🔹 Paginación genérica (reutilizable en toda la API)
+# =========================================================
+T = TypeVar("T")
+
+class PaginationParams(BaseModel):
+    page: int = Field(default=1, ge=1, description="Número de página")
+    page_size: int = Field(default=20, ge=1, le=100, description="Items por página")
+
+    @property
+    def offset(self) -> int:
+        return (self.page - 1) * self.page_size
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "page": 1,
+                "page_size": 20
+            }
+        }
+    )
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    data: List[T]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+    has_next: bool
+    has_prev: bool
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "data": [],
+                "total": 87,
+                "page": 2,
+                "page_size": 20,
+                "total_pages": 5,
+                "has_next": True,
+                "has_prev": True
+            }
+        }
+    )
+
 
 # =========================================================
 # 🔹 Mini response (para Brand/Master)
@@ -99,7 +147,7 @@ class ProductCreate(ProductBase):
                 "base_unit_name": None,
                 "units_per_base": None,
 
-                "product_category_id": 3,  # 🔥 REQUIRED
+                "product_category_id": 3,
 
                 "is_active": True,
                 "brand_id": 1,
@@ -136,7 +184,6 @@ class ProductUpdate(BaseModel):
     base_unit_name: Optional[ProductBaseUnitName] = None
     units_per_base: Optional[float] = None
 
-    # 🔥 Category update
     product_category_id: Optional[int] = None
 
     is_active: Optional[IsActiveFlag] = None
@@ -161,7 +208,7 @@ class ProductUpdate(BaseModel):
                 "base_unit_name": None,
                 "units_per_base": None,
 
-                "product_category_id": 4,  # 🔥 UPDATED CATEGORY
+                "product_category_id": 4,
 
                 "is_active": True,
                 "brand_id": 1,
@@ -225,7 +272,7 @@ class ProductResponse(ProductBase):
 class ProductDetailsResponse(ProductResponse):
     brand: Optional["ProductBrandResponse"] = None
     product_master: Optional["ProductMasterResponse"] = None
-    category: Optional["ProductCategoryResponse"] = None  # 🔥 NEW
+    category: Optional["ProductCategoryResponse"] = None
     batches: Optional[List["ProductBatchResponse"]] = None
     ingredients: Optional[List[ProductIngredientAmount]] = None
 
@@ -243,7 +290,6 @@ class ProductSearchParams(BaseModel):
         description="Texto parcial para buscar en el título (ILIKE)"
     )
 
-    # 🔹 NUEVO
     is_unit_sale: Optional[bool] = Field(
         None,
         description="Filtrar productos de venta suelta o presentación"
@@ -282,8 +328,6 @@ class ProductSearchParams(BaseModel):
 # =========================================================
 # 🔁 Forward references
 # =========================================================
-# --- Forward references runtime ---
-
 from ..product_brand.schemas import ProductBrandResponse
 from ..product_master.schemas import ProductMasterResponse
 from ..product_categories.schemas import ProductCategoryResponse
@@ -291,4 +335,3 @@ from ..product_batch.schemas import ProductBatchResponse
 from ..ingredients.schemas import IngredientResponse
 
 ProductDetailsResponse.model_rebuild()
-

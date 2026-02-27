@@ -4,13 +4,21 @@ from sqlalchemy.orm import Session
 from ...db.session import get_db
 from starlette import status
 from ...models.products.orm import Product
-from ...models.products.schemas import ProductCreate, ProductResponse, ProductUpdate, ProductSearchParams, ProductDetailsResponse
+from ...models.products.schemas import (
+    ProductCreate,
+    ProductResponse,
+    ProductUpdate,
+    ProductSearchParams,
+    ProductDetailsResponse,
+    PaginationParams,
+    PaginatedResponse,
+)
 from ...utils.permissions import CAN_READ_PRODUCTS, CAN_CREATE_PRODUCTS, CAN_UPDATE_PRODUCTS, CAN_DELETE_PRODUCTS
 from possystem.models.product_has_ingredients.orm import ProductHasIngredient
 from possystem.models.ingredients.orm import Ingredient
 from sqlalchemy.exc import SQLAlchemyError
 from possystem.utils.validators import validate_units_schema, merge_product_units, validate_unit_name_for_sale, normalize_units
-
+from possystem.utils.pagination import paginate
 
 
 db_dependency = Annotated[Session, Depends(get_db)]
@@ -21,31 +29,44 @@ router = APIRouter(
     tags=["Products"]
 )
 
+
 @router.get("/",
-            response_model=list[ProductResponse],
+            response_model=PaginatedResponse[ProductResponse],
             summary="List all products",
             description="Retrieve all products currently stored in the database.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCTS)
-async def read_all(db: db_dependency):
-    products = db.query(Product).order_by(Product.created_at.desc()).all()
-    return products
+async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
+    query = db.query(Product).order_by(Product.created_at.desc())
+    return paginate(query, pagination)
+
 
 @router.get("/search",
-            response_model=list[ProductResponse],
+            response_model=PaginatedResponse[ProductResponse],
             summary="Search and filter products",
             description="Search products by title, or availability.",
+            status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCTS)
-async def search_products(db: db_dependency, params: ProductSearchParams = Depends()):
+async def search_products(
+    db: db_dependency,
+    params: ProductSearchParams = Depends(),
+    pagination: PaginationParams = Depends()
+):
     query = db.query(Product)
 
     if params.title:
         query = query.filter(Product.title.ilike(f"%{params.title}%"))
     if params.is_active is not None:
         query = query.filter(Product.is_active == params.is_active)
+    if params.is_unit_sale is not None:
+        query = query.filter(Product.is_unit_sale == params.is_unit_sale)
+    if params.brand_id is not None:
+        query = query.filter(Product.brand_id == params.brand_id)
+    if params.product_master_id is not None:
+        query = query.filter(Product.product_master_id == params.product_master_id)
 
-    products = query.all()
-    return products
+    return paginate(query, pagination)
+
 
 @router.get("/{product_id}",
             response_model=ProductDetailsResponse,
@@ -61,8 +82,6 @@ async def read_product(product_id: int, db: db_dependency):
             detail="Product not found."
         )
     return product
-
-
 
 
 @router.post(
@@ -136,7 +155,6 @@ async def create_product(product_request: ProductCreate, db: db_dependency):
     db.commit()
     db.refresh(product_model)
     return product_model
-
 
 
 @router.put(
@@ -224,9 +242,6 @@ async def update_product(product_id: int, product_request: ProductUpdate, db: db
     except SQLAlchemyError:
         db.rollback()
         raise
-
-
-
 
 
 @router.patch("/{product_id}/toggle-active",
