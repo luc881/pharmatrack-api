@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -8,6 +8,10 @@ from ...types.products_categories import (
     IsCategoryActiveFlag
 )
 
+
+# =========================================================
+# 🔹 Base
+# =========================================================
 class ProductCategoryBase(BaseModel):
     name: CategoryNameStr = Field(...)
     image: Optional[CategoryImageURL] = None
@@ -17,6 +21,10 @@ class ProductCategoryBase(BaseModel):
         description="ID de la categoría padre (NULL si es raíz)"
     )
 
+
+# =========================================================
+# 🟢 Create
+# =========================================================
 class ProductCategoryCreate(ProductCategoryBase):
     model_config = ConfigDict(
         extra="forbid",
@@ -30,6 +38,10 @@ class ProductCategoryCreate(ProductCategoryBase):
         }
     )
 
+
+# =========================================================
+# 🟡 Update
+# =========================================================
 class ProductCategoryUpdate(BaseModel):
     name: Optional[CategoryNameStr] = None
     image: Optional[CategoryImageURL] = None
@@ -46,8 +58,13 @@ class ProductCategoryUpdate(BaseModel):
         }
     )
 
+
+# =========================================================
+# 🔵 Response
+# =========================================================
 class ProductCategoryResponse(ProductCategoryBase):
     id: int
+    slug: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -57,6 +74,7 @@ class ProductCategoryResponse(ProductCategoryBase):
             "example": {
                 "id": 2,
                 "name": "Analgésicos",
+                "slug": "medicamentos-analgesicos",
                 "parent_id": 1,
                 "is_active": True,
                 "created_at": "2024-07-01T12:00:00",
@@ -65,17 +83,29 @@ class ProductCategoryResponse(ProductCategoryBase):
         }
     )
 
+
+# =========================================================
+# 🌳 Tree response (recursivo)
+# =========================================================
 class ProductCategoryTreeResponse(ProductCategoryResponse):
     children: List["ProductCategoryTreeResponse"] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
+
+# =========================================================
+# 🧩 Detailed response
+# =========================================================
 class ProductCategoryDetailsResponse(ProductCategoryResponse):
     products: Optional[List["ProductResponse"]] = None
     children: Optional[List["ProductCategoryTreeResponse"]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
+
+# =========================================================
+# 🔍 Search params
+# =========================================================
 class ProductCategorySearchParams(BaseModel):
     name: Optional[str] = Field(None, max_length=250)
     is_active: Optional[bool] = None
@@ -83,11 +113,13 @@ class ProductCategorySearchParams(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-from typing import TYPE_CHECKING
+
+# =========================================================
+# 🔁 Forward references
+# =========================================================
 if TYPE_CHECKING:
     from ..products.schemas import ProductResponse
 
-# Pydantic v2
 from ..products.schemas import ProductResponse
 
 ProductCategoryTreeResponse.model_rebuild()

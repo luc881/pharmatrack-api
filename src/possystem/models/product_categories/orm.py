@@ -10,6 +10,7 @@ class ProductCategory(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(250), nullable=False)
+    slug: Mapped[str] = mapped_column(String(1000), nullable=False, unique=True, index=True)
     image: Mapped[str] = mapped_column(String(250), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
