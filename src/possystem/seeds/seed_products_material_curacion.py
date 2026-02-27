@@ -1,12 +1,15 @@
+"""
+possystem/seeds/seed_products_material_curacion.py
+"""
 from sqlalchemy.orm import Session
 from possystem.db.session import SessionLocal
-from possystem.models.products.orm import Product
-from possystem.models.product_brand.orm import ProductBrand
-from possystem.models.product_categories.orm import ProductCategory
+from possystem.seeds.helpers.seeder_helpers import (
+    get_or_create_brand,
+    get_or_create_category,
+    get_or_create_product,
+)
 
-# ---------------------------
-# Datos crudos (subset ejemplo)
-# ---------------------------
+ROOT = "Material de curación"
 
 MATERIAL_CURACION = [
     {"sku": "010", "title": "Gotero vidrio", "brand": "Genérico", "cost": 5},
@@ -184,7 +187,6 @@ MATERIAL_CURACION = [
     {"sku": "SUTURA 3/0", "title": "Sutura 3/0", "brand": "Genérico", "cost": 70},
     {"sku": "SUTURA 4/0", "title": "Sutura 4/0", "brand": "Genérico", "cost": 70},
     {"sku": "SUTURA 5/0", "title": "Sutura 5/0", "brand": "Genérico", "cost": 70},
-    {"sku": "011", "title": "Gotero de plastico", "brand": "Genérico", "cost": 5},
     {"sku": "7713042257747", "title": "Contador de pastillas", "brand": "Genérico", "cost": 30},
     {"sku": "7501048335138", "title": "Agua oxigenada 100ml", "brand": "Genérico", "cost": 15},
     {"sku": "7501048335169", "title": "Agua oxigenada 230ml", "brand": "Genérico", "cost": 18},
@@ -197,130 +199,65 @@ MATERIAL_CURACION = [
     {"sku": "7501125115479", "title": "Cloruro de sodio 100ml", "brand": "Genérico", "cost": 28},
     {"sku": "7501842800412", "title": "Agua oxigenada 1L", "brand": "Genérico", "cost": 45},
     {"sku": "8801038200019", "title": "Navaja suelta", "brand": "Genérico", "cost": 8},
-    {"sku": "8801038200026", "title": "Navaja caja c/10", "brand": "Genérico", "cost": 30}
+    {"sku": "8801038200026", "title": "Navaja caja c/10", "brand": "Genérico", "cost": 30},
 ]
 
 
-# ---------------------------
-# Helpers
-# ---------------------------
+def _classify(title: str) -> str:
+    t = title.lower()
+    if any(x in t for x in ["jeringa", "aguja", "lanceta"]):
+        return "Jeringas y agujas"
+    if any(x in t for x in ["cateter", "catater", "sonda", "venoclisis"]):
+        return "Catéteres y sondas"
+    if any(x in t for x in ["gasa", "venda", "aposito"]):
+        return "Gasas y vendas"
+    if any(x in t for x in ["cinta", "tegaderm", "parche", "tela adhesiva"]):
+        return "Cintas y parches"
+    if any(x in t for x in ["algodon", "torunda"]):
+        return "Algodón y torundas"
+    if any(x in t for x in ["alcohol", "antiseptico", "agua oxigenada", "cloruro", "hartman", "microdacyn", "antibenzil"]):
+        return "Antisépticos y soluciones"
+    if any(x in t for x in ["oxigeno", "canula", "mascarilla", "nebulizador", "vaso humidificador"]):
+        return "Oxígeno y terapia respiratoria"
+    if any(x in t for x in ["navaja", "bisturi", "gotero", "contador", "abatelengua", "bisturi", "frasco"]):
+        return "Instrumental médico"
+    if any(x in t for x in ["monitor", "oximetro", "termometro", "accu-chek"]):
+        return "Equipos y dispositivos médicos"
+    if any(x in t for x in ["rodillera", "tobillera", "callarin", "ferula", "malla"]):
+        return "Ortopedia y soporte"
+    if any(x in t for x in ["cubrebocas", "cofia", "guante", "kn95"]):
+        return "Desechables hospitalarios"
+    return "Otros insumos médicos"
 
-def get_or_create_brand(db: Session, name: str) -> int:
-    brand = db.query(ProductBrand).filter_by(name=name).first()
-    if not brand:
-        brand = ProductBrand(name=name)
-        db.add(brand)
-        db.commit()
-        db.refresh(brand)
-    return brand.id
-
-
-def get_or_create_category(db: Session, name: str, parent_name: str | None = None) -> int:
-    parent = None
-    if parent_name:
-        parent = db.query(ProductCategory).filter_by(name=parent_name).first()
-        if not parent:
-            parent = ProductCategory(name=parent_name)
-            db.add(parent)
-            db.commit()
-            db.refresh(parent)
-
-    category = db.query(ProductCategory).filter_by(name=name).first()
-    if not category:
-        category = ProductCategory(name=name, parent_id=parent.id if parent else None)
-        db.add(category)
-        db.commit()
-        db.refresh(category)
-
-    return category.id
-
-
-# ---------------------------
-# Seeder principal
-# ---------------------------
 
 def seed_material_curacion(db: Session):
+    created = skipped = 0
 
-    try:
-        # ROOT
-        root_id = get_or_create_category(db, "Material de curación")
+    for item in MATERIAL_CURACION:
+        subcat = _classify(item["title"])
+        category_id = get_or_create_category(db, subcat, ROOT)
+        brand_id = get_or_create_brand(db, item["brand"])
 
-        # SUBCATEGORÍAS
-        jeringas_id = get_or_create_category(db, "Jeringas y agujas", "Material de curación")
-        cateteres_id = get_or_create_category(db, "Catéteres y sondas", "Material de curación")
-        gasas_vendas_id = get_or_create_category(db, "Gasas y vendas", "Material de curación")
-        cintas_parches_id = get_or_create_category(db, "Cintas y parches", "Material de curación")
-        algodon_id = get_or_create_category(db, "Algodón y torundas", "Material de curación")
-        antisepticos_id = get_or_create_category(db, "Antisépticos y soluciones", "Material de curación")
-        oxigeno_id = get_or_create_category(db, "Oxígeno y terapia respiratoria", "Material de curación")
-        instrumental_id = get_or_create_category(db, "Instrumental médico", "Material de curación")
-        equipos_id = get_or_create_category(db, "Equipos y dispositivos médicos", "Material de curación")
-        ortopedia_id = get_or_create_category(db, "Ortopedia y soporte", "Material de curación")
-        desechables_id = get_or_create_category(db, "Desechables hospitalarios", "Material de curación")
-        otros_id = get_or_create_category(db, "Otros insumos médicos", "Material de curación")
+        cost = float(item["cost"])
+        _, was_created = get_or_create_product(
+            db,
+            title=item["title"],
+            sku=item["sku"],
+            brand_id=brand_id,
+            category_id=category_id,
+            price_cost=cost,
+            price_retail=round(cost * 1.40, 2),
+            description="Material de curación precargado",
+        )
 
-        created = 0
-        skipped = 0
-
-        for item in MATERIAL_CURACION:
-            if db.query(Product).filter_by(sku=item["sku"]).first():
-                skipped += 1
-                continue
-
-            brand_id = get_or_create_brand(db, item["brand"])
-            title = item["title"].lower()
-
-            # Clasificación automática
-            if any(x in title for x in ["jeringa", "aguja", "lanceta"]):
-                category_id = jeringas_id
-            elif any(x in title for x in ["cateter", "sonda", "venoclisis"]):
-                category_id = cateteres_id
-            elif any(x in title for x in ["gasa", "venda", "apósito"]):
-                category_id = gasas_vendas_id
-            elif any(x in title for x in ["cinta", "tegaderm", "parche"]):
-                category_id = cintas_parches_id
-            elif any(x in title for x in ["algodón", "torunda"]):
-                category_id = algodon_id
-            elif any(x in title for x in ["alcohol", "antiséptico", "agua oxigenada", "cloruro", "hartman"]):
-                category_id = antisepticos_id
-            elif any(x in title for x in ["oxígeno", "cánula", "mascarilla", "nebulizador"]):
-                category_id = oxigeno_id
-            elif any(x in title for x in ["navaja", "bisturí", "gotero", "contador"]):
-                category_id = instrumental_id
-            elif any(x in title for x in ["monitor", "oxímetro", "termómetro"]):
-                category_id = equipos_id
-            elif any(x in title for x in ["rodillera", "tobillera", "collarín"]):
-                category_id = ortopedia_id
-            elif any(x in title for x in ["cubrebocas", "cofia", "guante"]):
-                category_id = desechables_id
-            else:
-                category_id = otros_id
-
-            cost = float(item["cost"])
-            retail = round(cost * 1.40, 2)
-
-            product = Product(
-                title=item["title"],
-                sku=item["sku"],
-                brand_id=brand_id,
-                product_category_id=category_id,
-                price_cost=cost,
-                price_retail=retail,
-                unit_name="pieza",
-                is_unit_sale=True,
-                description="Material de curación precargado",
-            )
-
-            db.add(product)
+        if was_created:
             created += 1
+        else:
+            skipped += 1
 
-        db.commit()
-        print(f"✅ Material de curación insertado: {created}")
-        print(f"⚠️ Duplicados omitidos: {skipped}")
-
-    except Exception as e:
-        db.rollback()
-        raise e
+    db.commit()
+    print(f"✅ Material de curación insertado: {created}")
+    print(f"⚠️  Duplicados omitidos:            {skipped}")
 
 
 if __name__ == "__main__":

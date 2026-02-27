@@ -1,9 +1,17 @@
-from sqlalchemy.orm import Session
-from possystem.models.product_categories.orm import ProductCategory
+"""
+possystem/seeds/seed_product_categories.py
 
-# --- Categorías base de la farmacia ---
+Seeds the full category tree.
+Run this FIRST before any product seeder.
+"""
+from sqlalchemy.orm import Session
+from possystem.db.session import SessionLocal
+from possystem.seeds.helpers.seeder_helpers import get_or_create_category
+
+# =========================================================
+# 📂 Category tree
+# =========================================================
 PRODUCT_CATEGORIES = [
-    # ROOTS
     {
         "name": "Medicamentos",
         "children": [
@@ -14,25 +22,21 @@ PRODUCT_CATEGORIES = [
             {"name": "Antivirales"},
             {"name": "Antifúngicos"},
             {"name": "Antiparasitarios"},
-
             {"name": "Antihipertensivos"},
             {"name": "Anticoagulantes"},
             {"name": "Hipolipemiantes"},
-
             {"name": "Diabetes"},
             {"name": "Hormonas"},
-
             {"name": "Antialérgicos"},
             {"name": "Broncodilatadores"},
             {"name": "Antitusivos"},
             {"name": "Mucolíticos"},
-
             {"name": "Gastrointestinales"},
             {"name": "Oftalmológicos"},
             {"name": "Dermatológicos"},
             {"name": "Anticonceptivos"},
-            {"name": "Pediátricos"}
-        ]
+            {"name": "Pediátricos"},
+        ],
     },
     {
         "name": "Material de curación",
@@ -78,8 +82,8 @@ PRODUCT_CATEGORIES = [
             {"name": "Omega y lípidos"},
             {"name": "Colágeno y belleza"},
             {"name": "Salud digestiva"},
-            {"name": "Salud del sueño"}
-        ]
+            {"name": "Salud del sueño"},
+        ],
     },
     {
         "name": "Alimentos y bebidas",
@@ -118,55 +122,27 @@ PRODUCT_CATEGORIES = [
 ]
 
 
-
-
-
-
-
-def get_or_create_category(db: Session, name: str, parent: ProductCategory | None = None):
-    category = (
-        db.query(ProductCategory)
-        .filter(ProductCategory.name == name, ProductCategory.parent_id == (parent.id if parent else None))
-        .first()
-    )
-
-    if category:
-        return category
-
-    category = ProductCategory(
-        name=name,
-        parent_id=parent.id if parent else None,
-        is_active=True,
-        image=None
-    )
-    db.add(category)
-    db.flush()  # 🔥 Important to get ID before children
-    return category
-
-
+# =========================================================
+# 🌱 Seeder
+# =========================================================
 def seed_product_categories(db: Session):
-    created = 0
+    total = 0
 
     for root_data in PRODUCT_CATEGORIES:
-        root = get_or_create_category(db, root_data["name"])
-        created += 1
+        get_or_create_category(db, root_data["name"])
+        total += 1
 
         for child_data in root_data.get("children", []):
-            child = get_or_create_category(db, child_data["name"], parent=root)
-            created += 1
+            get_or_create_category(db, child_data["name"], parent_name=root_data["name"])
+            total += 1
 
     db.commit()
-    print(f"✅ Categories seeded (roots + children).")
+    print(f"✅ Categories seeded: {total} (roots + children)")
 
 
 if __name__ == "__main__":
-    from possystem.db.session import SessionLocal
-
     db = SessionLocal()
     try:
         seed_product_categories(db)
     finally:
         db.close()
-
-
-
