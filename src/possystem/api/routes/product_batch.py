@@ -15,9 +15,12 @@ from ...models.product_batch.schemas import (
     ProductBatchCreate,
     ProductBatchResponse,
     ProductBatchUpdate,
-    ProductBatchDetailsResponse
+    ProductBatchDetailsResponse,
+    PaginatedResponse,
+    PaginationParams,
 )
 from ...models.products.orm import Product
+from possystem.utils.pagination import paginate
 
 
 db_dependency = Annotated[Session, Depends(get_db)]
@@ -33,34 +36,36 @@ router = APIRouter(
 # ---------------------------------------------------------------------
 @router.get(
     "/",
-    response_model=list[ProductBatchResponse],
+    response_model=PaginatedResponse[ProductBatchResponse],
     summary="List all product batches",
     description="Retrieve all product batches currently stored in the database.",
     status_code=status.HTTP_200_OK,
     dependencies=CAN_READ_PRODUCT_BATCHES
 )
-def read_all_product_batches(db: db_dependency):
-    product_batches = db.query(ProductBatch).all()
-    return product_batches
+def read_all_product_batches(db: db_dependency, pagination: PaginationParams = Depends()):
+    query = db.query(ProductBatch).order_by(ProductBatch.id.asc())
+    return paginate(query, pagination)
+
 
 # ---------------------------------------------------------------------
 # GET ALL PRODUCT BATCHES WITH DETAILS
 # ---------------------------------------------------------------------
 @router.get(
     "/details",
-    response_model=list[ProductBatchDetailsResponse],
+    response_model=PaginatedResponse[ProductBatchDetailsResponse],
     summary="List all product batches with details",
     description="Retrieve all product batches with detailed information including associated product data.",
     status_code=status.HTTP_200_OK,
     dependencies=CAN_READ_PRODUCT_BATCHES
 )
-def read_all_product_batches_with_details(db: db_dependency):
-    product_batches = (
+def read_all_product_batches_with_details(db: db_dependency, pagination: PaginationParams = Depends()):
+    query = (
         db.query(ProductBatch)
         .options(joinedload(ProductBatch.product))
-        .all()
+        .order_by(ProductBatch.id.asc())
     )
-    return product_batches
+    return paginate(query, pagination)
+
 
 # ---------------------------------------------------------------------
 # GET PRODUCT BATCH BY ID
@@ -88,6 +93,7 @@ def get_product_batch_details(product_batch_id: int, db: db_dependency):
         )
 
     return product_batch
+
 
 # ---------------------------------------------------------------------
 # CREATE PRODUCT BATCH
@@ -128,6 +134,7 @@ def create_product_batch(product_batch: ProductBatchCreate, db: db_dependency):
 
     return new_product_batch
 
+
 # ---------------------------------------------------------------------
 # UPDATE PRODUCT BATCH
 # ---------------------------------------------------------------------
@@ -141,7 +148,6 @@ def create_product_batch(product_batch: ProductBatchCreate, db: db_dependency):
 )
 def update_product_batch(product_batch_id: int, payload: ProductBatchUpdate, db: db_dependency):
 
-    # --- Buscar batch original ---
     existing_product_batch = db.get(ProductBatch, product_batch_id)
     if not existing_product_batch:
         raise HTTPException(
@@ -149,14 +155,11 @@ def update_product_batch(product_batch_id: int, payload: ProductBatchUpdate, db:
             detail="Product batch not found."
         )
 
-    # --- Extraer solo los campos proporcionados ---
     update_data = payload.model_dump(exclude_unset=True)
 
-    # --- Resolver valores finales que tendrían después de la actualización ---
     final_product_id = update_data.get("product_id", existing_product_batch.product_id)
     final_lot_code = update_data.get("lot_code", existing_product_batch.lot_code)
 
-    # --- Validar que no exista un lote duplicado (excluyendo sí mismo) ---
     if final_lot_code is not None:
         duplicate = (
             db.query(ProductBatch)
@@ -174,7 +177,6 @@ def update_product_batch(product_batch_id: int, payload: ProductBatchUpdate, db:
                 detail="A batch with this lot_code already exists for this product."
             )
 
-    # --- Actualizar solo los campos enviados ---
     for key, value in update_data.items():
         setattr(existing_product_batch, key, value)
 
@@ -182,7 +184,6 @@ def update_product_batch(product_batch_id: int, payload: ProductBatchUpdate, db:
     db.refresh(existing_product_batch)
 
     return existing_product_batch
-
 
 
 # ---------------------------------------------------------------------
@@ -207,5 +208,4 @@ def delete_product_batch(product_batch_id: int, db: db_dependency):
     db.delete(existing_product_batch)
     db.commit()
 
-    # 204 NO CONTENT → No body allowed
     return Response(status_code=status.HTTP_204_NO_CONTENT)
