@@ -1,7 +1,7 @@
 from typing import List
 from datetime import datetime
 
-from sqlalchemy import String, BigInteger, TIMESTAMP, ForeignKey
+from sqlalchemy import String, BigInteger, TIMESTAMP
 from sqlalchemy.sql import func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -12,7 +12,8 @@ class ProductMaster(Base):
     __tablename__ = "product_master"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(250), nullable=False)
+    name: Mapped[str] = mapped_column(String(250), nullable=False, unique=True)
+    slug: Mapped[str] = mapped_column(String(250), nullable=False, unique=True, index=True)
     description: Mapped[str] = mapped_column(String(2000), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
@@ -27,4 +28,3 @@ class ProductMaster(Base):
         back_populates="master",
         cascade="all, delete-orphan"
     )
-

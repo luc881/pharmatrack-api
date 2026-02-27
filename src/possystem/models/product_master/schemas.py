@@ -1,8 +1,8 @@
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
-from ..product_categories.schemas import ProductCategoryResponse
+from possystem.utils.slugify import slugify
 from ..products.schemas import ProductSimpleResponse, PaginatedResponse, PaginationParams
 
 
@@ -18,13 +18,19 @@ class ProductMasterBase(BaseModel):
 # 🟢 Create
 # =========================================================
 class ProductMasterCreate(ProductMasterBase):
+    slug: Optional[str] = Field(None, exclude=True)
+
+    @model_validator(mode="after")
+    def generate_slug(self) -> "ProductMasterCreate":
+        self.slug = slugify(self.name)
+        return self
+
     model_config = ConfigDict(
         extra="forbid",
         json_schema_extra={
             "example": {
                 "name": "Paracetamol",
-                "description": "Medicamento analgésico y antipirético.",
-                "product_category_id": 1
+                "description": "Medicamento analgésico y antipirético."
             }
         }
     )
@@ -36,6 +42,13 @@ class ProductMasterCreate(ProductMasterBase):
 class ProductMasterUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=250)
     description: Optional[str] = Field(None, max_length=2000)
+    slug: Optional[str] = Field(None, exclude=True)
+
+    @model_validator(mode="after")
+    def generate_slug_if_name_changed(self) -> "ProductMasterUpdate":
+        if self.name is not None:
+            self.slug = slugify(self.name)
+        return self
 
     model_config = ConfigDict(
         extra="forbid",
@@ -52,9 +65,21 @@ class ProductMasterUpdate(BaseModel):
 # =========================================================
 class ProductMasterResponse(ProductMasterBase):
     id: int
+    slug: str
     created_at: Optional[datetime] = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "id": 1,
+                "name": "Paracetamol",
+                "slug": "paracetamol",
+                "description": "Medicamento analgésico y antipirético.",
+                "created_at": "2024-02-12T10:00:00Z"
+            }
+        }
+    )
 
 
 # =========================================================
