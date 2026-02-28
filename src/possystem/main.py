@@ -1,39 +1,38 @@
 from fastapi import FastAPI
-from .db.session import Base, engine
 from contextlib import asynccontextmanager
-from .api.routes import permissions, roles, users, branches, auth, product_categories, products, sales, sale_payments, sale_details, refund_products, suppliers, purchases, purchase_details, product_batch, sale_batch_usage
-from .api.routes import product_master, product_brand, ingredients
+from .api.routes import (
+    permissions, roles, users, branches, auth,
+    product_categories, products, sales, sale_payments,
+    sale_details, refund_products, suppliers, purchases,
+    purchase_details, product_batch, sale_batch_usage,
+    product_master, product_brand, ingredients
+)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup code
-    # Optionally drop all tables (useful during development)
-    print("🔧 Dropping all tables...")
-    Base.metadata.drop_all(bind=engine)
-    # Create all tables
-    print("🔧 Creating database tables (if not exist)...")
-    Base.metadata.create_all(bind=engine)
-
-    # Optionally, you could call your init_db seeding function here
+    # Startup — las tablas ya las maneja Alembic, solo corremos seeds
+    print("🌱 Running database seeds...")
     from .seeds.init_db import init_db
     init_db()
 
-    yield  # Everything after this is shutdown code
+    yield
 
-    # Shutdown code (if needed)
     print("🛑 Application shutdown")
+
 
 app = FastAPI(lifespan=lifespan)
 
-@app.get('/', tags=["Root"])
+
+@app.get("/", tags=["Root"])
 def root():
-    """Root endpoint."""
     return {"message": "Welcome to the POS System API"}
 
-@app.get('/healthcheck', tags=["Health Check"])
+
+@app.get("/healthcheck", tags=["Health Check"])
 def health_check():
-    """Health check endpoint."""
     return {"status": "ok", "message": "API is running"}
+
 
 app.include_router(auth.router)
 app.include_router(permissions.router)

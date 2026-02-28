@@ -22,7 +22,8 @@ dependencies = [
     "pydantic-extra-types (>=2.10.6,<3.0.0)",
     "phonenumbers (>=9.0.17,<10.0.0)",
     "pydantic-settings (>=2.13.1,<3.0.0)",
-    "python-dotenv (>=1.2.1,<2.0.0)"
+    "python-dotenv (>=1.2.1,<2.0.0)",
+    "alembic (>=1.18.4,<2.0.0)"
 ]
 
 [tool.poetry]
@@ -32,3 +33,7 @@ packages = [{include = "possystem", from = "src"}]
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+reset-db = "possystem.scripts.reset_db:reset_db"
+reset-migrations = "possystem.scripts.reset_migrations:reset_migrations"
