@@ -1,9 +1,14 @@
-from typing import Optional, Union, Annotated
+from typing import Optional, TYPE_CHECKING
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator, model_validator, HttpUrl, SecretStr
-from possystem.types.users import NameStr, SurnameStr, MXPhoneNumber, NumDocStr, DocumentTypeEnum, GenderEnum
 
-# Base schema (campos compartidos)
+from possystem.types.users import NameStr, SurnameStr, MXPhoneNumber, NumDocStr, DocumentTypeEnum, GenderEnum
+from possystem.models.products.schemas import PaginatedResponse, PaginationParams
+
+
+# =========================================================
+# 🔹 Base
+# =========================================================
 class UserBase(BaseModel):
     name: NameStr = Field(..., description="Nombre del usuario")
     surname: Optional[SurnameStr] = Field(None, description="Apellido del usuario")
@@ -18,13 +23,11 @@ class UserBase(BaseModel):
 
     model_config = dict(from_attributes=True)
 
-    @model_validator(mode='before')
+    @model_validator(mode="before")
     @classmethod
     def strip_all_strings(cls, values):
-        # Asegurarse de que siempre sea un diccionario
         if not isinstance(values, dict):
             values = vars(values)
-
         clean = {}
         for key, value in values.items():
             if isinstance(value, str):
@@ -34,8 +37,9 @@ class UserBase(BaseModel):
         return clean
 
 
-
-# Esquema para creación (password obligatorio, email_verified_at y deleted_at no se envían al crear)
+# =========================================================
+# 🟢 Create
+# =========================================================
 class UserCreate(UserBase):
     password: SecretStr = Field(..., min_length=8, max_length=255, description="Contraseña del usuario")
 
@@ -52,8 +56,8 @@ class UserCreate(UserBase):
         return v
 
     model_config = ConfigDict(
-        extra= "forbid",
-        json_schema_extra= {
+        extra="forbid",
+        json_schema_extra={
             "example": {
                 "name": "Juan",
                 "surname": "Pérez",
@@ -70,15 +74,17 @@ class UserCreate(UserBase):
         }
     )
 
-# Esquema para actualización (todos opcionales)
+
+# =========================================================
+# 🟡 Update
+# =========================================================
 class UserUpdate(UserBase):
     name: Optional[NameStr] = Field(None, description="Nombre del usuario")
     email: Optional[EmailStr] = Field(None, max_length=255)
-    # password: Optional[str] = Field(None, min_length=6, max_length=255)
 
     model_config = ConfigDict(
-        extra= "forbid",
-        json_schema_extra= {
+        extra="forbid",
+        json_schema_extra={
             "example": {
                 "name": "Juanito",
                 "email": "juanito.perez@example.com",
@@ -86,7 +92,10 @@ class UserUpdate(UserBase):
         }
     )
 
-# Esquema para respuesta (incluye id, timestamps y relaciones mínimas)
+
+# =========================================================
+# 🔵 Response
+# =========================================================
 class UserResponse(UserBase):
     id: int
     email_verified_at: Optional[datetime] = None
@@ -94,8 +103,8 @@ class UserResponse(UserBase):
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(
-        from_attributes= True,
-        json_schema_extra= {
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "id": 1,
                 "name": "Juan",
@@ -115,13 +124,17 @@ class UserResponse(UserBase):
         }
     )
 
+
+# =========================================================
+# 🧩 Detailed response
+# =========================================================
 class UserDetailsResponse(UserResponse):
-    role: Optional['RoleWithPermissions'] = None
-    branch: Optional['BranchResponse'] = None
+    role: Optional["RoleWithPermissions"] = None
+    branch: Optional["BranchResponse"] = None
 
     model_config = ConfigDict(
-        from_attributes= True,
-        json_schema_extra= {
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "id": 1,
                 "name": "Juan",
@@ -161,6 +174,10 @@ class UserDetailsResponse(UserResponse):
         }
     )
 
+
+# =========================================================
+# 🔍 Search params
+# =========================================================
 class UserSearchParams(BaseModel):
     name: Optional[NameStr] = Field(None, description="Filter by first name")
     surname: Optional[SurnameStr] = Field(None, description="Filter by surname")
@@ -173,7 +190,6 @@ class UserSearchParams(BaseModel):
     type_document: Optional[str] = Field(None, description="Filter by document type")
     n_document: Optional[str] = Field(None, description="Filter by document number")
 
-    # Normaliza los filtros de texto
     @field_validator("name", "surname", "email", "type_document", "n_document", "phone", mode="before")
     def normalize_text(cls, v):
         if isinstance(v, str):
@@ -187,6 +203,9 @@ class UserSearchParams(BaseModel):
         return v
 
 
+# =========================================================
+# 🔐 Change password
+# =========================================================
 class ChangePasswordRequest(BaseModel):
     old_password: SecretStr = Field(...)
     new_password: SecretStr = Field(...)
@@ -203,10 +222,25 @@ class ChangePasswordRequest(BaseModel):
         return v
 
 
-# Forward reference resolution
-from typing import TYPE_CHECKING
-
+# =========================================================
+# 🔁 Forward references
+# =========================================================
 if TYPE_CHECKING:
     from ..roles.schemas import RoleWithPermissions
     from ..branches.schemas import BranchResponse
 
+
+# =========================================================
+# 🔁 Re-exportar para uso en el router
+# =========================================================
+__all__ = [
+    "UserBase",
+    "UserCreate",
+    "UserUpdate",
+    "UserResponse",
+    "UserDetailsResponse",
+    "UserSearchParams",
+    "ChangePasswordRequest",
+    "PaginatedResponse",
+    "PaginationParams",
+]
