@@ -1,34 +1,35 @@
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 import re
 
+from possystem.models.products.schemas import PaginatedResponse, PaginationParams
 
-# Base schemas (shared fields)
+
+# =========================================================
+# 🔹 Base
+# =========================================================
 class RoleBase(BaseModel):
     name: str = Field(..., max_length=255, min_length=1, description="Role name")
 
     @field_validator("name")
     @classmethod
     def strip_lower_and_validate(cls, v: str) -> str:
-        # 1. Limpiar espacios y pasar a minúsculas
         v = v.strip().lower()
-
-        # 2. Validar patrón
         if not re.fullmatch(r"^[a-zA-Z0-9._ ]+$", v):
             raise ValueError("Invalid permission name pattern, only lowercase letters and '.' are allowed")
-
         return v
 
 
-# Request schemas
+# =========================================================
+# 🟢 Create
+# =========================================================
 class RoleCreate(RoleBase):
-    """Schema for creating a new role"""
     permission_ids: Optional[List[int]] = Field(default=[], description="List of permission IDs to assign to this role")
 
     model_config = ConfigDict(
-        extra= "forbid",
-        json_schema_extra= {
+        extra="forbid",
+        json_schema_extra={
             "example": {
                 "name": "admin",
                 "permission_ids": [1, 2, 3]
@@ -37,14 +38,16 @@ class RoleCreate(RoleBase):
     )
 
 
+# =========================================================
+# 🟡 Update
+# =========================================================
 class RoleUpdate(RoleBase):
-    """Schema for updating an existing role"""
     name: Optional[str] = Field(None, max_length=255, min_length=1, description="Role name")
     permission_ids: Optional[List[int]] = Field(None, description="List of permission IDs to assign to this role")
 
     model_config = ConfigDict(
-        extra= "forbid",
-        json_schema_extra= {
+        extra="forbid",
+        json_schema_extra={
             "example": {
                 "name": "admin_updated",
                 "permission_ids": [1, 2, 4]
@@ -53,16 +56,17 @@ class RoleUpdate(RoleBase):
     )
 
 
-# Response schemas
+# =========================================================
+# 🔵 Response
+# =========================================================
 class RoleResponse(RoleBase):
-    """Basic role response without relationships"""
     id: int
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(
-        from_attributes= True,
-        json_schema_extra= {
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "id": 1,
                 "name": "admin",
@@ -70,16 +74,18 @@ class RoleResponse(RoleBase):
                 "updated_at": "2024-06-02T10:00:00"
             }
         }
-)
+    )
 
 
+# =========================================================
+# 🧩 Response con permisos
+# =========================================================
 class RoleWithPermissions(RoleResponse):
-    """Role response with associated permissions"""
     permissions: List["PermissionResponse"] = Field(default_factory=list)
 
     model_config = ConfigDict(
-        from_attributes= True,
-        json_schema_extra= {
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "id": 1,
                 "name": "admin",
@@ -95,11 +101,25 @@ class RoleWithPermissions(RoleResponse):
                 ]
             }
         }
-)
+    )
 
 
-# Forward reference resolution
-from typing import TYPE_CHECKING
-
+# =========================================================
+# 🔁 Forward references
+# =========================================================
 if TYPE_CHECKING:
     from ..permissions.schemas import PermissionResponse
+
+
+# =========================================================
+# 🔁 Re-exportar para uso en el router
+# =========================================================
+__all__ = [
+    "RoleBase",
+    "RoleCreate",
+    "RoleUpdate",
+    "RoleResponse",
+    "RoleWithPermissions",
+    "PaginatedResponse",
+    "PaginationParams",
+]
