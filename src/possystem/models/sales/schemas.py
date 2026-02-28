@@ -1,12 +1,14 @@
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 from decimal import Decimal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
+
+from possystem.models.products.schemas import PaginatedResponse, PaginationParams
 
 
-# -----------------------
-# Base schema (shared fields)
-# -----------------------
+# =========================================================
+# 🔹 Base
+# =========================================================
 class SaleBase(BaseModel):
     user_id: int = Field(..., gt=0, description="ID del usuario que realizó la venta")
     branch_id: int = Field(..., gt=0, description="ID de la sucursal")
@@ -24,29 +26,29 @@ class SaleBase(BaseModel):
     description: Optional[str] = Field(None, description="Descripción de la venta")
 
 
-# -----------------------
-# Create schema
-# -----------------------
+# =========================================================
+# 🟢 Create
+# =========================================================
 class SaleCreate(BaseModel):
     user_id: int = Field(..., gt=0)
     branch_id: int = Field(..., gt=0)
     description: Optional[str] = None
 
-    model_config = {
-        "extra": "forbid",
-        "json_schema_extra": {
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
             "example": {
                 "user_id": 1,
                 "branch_id": 2,
                 "description": "Venta de medicamentos varios"
             }
         }
-    }
+    )
 
 
-# -----------------------
-# Update schema (all optional)
-# -----------------------
+# =========================================================
+# 🟡 Update
+# =========================================================
 class SaleUpdate(BaseModel):
     user_id: Optional[int] = Field(None, gt=0)
     branch_id: Optional[int] = Field(None, gt=0)
@@ -62,29 +64,29 @@ class SaleUpdate(BaseModel):
 
     description: Optional[str] = None
 
-    model_config = {
-        "extra": "forbid",
-        "json_schema_extra": {
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
             "example": {
                 "status": "cancelled",
                 "description": "Venta cancelada por error"
             }
         }
-    }
+    )
 
 
-# -----------------------
-# Response schema
-# -----------------------
+# =========================================================
+# 🔵 Response
+# =========================================================
 class SaleResponse(SaleBase):
     id: int
     date_sale: datetime
     created_at: datetime
     updated_at: datetime
 
-    model_config = {
-        "from_attributes": True,
-        "json_schema_extra": {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "id": 15,
                 "user_id": 1,
@@ -100,19 +102,19 @@ class SaleResponse(SaleBase):
                 "updated_at": "2025-02-10T14:30:00"
             }
         }
-    }
+    )
 
 
-# -----------------------
-# Response with relations
-# -----------------------
+# =========================================================
+# 🧩 Response con relaciones
+# =========================================================
 class SaleDetailResponse(SaleResponse):
     user: Optional["UserResponse"] = None
     branch: Optional["BranchResponse"] = None
 
-    model_config = {
-        "from_attributes": True,
-        "json_schema_extra": {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "id": 15,
                 "total": "111.00",
@@ -127,12 +129,12 @@ class SaleDetailResponse(SaleResponse):
                 }
             }
         }
-    }
+    )
 
 
-# -----------------------
-# Search params
-# -----------------------
+# =========================================================
+# 🔍 Search params
+# =========================================================
 class SaleSearchParams(BaseModel):
     user_id: Optional[int] = Field(None, gt=0, description="Filtrar por usuario")
     branch_id: Optional[int] = Field(None, gt=0, description="Filtrar por sucursal")
@@ -143,10 +145,24 @@ class SaleSearchParams(BaseModel):
     date_to: Optional[datetime] = Field(None, description="Fecha fin")
 
 
-# -----------------------
-# Forward references
-# -----------------------
-from typing import TYPE_CHECKING
+# =========================================================
+# 🔁 Forward references
+# =========================================================
 if TYPE_CHECKING:
     from ..users.schemas import UserResponse
     from ..branches.schemas import BranchResponse
+
+
+# =========================================================
+# 🔁 Re-exportar para uso en el router
+# =========================================================
+__all__ = [
+    "SaleBase",
+    "SaleCreate",
+    "SaleUpdate",
+    "SaleResponse",
+    "SaleDetailResponse",
+    "SaleSearchParams",
+    "PaginatedResponse",
+    "PaginationParams",
+]
