@@ -9,6 +9,8 @@ from ...models.product_categories.schemas import (
     ProductCategoryResponse,
     ProductCategoryUpdate,
     ProductCategoryTreeResponse,
+    PaginatedResponse,
+    PaginationParams,
 )
 from ...utils.permissions import (
     CAN_READ_PRODUCT_CATEGORIES,
@@ -18,6 +20,7 @@ from ...utils.permissions import (
 )
 from ...utils.product_categories_tree import build_category_tree, check_category_cycle
 from ...utils.category_slug import build_category_slug, rebuild_children_slugs
+from possystem.utils.pagination import paginate
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
@@ -31,16 +34,17 @@ router = APIRouter(
 # GET /
 # =========================================================
 @router.get("/",
-            response_model=list[ProductCategoryResponse],
+            response_model=PaginatedResponse[ProductCategoryResponse],
             summary="List all product categories",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCT_CATEGORIES)
-async def read_all(db: db_dependency):
-    return db.query(ProductCategory).all()
+async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
+    query = db.query(ProductCategory).order_by(ProductCategory.name.asc())
+    return paginate(query, pagination)
 
 
 # =========================================================
-# GET /tree
+# GET /tree  — sin paginar (árbol completo siempre)
 # =========================================================
 @router.get("/tree",
             response_model=list[ProductCategoryTreeResponse],
@@ -54,10 +58,13 @@ async def get_category_tree(db: db_dependency):
 # GET /roots
 # =========================================================
 @router.get("/roots",
-            response_model=list[ProductCategoryResponse],
+            response_model=PaginatedResponse[ProductCategoryResponse],
             summary="Get root categories")
-async def get_root_categories(db: db_dependency):
-    return db.query(ProductCategory).filter(ProductCategory.parent_id.is_(None)).all()
+async def get_root_categories(db: db_dependency, pagination: PaginationParams = Depends()):
+    query = db.query(ProductCategory).filter(
+        ProductCategory.parent_id.is_(None)
+    ).order_by(ProductCategory.name.asc())
+    return paginate(query, pagination)
 
 
 # =========================================================
@@ -76,7 +83,7 @@ async def read_one(category_id: int, db: db_dependency):
 
 
 # =========================================================
-# GET /{category_id}/tree
+# GET /{category_id}/tree  — sin paginar (subárbol siempre completo)
 # =========================================================
 @router.get("/{category_id}/tree",
             response_model=ProductCategoryTreeResponse,
@@ -108,17 +115,13 @@ async def get_subtree(category_id: int, db: db_dependency):
              status_code=status.HTTP_201_CREATED,
              dependencies=CAN_CREATE_PRODUCT_CATEGORIES)
 async def create(product_category: ProductCategoryCreate, db: db_dependency):
-
-    # Validate parent exists
     if product_category.parent_id is not None:
         parent = db.get(ProductCategory, product_category.parent_id)
         if not parent:
             raise HTTPException(status_code=400, detail="Parent category not found.")
 
-    # Build full-path slug before duplicate check
     slug = build_category_slug(product_category.name, product_category.parent_id, db)
 
-    # Check duplicate slug (covers same-name + same-path)
     if db.query(ProductCategory).filter(ProductCategory.slug == slug).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -144,12 +147,10 @@ async def create(product_category: ProductCategoryCreate, db: db_dependency):
             status_code=status.HTTP_200_OK,
             dependencies=CAN_UPDATE_PRODUCT_CATEGORIES)
 async def update(category_id: int, product_category: ProductCategoryUpdate, db: db_dependency):
-
     existing_category = db.get(ProductCategory, category_id)
     if not existing_category:
         raise HTTPException(status_code=404, detail="Product category not found.")
 
-    # --- Parent validation ---
     if product_category.parent_id is not None:
         if product_category.parent_id == category_id:
             raise HTTPException(status_code=400, detail="Category cannot be its own parent.")
@@ -160,7 +161,6 @@ async def update(category_id: int, product_category: ProductCategoryUpdate, db: 
 
         check_category_cycle(db, category_id, product_category.parent_id)
 
-    # --- Determine final name and parent for slug calculation ---
     final_name = product_category.name or existing_category.name
     final_parent_id = (
         product_category.parent_id
@@ -171,11 +171,9 @@ async def update(category_id: int, product_category: ProductCategoryUpdate, db: 
     name_changed = product_category.name is not None and product_category.name != existing_category.name
     parent_changed = product_category.parent_id is not None and product_category.parent_id != existing_category.parent_id
 
-    # --- Recalculate slug only if name or parent changed ---
     if name_changed or parent_changed:
         new_slug = build_category_slug(final_name, final_parent_id, db)
 
-        # Check slug conflict against other records
         conflict = db.query(ProductCategory).filter(
             ProductCategory.slug == new_slug,
             ProductCategory.id != category_id
@@ -187,13 +185,9 @@ async def update(category_id: int, product_category: ProductCategoryUpdate, db: 
             )
 
         existing_category.slug = new_slug
-
-        # ⚠️ Cascade slug update to all descendants
-        # because their full-path slugs contain this category's segment
         db.flush()
         rebuild_children_slugs(category_id, db)
 
-    # --- Apply remaining field updates ---
     update_data = product_category.model_dump(exclude_unset=True, mode="json")
     for key, value in update_data.items():
         setattr(existing_category, key, value)

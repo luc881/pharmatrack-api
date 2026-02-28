@@ -7,6 +7,7 @@ from ...types.products_categories import (
     CategoryImageURL,
     IsCategoryActiveFlag
 )
+from ..products.schemas import PaginatedResponse, PaginationParams
 
 
 # =========================================================
@@ -120,7 +121,23 @@ class ProductCategorySearchParams(BaseModel):
 if TYPE_CHECKING:
     from ..products.schemas import ProductResponse
 
-from ..products.schemas import ProductResponse
+from ..products.schemas import ProductResponse  # noqa: E402
 
 ProductCategoryTreeResponse.model_rebuild()
 ProductCategoryDetailsResponse.model_rebuild()
+
+
+# =========================================================
+# 🔁 Re-exportar para uso en el router
+# =========================================================
+__all__ = [
+    "ProductCategoryBase",
+    "ProductCategoryCreate",
+    "ProductCategoryUpdate",
+    "ProductCategoryResponse",
+    "ProductCategoryTreeResponse",
+    "ProductCategoryDetailsResponse",
+    "ProductCategorySearchParams",
+    "PaginatedResponse",
+    "PaginationParams",
+]
