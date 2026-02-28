@@ -12,11 +12,13 @@ from ...models.product_brand.schemas import (
     ProductBrandUpdate,
     ProductBrandSearchParams,
     ProductBrandDetailsResponse,
+    PaginatedResponse,
+    PaginationParams,
 )
 from ...models.products.orm import Product
+from possystem.utils.pagination import paginate
 
 db_dependency = Annotated[Session, Depends(get_db)]
-
 
 router = APIRouter(
     prefix="/productsbrand",
@@ -25,24 +27,26 @@ router = APIRouter(
 
 
 @router.get("/",
-            response_model=list[ProductBrandResponse],
+            response_model=PaginatedResponse[ProductBrandResponse],
             summary="List all product brands",
             description="Retrieve all product brands currently stored in the database.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCT_BRANDS)
-async def read_all(db: db_dependency):
-    return db.query(ProductBrand).order_by(ProductBrand.name.asc()).all()
+async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
+    query = db.query(ProductBrand).order_by(ProductBrand.name.asc())
+    return paginate(query, pagination)
 
 
 @router.get("/search/",
-            response_model=list[ProductBrandDetailsResponse],
+            response_model=PaginatedResponse[ProductBrandDetailsResponse],
             summary="Search product brands with filters",
             description="Advanced filtering of product brands, including product attributes.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCT_BRANDS)
 async def search_brands(
+    db: db_dependency,
     params: ProductBrandSearchParams = Depends(),
-    db: db_dependency = None
+    pagination: PaginationParams = Depends()
 ):
     query = db.query(ProductBrand)
 
@@ -72,7 +76,8 @@ async def search_brands(
                  .having(func.count(Product.id) >= params.min_products)
         )
 
-    return query.distinct().all()
+    # distinct() para evitar duplicados por los joins
+    return paginate(query.distinct(), pagination)
 
 
 @router.get("/{brand_id}",
@@ -98,7 +103,6 @@ async def read_brand(brand_id: int, db: db_dependency):
              status_code=status.HTTP_201_CREATED,
              dependencies=CAN_CREATE_PRODUCT_BRANDS)
 async def create_brand(payload: ProductBrandCreate, db: db_dependency):
-    # Duplicate check via slug (handles case and accent variants)
     existing = db.query(ProductBrand).filter(
         ProductBrand.slug == payload.slug
     ).first()
@@ -129,7 +133,6 @@ async def update_brand(brand_id: int, payload: ProductBrandUpdate, db: db_depend
             detail=f"Brand with id {brand_id} not found."
         )
 
-    # Si el nombre cambió, verificar que el nuevo slug no esté en uso
     if payload.slug and payload.slug != brand.slug:
         existing = db.query(ProductBrand).filter(
             ProductBrand.slug == payload.slug,

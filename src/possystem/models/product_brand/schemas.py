@@ -1,9 +1,9 @@
 from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 from possystem.utils.slugify import slugify
-from ..products.schemas import ProductSimpleResponse
+from ..products.schemas import ProductSimpleResponse, PaginatedResponse, PaginationParams
 
 
 # =========================================================
@@ -105,13 +105,6 @@ class ProductBrandDetailsResponse(ProductBrandResponse):
                         "sku": "PARA500",
                         "price_retail": 25.0,
                         "is_active": True
-                    },
-                    {
-                        "id": 11,
-                        "title": "Ibuprofeno 400mg",
-                        "sku": "IBU400",
-                        "price_retail": 45.5,
-                        "is_active": True
                     }
                 ]
             }
@@ -129,24 +122,20 @@ class ProductBrandSearchParams(BaseModel):
         max_length=200,
         description="Texto parcial para buscar en el nombre de la marca (ILIKE)"
     )
-
     has_logo: Optional[bool] = Field(
         None,
         description="Filtrar si la marca tiene logo (True) o no (False)"
     )
-
     is_active: Optional[bool] = Field(
         None,
         description="Filtrar solo las marcas cuyos productos activos/inactivos existan"
     )
-
     product_title: Optional[str] = Field(
         None,
         min_length=1,
         max_length=100,
         description="Buscar marcas que contengan un producto con un título que haga match (ILIKE)"
     )
-
     min_products: Optional[int] = Field(
         None,
         ge=0,
@@ -172,3 +161,18 @@ class ProductBrandSearchParams(BaseModel):
 # =========================================================
 if TYPE_CHECKING:
     from ..products.schemas import ProductSimpleResponse
+
+
+# =========================================================
+# 🔁 Re-exportar para uso en el router
+# =========================================================
+__all__ = [
+    "ProductBrandBase",
+    "ProductBrandCreate",
+    "ProductBrandUpdate",
+    "ProductBrandResponse",
+    "ProductBrandDetailsResponse",
+    "ProductBrandSearchParams",
+    "PaginatedResponse",
+    "PaginationParams",
+]
