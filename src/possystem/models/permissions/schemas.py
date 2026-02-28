@@ -1,35 +1,35 @@
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 import re
 
+from possystem.models.products.schemas import PaginatedResponse, PaginationParams
 
+
+# =========================================================
+# 🔹 Base
+# =========================================================
 class PermissionBase(BaseModel):
     name: str = Field(..., max_length=255, min_length=1, description="Permission name")
 
-    model_config = dict(from_attributes=True)  # compatible con objetos ORM
+    model_config = dict(from_attributes=True)
 
     @field_validator("name")
     @classmethod
     def strip_lower_and_validate(cls, v: str) -> str:
-        # 1. Limpiar espacios y pasar a minúsculas
         v = v.strip().lower()
-
-        # 2. Validar patrón
         if not re.fullmatch(r"^[a-z.]+$", v):
             raise ValueError("Invalid permission name pattern, only lowercase letters and '.' are allowed")
-
         return v
 
 
-
-# Request schemas
+# =========================================================
+# 🟢 Create
+# =========================================================
 class PermissionCreate(PermissionBase):
-    """Schema for creating a new permission"""
-
     model_config = ConfigDict(
-        extra= "forbid",
-        json_schema_extra= {
+        extra="forbid",
+        json_schema_extra={
             "example": {
                 "name": "edit_users"
             }
@@ -37,8 +37,10 @@ class PermissionCreate(PermissionBase):
     )
 
 
+# =========================================================
+# 🟡 Update
+# =========================================================
 class PermissionUpdate(PermissionBase):
-    """Schema for updating an existing permission"""
     name: Optional[str] = Field(None, max_length=255, min_length=1, description="Permission name")
 
     model_config = ConfigDict(
@@ -51,16 +53,17 @@ class PermissionUpdate(PermissionBase):
     )
 
 
-# Response schemas
+# =========================================================
+# 🔵 Response
+# =========================================================
 class PermissionResponse(PermissionBase):
-    """Basic permission response without relationships"""
     id: int
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(
-        from_attributes= True,
-        json_schema_extra= {
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "id": 1,
                 "name": "edit_users",
@@ -71,8 +74,10 @@ class PermissionResponse(PermissionBase):
     )
 
 
+# =========================================================
+# 🧩 Response con roles
+# =========================================================
 class PermissionWithRoles(PermissionResponse):
-    """Permission response with associated roles"""
     roles: List["RoleResponse"] = []
 
     model_config = ConfigDict(
@@ -96,8 +101,22 @@ class PermissionWithRoles(PermissionResponse):
     )
 
 
-# Forward reference resolution will be handled after importing RoleResponse
-from typing import TYPE_CHECKING
-
+# =========================================================
+# 🔁 Forward references
+# =========================================================
 if TYPE_CHECKING:
     from ..roles.schemas import RoleResponse
+
+
+# =========================================================
+# 🔁 Re-exportar para uso en el router
+# =========================================================
+__all__ = [
+    "PermissionBase",
+    "PermissionCreate",
+    "PermissionUpdate",
+    "PermissionResponse",
+    "PermissionWithRoles",
+    "PaginatedResponse",
+    "PaginationParams",
+]
