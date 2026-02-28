@@ -2,13 +2,14 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 import logging
 
 from .config import settings
 from .logging_config import setup_logging
 
 # ✅ Debe llamarse ANTES de importar los routers
-# para que todos sus loggers ya estén configurados al crearse
 setup_logging()
 
 from .api.routes import (
@@ -18,9 +19,10 @@ from .api.routes import (
     purchase_details, product_batch, sale_batch_usage,
     product_master, product_brand, ingredients
 )
+from .utils.rate_limit import limiter
 
 # =========================================================
-# 🔹 Logger de este módulo
+# 🔹 Logger
 # =========================================================
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,12 @@ async def lifespan(app: FastAPI):
 # 🔹 App
 # =========================================================
 app = FastAPI(lifespan=lifespan)
+
+# Registrar el limiter en el estado de la app
+app.state.limiter = limiter
+
+# Handler cuando se supera el límite → devuelve 429 Too Many Requests
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 # =========================================================
