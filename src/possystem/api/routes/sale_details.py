@@ -2,12 +2,16 @@ from fastapi import Depends, HTTPException, APIRouter
 from typing import Annotated
 from sqlalchemy.orm import Session
 from starlette import status
+from decimal import Decimal
 
 from ...db.session import get_db
 from ...models.sale_details.schemas import (
     SaleDetailCreate,
     SaleDetailResponse,
     SaleDetailUpdate,
+    SaleDetailSearchParams,
+    PaginatedResponse,
+    PaginationParams,
 )
 from ...models.sale_details.orm import SaleDetail
 from ...models.sales.orm import Sale
@@ -19,7 +23,7 @@ from ...utils.permissions import (
     CAN_DELETE_SALE_DETAILS,
 )
 from ...utils.sales_calculations import recalc_sale_totals
-from decimal import Decimal
+from possystem.utils.pagination import paginate
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
@@ -28,27 +32,51 @@ router = APIRouter(
     tags=["Sale Details"]
 )
 
-# -----------------------
-# GET ALL
-# -----------------------
+
+# =========================================================
+# GET /
+# =========================================================
 @router.get(
     "/",
-    response_model=list[SaleDetailResponse],
+    response_model=PaginatedResponse[SaleDetailResponse],
     summary="List all sale details",
     status_code=status.HTTP_200_OK,
     dependencies=CAN_READ_SALE_DETAILS,
 )
-def read_all(db: db_dependency):
-    return db.query(SaleDetail).all()
+def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
+    query = db.query(SaleDetail).order_by(SaleDetail.id.desc())
+    return paginate(query, pagination)
 
 
-# -----------------------
-# CREATE
-# -----------------------
+# =========================================================
+# GET /search
+# =========================================================
+@router.get(
+    "/search",
+    response_model=PaginatedResponse[SaleDetailResponse],
+    summary="Search sale details by sale or product",
+    description="Filter sale details by sale_id or product_id.",
+    status_code=status.HTTP_200_OK,
+    dependencies=CAN_READ_SALE_DETAILS,
+)
+def search_sale_details(
+    db: db_dependency,
+    params: SaleDetailSearchParams = Depends(),
+    pagination: PaginationParams = Depends(),
+):
+    query = db.query(SaleDetail)
+
+    if params.sale_id:
+        query = query.filter(SaleDetail.sale_id == params.sale_id)
+    if params.product_id:
+        query = query.filter(SaleDetail.product_id == params.product_id)
+
+    return paginate(query.order_by(SaleDetail.id.desc()), pagination)
 
 
-from decimal import Decimal
-
+# =========================================================
+# POST /
+# =========================================================
 @router.post(
     "/",
     response_model=SaleDetailResponse,
@@ -56,7 +84,6 @@ from decimal import Decimal
     dependencies=CAN_CREATE_SALE_DETAILS,
 )
 def create(sale_detail: SaleDetailCreate, db: db_dependency):
-
     sale = db.query(Sale).filter(Sale.id == sale_detail.sale_id).first()
     if not sale:
         raise HTTPException(status_code=404, detail="Associated sale not found")
@@ -71,15 +98,11 @@ def create(sale_detail: SaleDetailCreate, db: db_dependency):
     if not product:
         raise HTTPException(status_code=404, detail="Associated product not found")
 
-    # 🧠 Precio SIEMPRE del producto
     price_unit = Decimal(product.price_retail)
-
-    # 🔢 Subtotal
     line_subtotal = (price_unit * Decimal(sale_detail.quantity)) - Decimal(
         sale_detail.discount or 0
     )
 
-    # 🧾 Impuesto automático (si aplica)
     tax = Decimal(0)
     if product.tax_percentage:
         tax = (line_subtotal * Decimal(product.tax_percentage)) / Decimal(100)
@@ -99,33 +122,21 @@ def create(sale_detail: SaleDetailCreate, db: db_dependency):
 
     db.add(new_detail)
     db.flush()
-
-    # 🔁 Recalcular venta
     recalc_sale_totals(db, sale)
-
     db.commit()
     db.refresh(new_detail)
-
     return new_detail
 
 
-
-
-# -----------------------
-# UPDATE
-# -----------------------
-
-
+# =========================================================
+# PUT /{sale_detail_id}
+# =========================================================
 @router.put(
     "/{sale_detail_id}",
     response_model=SaleDetailResponse,
     dependencies=CAN_UPDATE_SALE_DETAILS,
 )
-def update(
-    sale_detail_id: int,
-    sale_detail: SaleDetailUpdate,
-    db: db_dependency,
-):
+def update(sale_detail_id: int, sale_detail: SaleDetailUpdate, db: db_dependency):
     detail = db.query(SaleDetail).filter(SaleDetail.id == sale_detail_id).first()
     if not detail:
         raise HTTPException(status_code=404, detail="Sale detail not found")
@@ -138,35 +149,22 @@ def update(
         )
 
     data = sale_detail.model_dump(exclude_unset=True)
-
     product = detail.product
 
-    # 🔁 Cambio de producto
     if "product_id" in data:
-        product = db.query(Product).filter(
-            Product.id == data["product_id"]
-        ).first()
-
+        product = db.query(Product).filter(Product.id == data["product_id"]).first()
         if not product:
-            raise HTTPException(
-                status_code=404,
-                detail="Associated product not found",
-            )
-
+            raise HTTPException(status_code=404, detail="Associated product not found")
         detail.product_id = product.id
         detail.price_unit = Decimal(product.price_retail)
 
-    # 🔁 Otros campos
     if "quantity" in data:
         detail.quantity = data["quantity"]
-
     if "discount" in data:
         detail.discount = data["discount"]
-
     if "description" in data:
         detail.description = data["description"]
 
-    # 🔥 Recalcular línea
     line_subtotal = (detail.price_unit * detail.quantity) - detail.discount
 
     tax = Decimal(0)
@@ -176,22 +174,15 @@ def update(
     detail.tax = tax
     detail.total = line_subtotal + tax
 
-    # 🔁 Recalcular venta
     recalc_sale_totals(db, sale)
-
     db.commit()
     db.refresh(detail)
-
     return detail
 
 
-
-
-
-
-# -----------------------
-# DELETE (HARD DELETE)
-# -----------------------
+# =========================================================
+# DELETE /{sale_detail_id}
+# =========================================================
 @router.delete(
     "/{sale_detail_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -211,9 +202,5 @@ def delete(sale_detail_id: int, db: db_dependency):
 
     db.delete(detail)
     db.flush()
-
-    # 🔁 Recalcular venta
     recalc_sale_totals(db, sale)
-
     db.commit()
-
