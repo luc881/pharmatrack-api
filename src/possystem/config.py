@@ -3,6 +3,12 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
+    # CORS
+    allowed_origins: list[str] = ["*"]
+
+    # Logging
+    log_level: str = "DEBUG"
+
     # 🗄️ Database
     database_url: str
 

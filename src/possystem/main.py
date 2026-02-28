@@ -1,5 +1,16 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import logging
+
+from .config import settings
+from .logging_config import setup_logging
+
+# ✅ Debe llamarse ANTES de importar los routers
+# para que todos sus loggers ya estén configurados al crearse
+setup_logging()
+
 from .api.routes import (
     permissions, roles, users, branches, auth,
     product_categories, products, sales, sale_payments,
@@ -8,22 +19,65 @@ from .api.routes import (
     product_master, product_brand, ingredients
 )
 
+# =========================================================
+# 🔹 Logger de este módulo
+# =========================================================
+logger = logging.getLogger(__name__)
 
+
+# =========================================================
+# 🔹 Lifespan
+# =========================================================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup — las tablas ya las maneja Alembic, solo corremos seeds
-    print("🌱 Running database seeds...")
+    logger.info("🌱 Running database seeds...")
     from .seeds.init_db import init_db
     init_db()
-
     yield
+    logger.info("🛑 Application shutdown")
 
-    print("🛑 Application shutdown")
 
-
+# =========================================================
+# 🔹 App
+# =========================================================
 app = FastAPI(lifespan=lifespan)
 
 
+# =========================================================
+# 🔹 CORS
+# =========================================================
+if settings.is_production:
+    allowed_origins = settings.allowed_origins
+else:
+    allowed_origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# =========================================================
+# 🔹 Manejo global de excepciones
+# =========================================================
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(
+        f"Unhandled error on {request.method} {request.url}: {exc}",
+        exc_info=True
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"}
+    )
+
+
+# =========================================================
+# 🔹 Endpoints base
+# =========================================================
 @app.get("/", tags=["Root"])
 def root():
     return {"message": "Welcome to the POS System API"}
@@ -34,6 +88,9 @@ def health_check():
     return {"status": "ok", "message": "API is running"}
 
 
+# =========================================================
+# 🔹 Routers
+# =========================================================
 app.include_router(auth.router)
 app.include_router(permissions.router)
 app.include_router(roles.router)
