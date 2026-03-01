@@ -12,10 +12,12 @@ API REST para gestión de inventario y ventas de una farmacia, desarrollada con 
 - **Alembic** — migraciones de base de datos
 - **PostgreSQL** — base de datos
 - **Pydantic v2** — validación de datos
+- **pydantic-settings** — gestión de variables de entorno
 - **Poetry** — gestión de dependencias
 - **JWT (python-jose)** — autenticación
 - **Passlib + Bcrypt** — hashing de contraseñas
 - **Uvicorn** — servidor ASGI
+- **SlowAPI** — rate limiting
 
 ---
 
@@ -26,6 +28,7 @@ POSSystem/
 ├── migrations/              # Migraciones de Alembic
 │   ├── versions/
 │   └── env.py
+├── logs/                    # Logs locales (solo desarrollo, gitignored)
 ├── src/possystem/
 │   ├── api/routes/          # Endpoints por módulo
 │   ├── db/
@@ -40,11 +43,19 @@ POSSystem/
 │   │   └── reset_migrations.py
 │   ├── seeds/               # Datos iniciales
 │   ├── types/               # Tipos personalizados de Pydantic
-│   ├── utils/               # Helpers (paginación, permisos, seguridad, etc.)
+│   ├── utils/               # Helpers
+│   │   ├── pagination.py    # Paginación genérica
+│   │   ├── permissions.py   # Dependencias de permisos
+│   │   ├── rate_limit.py    # Configuración de rate limiting
+│   │   ├── logger.py        # Helper de logging
+│   │   ├── security.py      # JWT y autenticación
+│   │   └── validators.py    # Validaciones de negocio
 │   ├── config.py            # Settings con pydantic-settings
+│   ├── logging_config.py    # Configuración del sistema de logs
 │   └── main.py
 ├── .env.example
 ├── alembic.ini
+├── Procfile
 └── pyproject.toml
 ```
 
@@ -80,11 +91,20 @@ cp .env.example .env
 Edita el `.env` con tus valores:
 
 ```env
+# Base de datos
 DATABASE_URL=postgresql://usuario:password@localhost/nombre_bd
+
+# JWT
 SECRET_KEY=tu_clave_secreta_aqui
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# App
 ENVIRONMENT=development
+LOG_LEVEL=DEBUG
+
+# CORS (solo necesario en producción)
+# ALLOWED_ORIGINS=["https://tu-frontend.com"]
 ```
 
 Para generar una `SECRET_KEY` segura:
@@ -143,27 +163,18 @@ Authorization: Bearer <token>
 
 ---
 
-## 📦 Módulos principales
+## 🚦 Rate Limiting
 
-| Módulo | Prefijo | Descripción |
+Los endpoints están protegidos contra abuso con los siguientes límites por IP:
+
+| Tipo | Límite | Aplica en |
 |---|---|---|
-| Auth | `/auth` | Login y generación de tokens |
-| Users | `/users` | Gestión de usuarios |
-| Roles | `/roles` | Roles y asignación de permisos |
-| Permissions | `/permissions` | Catálogo de permisos |
-| Products | `/products` | Catálogo de productos |
-| Product Batches | `/productsbatches` | Lotes con fecha de caducidad y stock |
-| Product Categories | `/productscategories` | Árbol jerárquico de categorías |
-| Product Brand | `/productsbrand` | Marcas de productos |
-| Product Master | `/productsmaster` | Productos genéricos (maestros) |
-| Ingredients | `/ingredients` | Ingredientes activos |
-| Sales | `/sales` | Ventas (draft → completed) |
-| Sale Details | `/saledetails` | Líneas de detalle de venta |
-| Sale Payments | `/salepayments` | Pagos asociados a ventas |
-| Refund Products | `/refundproducts` | Devoluciones |
-| Suppliers | `/suppliers` | Proveedores |
-| Purchases | `/purchases` | Órdenes de compra |
-| Branches | `/branches` | Sucursales |
+| Autenticación | 5 / minuto | `POST /auth/token` |
+| Lectura | 60 / minuto | `GET /` en todos los módulos |
+| Búsqueda | 40 / minuto | `GET /search` en todos los módulos |
+| Escritura | 30 / minuto | `POST`, `PUT`, `DELETE` |
+
+Cuando se supera el límite la API responde con `429 Too Many Requests`.
 
 ---
 
@@ -191,6 +202,43 @@ Respuesta:
 
 ---
 
+## 📦 Módulos principales
+
+| Módulo | Prefijo | Descripción |
+|---|---|---|
+| Auth | `/auth` | Login y generación de tokens |
+| Users | `/users` | Gestión de usuarios |
+| Roles | `/roles` | Roles y asignación de permisos |
+| Permissions | `/permissions` | Catálogo de permisos |
+| Products | `/products` | Catálogo de productos |
+| Product Batches | `/productsbatches` | Lotes con fecha de caducidad y stock |
+| Product Categories | `/productscategories` | Árbol jerárquico de categorías |
+| Product Brand | `/productsbrand` | Marcas de productos |
+| Product Master | `/productsmaster` | Productos genéricos (maestros) |
+| Ingredients | `/ingredients` | Ingredientes activos |
+| Sales | `/sales` | Ventas (draft → completed) |
+| Sale Details | `/saledetails` | Líneas de detalle de venta |
+| Sale Payments | `/salepayments` | Pagos asociados a ventas |
+| Refund Products | `/refundproducts` | Devoluciones |
+| Suppliers | `/suppliers` | Proveedores |
+| Purchases | `/purchases` | Órdenes de compra |
+| Branches | `/branches` | Sucursales |
+
+---
+
+## 📋 Logging
+
+El sistema de logs se configura automáticamente según el entorno:
+
+| Entorno | Nivel | Destino |
+|---|---|---|
+| `development` | `DEBUG` | Consola + `logs/app.log` |
+| `production` | `INFO` | Consola (Railway logs) |
+
+Los archivos de log rotan automáticamente cada 5MB conservando los últimos 3 archivos.
+
+---
+
 ## 🗄️ Migraciones con Alembic
 
 ```bash
@@ -214,10 +262,22 @@ alembic downgrade -1
 1. Crea un nuevo proyecto en [Railway](https://railway.app)
 2. Conecta tu repositorio
 3. Agrega las variables de entorno del `.env.example` en el panel de Railway
-4. Railway detecta el `Procfile` automáticamente
+4. El `Procfile` incluido arranca la app automáticamente:
 
 ```
 web: alembic upgrade head && uvicorn possystem.main:app --host 0.0.0.0 --port $PORT
+```
+
+### Variables requeridas en Railway
+
+```env
+DATABASE_URL=postgresql://...
+SECRET_KEY=...
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+ENVIRONMENT=production
+LOG_LEVEL=INFO
+ALLOWED_ORIGINS=["https://tu-frontend.com"]
 ```
 
 ---

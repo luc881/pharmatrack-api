@@ -3,22 +3,36 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    # CORS
-    allowed_origins: list[str] = ["*"]
-
-    # Logging
-    log_level: str = "DEBUG"
-
+    # =========================================================
     # 🗄️ Database
+    # =========================================================
     database_url: str
 
+    # =========================================================
     # 🔐 JWT / Security
+    # =========================================================
     secret_key: str
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 
+    # =========================================================
     # 🌍 App
+    # =========================================================
     environment: str = "development"
+
+    # =========================================================
+    # 🔒 CORS
+    # =========================================================
+    allowed_origins: list[str] = ["*"]
+
+    # =========================================================
+    # 📋 Logging
+    # =========================================================
+    log_level: str = "DEBUG"
+
+    # WARNING por defecto — silencia las queries de SQLAlchemy
+    # Cambia a INFO en .env solo cuando necesites debuggear queries
+    sqlalchemy_log_level: str = "WARNING"
 
     @property
     def is_production(self) -> bool:

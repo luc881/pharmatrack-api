@@ -8,6 +8,7 @@ from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from datetime import timedelta, datetime, timezone
 from jose import jwt, JWTError
+import secrets
 from possystem.config import settings
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -16,7 +17,15 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 oauth2_dependency = Annotated[str, Depends(oauth2_scheme)]
 auth_dependency = Annotated[OAuth2PasswordRequestForm, Depends()]
 
+# =========================================================
+# 🔹 Constantes
+# =========================================================
+REFRESH_TOKEN_EXPIRE_DAYS = 7
 
+
+# =========================================================
+# 🔹 Autenticación
+# =========================================================
 def authenticate_user(db, email: str, password: str):
     user_model = db.query(User).filter(User.email == email).first()
     if not user_model or not bcrypt_context.verify(password, user_model.password):
@@ -24,6 +33,9 @@ def authenticate_user(db, email: str, password: str):
     return user_model
 
 
+# =========================================================
+# 🔹 Access Token (JWT)
+# =========================================================
 def create_jwt_token(username: str, user_id: int, role: str, expires_delta: timedelta):
     encode = {
         "sub": username,
@@ -56,6 +68,50 @@ async def decode_jwt_token(token: oauth2_dependency):
 user_dependency = Annotated[dict, Depends(decode_jwt_token)]
 
 
+# =========================================================
+# 🔹 Refresh Token
+# =========================================================
+def create_refresh_token() -> str:
+    """
+    Genera un token aleatorio seguro para usar como refresh token.
+    No es JWT — es un string opaco guardado en la BD.
+    """
+    return secrets.token_urlsafe(64)
+
+
+def save_refresh_token(db: Session, user_id: int, refresh_token: str) -> None:
+    """Guarda el refresh token en el campo remember_token del usuario."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if user:
+        user.remember_token = refresh_token
+        db.commit()
+
+
+def validate_refresh_token(db: Session, refresh_token: str) -> User:
+    """
+    Busca el usuario que tiene ese refresh token.
+    Lanza 401 si no existe o ya fue invalidado.
+    """
+    user = db.query(User).filter(User.remember_token == refresh_token).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token"
+        )
+    return user
+
+
+def revoke_refresh_token(db: Session, user_id: int) -> None:
+    """Invalida el refresh token del usuario (logout)."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if user:
+        user.remember_token = None
+        db.commit()
+
+
+# =========================================================
+# 🔹 Permisos
+# =========================================================
 def require_permission(permission: str):
     async def checker(
         token_data: user_dependency,

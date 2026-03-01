@@ -7,20 +7,21 @@ from possystem.config import settings
 def setup_logging() -> None:
     """
     Configura el sistema de logging de la aplicación.
-    - Desarrollo : logs en consola (DEBUG) + archivo logs/app.log
-    - Producción : logs solo en consola (INFO), sin archivo
+    - Desarrollo : logs en consola + archivo logs/app.log
+    - Producción : logs solo en consola, sin archivo
+
+    Para ver queries de SQLAlchemy temporalmente:
+        Agrega SQLALCHEMY_LOG_LEVEL=INFO en tu .env
+        Al terminar de debuggear, elimina la variable o vuelve a WARNING
     """
 
     log_level = settings.log_level.upper()
+    sqlalchemy_log_level = settings.sqlalchemy_log_level.upper()
 
-    # =========================================================
-    # 🔹 Formato de los mensajes
-    # =========================================================
     fmt_detailed = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
-    fmt_simple   = "%(levelname)-8s | %(name)s | %(message)s"
 
     # =========================================================
-    # 🔹 Handlers disponibles
+    # 🔹 Handlers
     # =========================================================
     handlers: dict = {
         "console": {
@@ -31,7 +32,6 @@ def setup_logging() -> None:
         }
     }
 
-    # En desarrollo también guardamos logs en archivo
     if not settings.is_production:
         logs_dir = Path(__file__).resolve().parent.parent.parent / "logs"
         logs_dir.mkdir(exist_ok=True)
@@ -41,34 +41,33 @@ def setup_logging() -> None:
             "level": "DEBUG",
             "formatter": "detailed",
             "filename": str(logs_dir / "app.log"),
-            "maxBytes": 5 * 1024 * 1024,  # 5 MB por archivo
-            "backupCount": 3,              # guarda hasta 3 archivos anteriores
+            "maxBytes": 5 * 1024 * 1024,  # 5 MB
+            "backupCount": 3,
             "encoding": "utf-8",
         }
 
     active_handlers = list(handlers.keys())
 
     # =========================================================
-    # 🔹 Configuración completa
+    # 🔹 Configuración
     # =========================================================
     config = {
         "version": 1,
-        "disable_existing_loggers": False,  # no silencia librerías externas
+        "disable_existing_loggers": False,
         "formatters": {
             "detailed": {"format": fmt_detailed},
-            "simple":   {"format": fmt_simple},
         },
         "handlers": handlers,
         "loggers": {
-            # 🔹 Tu aplicación — nivel configurable desde .env
+            # 🔹 Tu aplicación
             "possystem": {
                 "level": log_level,
                 "handlers": active_handlers,
                 "propagate": False,
             },
-            # 🔹 SQLAlchemy — solo warnings en producción, queries en desarrollo
+            # 🔹 SQLAlchemy — WARNING por defecto, INFO solo cuando debuggeas
             "sqlalchemy.engine": {
-                "level": "INFO" if not settings.is_production else "WARNING",
+                "level": sqlalchemy_log_level,
                 "handlers": active_handlers,
                 "propagate": False,
             },
@@ -78,7 +77,7 @@ def setup_logging() -> None:
                 "handlers": active_handlers,
                 "propagate": False,
             },
-            # 🔹 Uvicorn — acceso HTTP
+            # 🔹 Uvicorn
             "uvicorn.access": {
                 "level": "INFO",
                 "handlers": active_handlers,
@@ -90,7 +89,6 @@ def setup_logging() -> None:
                 "propagate": False,
             },
         },
-        # 🔹 Root logger — captura todo lo que no está definido arriba
         "root": {
             "level": "WARNING",
             "handlers": active_handlers,
