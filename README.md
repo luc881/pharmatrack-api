@@ -1,6 +1,6 @@
-# 🏥 POS System API
+# 💊 PharmaTrack API
 
-API REST para gestión de inventario y ventas de una farmacia, desarrollada con **FastAPI**, **SQLAlchemy** y **PostgreSQL**. Incluye autenticación JWT, control de permisos por roles, gestión de productos con lotes, ventas, compras y más.
+API REST para gestión de inventario y ventas de una farmacia, desarrollada con **FastAPI**, **SQLAlchemy** y **PostgreSQL**. Incluye autenticación JWT con refresh tokens, control de permisos por roles, gestión de productos con lotes, ventas, compras y más.
 
 ---
 
@@ -24,13 +24,15 @@ API REST para gestión de inventario y ventas de una farmacia, desarrollada con 
 ## 📁 Estructura del proyecto
 
 ```
-POSSystem/
+pharmatrack-api/
 ├── migrations/              # Migraciones de Alembic
 │   ├── versions/
 │   └── env.py
 ├── logs/                    # Logs locales (solo desarrollo, gitignored)
-├── src/possystem/
-│   ├── api/routes/          # Endpoints por módulo
+├── src/pharmatrack/
+│   ├── api/
+│   │   ├── v1.py            # Router central versionado /api/v1
+│   │   └── routes/          # Endpoints por módulo
 │   ├── db/
 │   │   └── session.py       # Configuración de SQLAlchemy
 │   ├── models/              # ORM + Schemas Pydantic por módulo
@@ -73,7 +75,7 @@ POSSystem/
 
 ```bash
 git clone <url-del-repo>
-cd POSSystem
+cd pharmatrack-api
 ```
 
 ### 3. Instalar dependencias
@@ -102,6 +104,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 # App
 ENVIRONMENT=development
 LOG_LEVEL=DEBUG
+SQLALCHEMY_LOG_LEVEL=WARNING
 
 # CORS (solo necesario en producción)
 # ALLOWED_ORIGINS=["https://tu-frontend.com"]
@@ -122,11 +125,12 @@ alembic upgrade head
 ### 6. Arrancar el servidor
 
 ```bash
-uvicorn possystem.main:app --reload
+uvicorn pharmatrack.main:app --reload
 ```
 
 La API estará disponible en `http://localhost:8000`.
 Documentación interactiva en `http://localhost:8000/docs`.
+Documentación alternativa en `http://localhost:8000/redoc`.
 
 ---
 
@@ -146,19 +150,47 @@ poetry run reset-migrations
 
 ## 🔐 Autenticación
 
-La API usa **JWT Bearer tokens**. Para obtener un token:
+La API usa **JWT Bearer tokens** con soporte para refresh tokens.
+
+### Login
 
 ```http
-POST /auth/token
+POST /api/v1/auth/token
 Content-Type: application/x-www-form-urlencoded
 
 username=correo@ejemplo.com&password=tu_password
 ```
 
-Incluye el token en las siguientes peticiones:
+Respuesta:
+```json
+{
+  "access_token": "eyJ...",
+  "refresh_token": "abc123...",
+  "token_type": "bearer",
+  "expires_in": 1800
+}
+```
+
+### Renovar token
 
 ```http
-Authorization: Bearer <token>
+POST /api/v1/auth/refresh
+Content-Type: application/json
+
+{ "refresh_token": "abc123..." }
+```
+
+### Logout
+
+```http
+POST /api/v1/auth/logout
+Authorization: Bearer <access_token>
+```
+
+### Usar el token en cada petición
+
+```http
+Authorization: Bearer <access_token>
 ```
 
 ---
@@ -169,7 +201,7 @@ Los endpoints están protegidos contra abuso con los siguientes límites por IP:
 
 | Tipo | Límite | Aplica en |
 |---|---|---|
-| Autenticación | 5 / minuto | `POST /auth/token` |
+| Autenticación | 5 / minuto | `POST /api/v1/auth/token` |
 | Lectura | 60 / minuto | `GET /` en todos los módulos |
 | Búsqueda | 40 / minuto | `GET /search` en todos los módulos |
 | Escritura | 30 / minuto | `POST`, `PUT`, `DELETE` |
@@ -183,7 +215,7 @@ Cuando se supera el límite la API responde con `429 Too Many Requests`.
 Todos los endpoints de listado soportan paginación:
 
 ```http
-GET /products?page=1&page_size=20
+GET /api/v1/products?page=1&page_size=20
 ```
 
 Respuesta:
@@ -206,23 +238,23 @@ Respuesta:
 
 | Módulo | Prefijo | Descripción |
 |---|---|---|
-| Auth | `/auth` | Login y generación de tokens |
-| Users | `/users` | Gestión de usuarios |
-| Roles | `/roles` | Roles y asignación de permisos |
-| Permissions | `/permissions` | Catálogo de permisos |
-| Products | `/products` | Catálogo de productos |
-| Product Batches | `/productsbatches` | Lotes con fecha de caducidad y stock |
-| Product Categories | `/productscategories` | Árbol jerárquico de categorías |
-| Product Brand | `/productsbrand` | Marcas de productos |
-| Product Master | `/productsmaster` | Productos genéricos (maestros) |
-| Ingredients | `/ingredients` | Ingredientes activos |
-| Sales | `/sales` | Ventas (draft → completed) |
-| Sale Details | `/saledetails` | Líneas de detalle de venta |
-| Sale Payments | `/salepayments` | Pagos asociados a ventas |
-| Refund Products | `/refundproducts` | Devoluciones |
-| Suppliers | `/suppliers` | Proveedores |
-| Purchases | `/purchases` | Órdenes de compra |
-| Branches | `/branches` | Sucursales |
+| Auth | `/api/v1/auth` | Login, refresh token y logout |
+| Users | `/api/v1/users` | Gestión de usuarios |
+| Roles | `/api/v1/roles` | Roles y asignación de permisos |
+| Permissions | `/api/v1/permissions` | Catálogo de permisos |
+| Products | `/api/v1/products` | Catálogo de productos |
+| Product Batches | `/api/v1/productsbatches` | Lotes con fecha de caducidad y stock |
+| Product Categories | `/api/v1/productscategories` | Árbol jerárquico de categorías |
+| Product Brand | `/api/v1/productsbrand` | Marcas de productos |
+| Product Master | `/api/v1/productsmaster` | Productos genéricos (maestros) |
+| Ingredients | `/api/v1/ingredients` | Ingredientes activos |
+| Sales | `/api/v1/sales` | Ventas (draft → completed) |
+| Sale Details | `/api/v1/saledetails` | Líneas de detalle de venta |
+| Sale Payments | `/api/v1/salepayments` | Pagos asociados a ventas |
+| Refund Products | `/api/v1/refundproducts` | Devoluciones |
+| Suppliers | `/api/v1/suppliers` | Proveedores |
+| Purchases | `/api/v1/purchases` | Órdenes de compra |
+| Branches | `/api/v1/branches` | Sucursales |
 
 ---
 
@@ -235,7 +267,12 @@ El sistema de logs se configura automáticamente según el entorno:
 | `development` | `DEBUG` | Consola + `logs/app.log` |
 | `production` | `INFO` | Consola (Railway logs) |
 
-Los archivos de log rotan automáticamente cada 5MB conservando los últimos 3 archivos.
+Los archivos de log rotan automáticamente cada 5 MB conservando los últimos 3 archivos.
+
+Para ver queries de SQLAlchemy temporalmente en desarrollo:
+```env
+SQLALCHEMY_LOG_LEVEL=INFO
+```
 
 ---
 
@@ -265,7 +302,7 @@ alembic downgrade -1
 4. El `Procfile` incluido arranca la app automáticamente:
 
 ```
-web: alembic upgrade head && uvicorn possystem.main:app --host 0.0.0.0 --port $PORT
+web: alembic upgrade head && uvicorn pharmatrack.main:app --host 0.0.0.0 --port $PORT
 ```
 
 ### Variables requeridas en Railway
@@ -277,6 +314,7 @@ ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 ENVIRONMENT=production
 LOG_LEVEL=INFO
+SQLALCHEMY_LOG_LEVEL=WARNING
 ALLOWED_ORIGINS=["https://tu-frontend.com"]
 ```
 

@@ -1,9 +1,9 @@
 [project]
-name = "possystem"
-version = "0.1.0"
-description = ""
+name = "pharmatrack"
+version = "1.0.0"
+description = "Pharmacy Inventory & Sales Management API"
 authors = [
-    {name = "Luciano",email = "ljuarezs2000@alumno.ipn.mx"}
+    {name = "Luciano", email = "ljuarezs2000@alumno.ipn.mx"}
 ]
 readme = "README.md"
 requires-python = ">=3.13,<4.0"
@@ -28,13 +28,12 @@ dependencies = [
 ]
 
 [tool.poetry]
-packages = [{include = "possystem", from = "src"}]
-
+packages = [{include = "pharmatrack", from = "src"}]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-reset-db = "possystem.scripts.reset_db:reset_db"
-reset-migrations = "possystem.scripts.reset_migrations:reset_migrations"
+reset-db         = "pharmatrack.scripts.reset_db:reset_db"
+reset-migrations = "pharmatrack.scripts.reset_migrations:reset_migrations"

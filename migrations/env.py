@@ -5,31 +5,31 @@ from alembic import context
 # =========================================================
 # 🔹 Importar settings y Base con todos los modelos
 # =========================================================
-from possystem.config import settings
-from possystem.db.session import Base
+from pharmatrack.config import settings
+from pharmatrack.db.session import Base
 
 # Importar TODOS los modelos para que Alembic los detecte
 # Si no están importados aquí, Alembic no generará sus migraciones
-from possystem.models.permissions.orm import Permission
-from possystem.models.roles.orm import Role
-from possystem.models.role_has_permissions.orm import role_has_permissions
-from possystem.models.users.orm import User
-from possystem.models.branches.orm import Branch
-from possystem.models.ingredients.orm import Ingredient
-from possystem.models.product_categories.orm import ProductCategory
-from possystem.models.product_master.orm import ProductMaster
-from possystem.models.product_brand.orm import ProductBrand
-from possystem.models.products.orm import Product
-from possystem.models.product_has_ingredients.orm import ProductHasIngredient
-from possystem.models.product_batch.orm import ProductBatch
-from possystem.models.sales.orm import Sale
-from possystem.models.sale_details.orm import SaleDetail
-from possystem.models.sale_payments.orm import SalePayment
-from possystem.models.sale_batch_usage.orm import SaleBatchUsage
-from possystem.models.refund_products.orm import RefundProduct
-from possystem.models.suppliers.orm import Supplier
-from possystem.models.purchases.orm import Purchase
-from possystem.models.purchase_details.orm import PurchaseDetail
+from pharmatrack.models.permissions.orm import Permission
+from pharmatrack.models.roles.orm import Role
+from pharmatrack.models.role_has_permissions.orm import role_has_permissions
+from pharmatrack.models.users.orm import User
+from pharmatrack.models.branches.orm import Branch
+from pharmatrack.models.ingredients.orm import Ingredient
+from pharmatrack.models.product_categories.orm import ProductCategory
+from pharmatrack.models.product_master.orm import ProductMaster
+from pharmatrack.models.product_brand.orm import ProductBrand
+from pharmatrack.models.products.orm import Product
+from pharmatrack.models.product_has_ingredients.orm import ProductHasIngredient
+from pharmatrack.models.product_batch.orm import ProductBatch
+from pharmatrack.models.sales.orm import Sale
+from pharmatrack.models.sale_details.orm import SaleDetail
+from pharmatrack.models.sale_payments.orm import SalePayment
+from pharmatrack.models.sale_batch_usage.orm import SaleBatchUsage
+from pharmatrack.models.refund_products.orm import RefundProduct
+from pharmatrack.models.suppliers.orm import Supplier
+from pharmatrack.models.purchases.orm import Purchase
+from pharmatrack.models.purchase_details.orm import PurchaseDetail
 
 # =========================================================
 # 🔹 Config de Alembic
