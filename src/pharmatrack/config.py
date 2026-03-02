@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
@@ -29,7 +29,6 @@ class Settings(BaseSettings):
     # 📋 Logging
     # =========================================================
     log_level: str = "DEBUG"
-
     # WARNING por defecto — silencia las queries de SQLAlchemy
     # Cambia a INFO en .env solo cuando necesites debuggear queries
     sqlalchemy_log_level: str = "WARNING"
@@ -38,9 +37,11 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         return self.environment == "production"
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    # ✅ Pydantic v2 — reemplaza class Config
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8"
+    )
 
 
 @lru_cache

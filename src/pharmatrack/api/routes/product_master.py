@@ -69,7 +69,10 @@ async def create_product_master(payload: ProductMasterCreate, db: db_dependency)
             detail=f"Product master with name '{payload.name}' already exists."
         )
 
-    new_master = ProductMaster(**payload.model_dump())
+    # Inyectar slug explícitamente — model_dump() lo excluye por exclude=True
+    data = payload.model_dump()
+    data["slug"] = payload.slug
+    new_master = ProductMaster(**data)
     db.add(new_master)
     db.commit()
     db.refresh(new_master)
@@ -101,7 +104,11 @@ async def update_product_master(master_id: int, payload: ProductMasterUpdate, db
                 detail=f"Another product master with name '{payload.name}' already exists."
             )
 
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    # Inyectar slug si el nombre cambió
+    data = payload.model_dump(exclude_unset=True)
+    if payload.slug is not None:
+        data["slug"] = payload.slug
+    for key, value in data.items():
         setattr(master, key, value)
 
     db.commit()

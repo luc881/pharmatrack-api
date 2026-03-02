@@ -48,7 +48,8 @@ async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
 # =========================================================
 @router.get("/tree",
             response_model=list[ProductCategoryTreeResponse],
-            summary="Get full category tree")
+            summary="Get full category tree",
+            dependencies=CAN_READ_PRODUCT_CATEGORIES)
 async def get_category_tree(db: db_dependency):
     categories = db.query(ProductCategory).all()
     return build_category_tree(categories)
@@ -59,7 +60,8 @@ async def get_category_tree(db: db_dependency):
 # =========================================================
 @router.get("/roots",
             response_model=PaginatedResponse[ProductCategoryResponse],
-            summary="Get root categories")
+            summary="Get root categories",
+            dependencies=CAN_READ_PRODUCT_CATEGORIES)
 async def get_root_categories(db: db_dependency, pagination: PaginationParams = Depends()):
     query = db.query(ProductCategory).filter(
         ProductCategory.parent_id.is_(None)
@@ -87,7 +89,8 @@ async def read_one(category_id: int, db: db_dependency):
 # =========================================================
 @router.get("/{category_id}/tree",
             response_model=ProductCategoryTreeResponse,
-            summary="Get subtree from a category")
+            summary="Get subtree from a category",
+            dependencies=CAN_READ_PRODUCT_CATEGORIES)
 async def get_subtree(category_id: int, db: db_dependency):
     root = db.get(ProductCategory, category_id)
     if not root:
@@ -102,6 +105,7 @@ async def get_subtree(category_id: int, db: db_dependency):
         "slug": root.slug,
         "image": root.image,
         "is_active": root.is_active,
+        "parent_id": root.parent_id,
         "children": tree,
     }
 
@@ -200,7 +204,10 @@ async def update(category_id: int, product_category: ProductCategoryUpdate, db: 
 # =========================================================
 # DELETE /{category_id}
 # =========================================================
-@router.delete("/{category_id}", status_code=204)
+@router.delete("/{category_id}",
+               status_code=status.HTTP_204_NO_CONTENT,
+               summary="Delete a product category",
+               dependencies=CAN_DELETE_PRODUCT_CATEGORIES)  # ✅ faltaba
 async def delete(category_id: int, db: db_dependency):
     category = db.get(ProductCategory, category_id)
     if not category:

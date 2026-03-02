@@ -112,7 +112,10 @@ async def create_brand(payload: ProductBrandCreate, db: db_dependency):
             detail=f"The brand '{payload.name}' already exists."
         )
 
-    new_brand = ProductBrand(**payload.model_dump())
+    # Inyectar slug explícitamente — model_dump() lo excluye por exclude=True
+    data = payload.model_dump()
+    data["slug"] = payload.slug
+    new_brand = ProductBrand(**data)
     db.add(new_brand)
     db.commit()
     db.refresh(new_brand)
@@ -144,7 +147,11 @@ async def update_brand(brand_id: int, payload: ProductBrandUpdate, db: db_depend
                 detail=f"The brand name '{payload.name}' is already in use."
             )
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    # Inyectar slug si el nombre cambió
+    data = payload.model_dump(exclude_unset=True)
+    if payload.slug is not None:
+        data["slug"] = payload.slug
+    for field, value in data.items():
         setattr(brand, field, value)
 
     db.commit()

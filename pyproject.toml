@@ -37,3 +37,17 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.scripts]
 reset-db         = "pharmatrack.scripts.reset_db:reset_db"
 reset-migrations = "pharmatrack.scripts.reset_migrations:reset_migrations"
+
+# =========================================================
+# 🧪 Pytest
+# =========================================================
+[tool.pytest.ini_options]
+# Le dice a pytest dónde está el código fuente
+pythonpath = ["src"]
+
+# Carpeta de tests
+testpaths = ["tests"]
+
+# Muestra output de print() en tests fallidos
+# Útil para los print("DEBUG...") que ya tienes
+addopts = "-v --tb=short"

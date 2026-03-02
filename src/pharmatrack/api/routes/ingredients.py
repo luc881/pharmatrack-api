@@ -49,8 +49,10 @@ async def create(ingredient: IngredientCreate, db: db_dependency):
             detail="Ingredient with this name already exists."
         )
 
-    # model_dump includes slug because we need to persist it
-    db_ingredient = Ingredient(**ingredient.model_dump())
+    # Acceder al slug directamente — model_dump() lo excluye por exclude=True en el schema
+    data = ingredient.model_dump()
+    data["slug"] = ingredient.slug  # forzar inclusión del slug generado por @model_validator
+    db_ingredient = Ingredient(**data)
     db.add(db_ingredient)
     db.commit()
     db.refresh(db_ingredient)
@@ -83,7 +85,11 @@ async def update(ingredient_id: int, ingredient: IngredientUpdate, db: db_depend
                 detail="Ingredient with this name already exists."
             )
 
-    for key, value in ingredient.model_dump(exclude_unset=True).items():
+    # Aplicar campos enviados, incluyendo el slug si el nombre cambió
+    data = ingredient.model_dump(exclude_unset=True)
+    if ingredient.slug is not None:
+        data["slug"] = ingredient.slug  # forzar inclusión del slug generado
+    for key, value in data.items():
         setattr(db_ingredient, key, value)
 
     db.commit()

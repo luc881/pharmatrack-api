@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, APIRouter
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from ..models.product_categories.orm import ProductCategory
 
@@ -10,21 +10,21 @@ def build_category_tree(categories, parent_id=None):
             node = {
                 "id": cat.id,
                 "name": cat.name,
+                "slug": cat.slug,       # ✅ requerido por ProductCategoryTreeResponse
                 "image": cat.image,
                 "is_active": cat.is_active,
-                "parent_id": cat.parent_id,  # 👈 ADD THIS
+                "parent_id": cat.parent_id,
                 "children": build_category_tree(categories, cat.id)
             }
             tree.append(node)
     return tree
 
 
-
-
 def serialize_category_tree(root, categories):
     root_dict = {
         "id": root.id,
         "name": root.name,
+        "slug": root.slug,
         "image": root.image,
         "is_active": root.is_active,
         "parent_id": root.parent_id,
@@ -32,9 +32,10 @@ def serialize_category_tree(root, categories):
     }
     return root_dict
 
-def check_category_cycle(db, category_id: int, new_parent_id: int):
+
+def check_category_cycle(db: Session, category_id: int, new_parent_id: int):
     """
-    Prevent cyclic category relationships
+    Prevent cyclic category relationships.
     """
     current_parent_id = new_parent_id
 
@@ -50,14 +51,3 @@ def check_category_cycle(db, category_id: int, new_parent_id: int):
             break
 
         current_parent_id = parent.parent_id
-
-
-
-
-# def build_category_tree(categories, parent_id=None):
-#     tree = []
-#     for cat in categories:
-#         if cat.parent_id == parent_id:
-#             cat.children = build_category_tree(categories, cat.id)
-#             tree.append(cat)
-#     return tree

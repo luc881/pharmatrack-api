@@ -37,7 +37,9 @@ def merge_product_units(product: Product, update: ProductUpdate) -> ProductBase:
         price_retail=product.price_retail,
         price_cost=product.price_cost,
         title=product.title,
+        product_category_id=update.product_category_id if update.product_category_id is not None else product.product_category_id,  # ✅ fix
     )
+
 
 def validate_unit_name_for_sale(data: ProductBase):
     if data.is_unit_sale:
@@ -51,24 +53,14 @@ def validate_unit_name_for_sale(data: ProductBase):
 def normalize_units(data: ProductBase):
     """
     Normaliza los campos de unidades según is_unit_sale.
-
-    Reglas:
-    - Si is_unit_sale=True:
-        - base_unit_name y units_per_base se ponen en None
-        - unit_name no puede ser un valor inválido (caja, paquete, etc.)
-    - Si is_unit_sale=False:
-        - base_unit_name y units_per_base deben existir (se valida aparte)
     """
     if data.is_unit_sale:
-        # Limpiar fraccionamiento
         data.base_unit_name = None
         data.units_per_base = None
 
-        # Opcional: normalizar unit_name a minúsculas
         if data.unit_name:
             data.unit_name = data.unit_name.strip().lower()
     else:
-        # Para productos en pack, normalizar nombres
         if data.unit_name:
             data.unit_name = data.unit_name.strip().lower()
         if data.base_unit_name:

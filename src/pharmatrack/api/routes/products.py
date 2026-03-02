@@ -137,13 +137,17 @@ async def create_product(product_request: ProductCreate, db: db_dependency):
             raise HTTPException(status_code=404, detail="Product Master not found.")
 
     # 6. Crear producto (ya todo validado)
-    product_model = Product(
-        **product_request.model_dump(
-            mode="json",
-            exclude={"ingredients"},
-            exclude_none=True
-        )
+    # ✅ FIX: slug tiene Field(exclude=True) → model_dump lo omite aunque exista.
+    #    Extraerlo explícitamente y añadirlo al dict antes de construir el ORM.
+    slug = product_request.slug  # generado por @model_validator, pero excluido de model_dump
+    product_data = product_request.model_dump(
+        mode="json",
+        exclude={"ingredients"},
+        exclude_none=True,
     )
+    product_data["slug"] = slug  # inyectar slug manualmente
+
+    product_model = Product(**product_data)
 
     db.add(product_model)
     db.flush()  # obtiene ID sin commit
@@ -232,33 +236,40 @@ async def update_product(product_id: int, product_request: ProductUpdate, db: db
                 detail=f"Ingredient not found: {list(missing)}"
             )
 
-    try:
-        with db.begin():
-            update_data = product_request.model_dump(
-                mode="json",
-                exclude={"ingredients"},
-                exclude_unset=True
+    # ✅ FIX: with db.begin() falla porque SQLAlchemy ya tiene una transacción activa.
+    #    Aplicar cambios directamente y llamar db.commit().
+    # ✅ FIX: slug tiene Field(exclude=True) → model_dump(exclude_unset=True) lo omite.
+    #    Extraerlo explícitamente si fue recalculado arriba.
+    update_data = product_request.model_dump(
+        mode="json",
+        exclude={"ingredients"},
+        exclude_unset=True,
+    )
+    # Si el slug fue recalculado arriba (product_request.slug = new_slug), inyectarlo
+    if product_request.slug is not None:
+        update_data["slug"] = product_request.slug
+
+    for key, value in update_data.items():
+        setattr(product, key, value)
+
+    if product_request.ingredients is not None:
+        db.query(ProductHasIngredient).filter(
+            ProductHasIngredient.product_id == product.id
+        ).delete()
+
+        db.add_all([
+            ProductHasIngredient(
+                product_id=product.id,
+                ingredient_id=ing.ingredient_id,
+                amount=ing.amount
             )
-            for key, value in update_data.items():
-                setattr(product, key, value)
+            for ing in product_request.ingredients
+        ])
 
-            if product_request.ingredients is not None:
-                db.query(ProductHasIngredient).filter(
-                    ProductHasIngredient.product_id == product.id
-                ).delete()
-
-                db.add_all([
-                    ProductHasIngredient(
-                        product_id=product.id,
-                        ingredient_id=ing.ingredient_id,
-                        amount=ing.amount
-                    )
-                    for ing in product_request.ingredients
-                ])
-
+    try:
+        db.commit()
         db.refresh(product)
         return product
-
     except SQLAlchemyError:
         db.rollback()
         raise
@@ -286,11 +297,10 @@ async def toggle_product_active(product_id: int, db: db_dependency):
                status_code=status.HTTP_204_NO_CONTENT,
                dependencies=CAN_DELETE_PRODUCTS)
 async def delete_product(product_id: int, db: db_dependency):
-    existing_product = db.query(Product).filter(Product.id == product_id).first()
-    if not existing_product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Product not found."
-        )
-    db.delete(existing_product)
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found.")
+
+    db.delete(product)
     db.commit()
+    return None

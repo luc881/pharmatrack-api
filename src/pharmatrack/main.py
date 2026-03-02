@@ -116,7 +116,7 @@ async def lifespan(app: FastAPI):
 # 🔹 App
 # =========================================================
 app = FastAPI(
-    title="POS System API",
+    title="PharmaTrack API",
     description="""
 ## Sistema de Punto de Venta para Farmacia
 
