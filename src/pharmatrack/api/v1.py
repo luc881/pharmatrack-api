@@ -7,10 +7,6 @@ from .routes import (
     product_master, product_brand, ingredients
 )
 
-# =========================================================
-# 🔹 Router central v1
-# Todos los endpoints quedan bajo /api/v1/...
-# =========================================================
 api_v1_router = APIRouter(prefix="/api/v1")
 
 api_v1_router.include_router(auth.router)
@@ -27,6 +23,7 @@ api_v1_router.include_router(product_categories.router)
 api_v1_router.include_router(sales.router)
 api_v1_router.include_router(sale_payments.router)
 api_v1_router.include_router(sale_details.router)
+api_v1_router.include_router(sale_batch_usage.router)   # ← montado
 api_v1_router.include_router(refund_products.router)
 api_v1_router.include_router(suppliers.router)
 api_v1_router.include_router(purchases.router)

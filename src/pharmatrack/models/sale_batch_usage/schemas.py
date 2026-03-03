@@ -1,35 +1,26 @@
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 
 # ============================================
-# 🔹 BASE SCHEMA
+# 🔹 BASE
 # ============================================
-
 class SaleBatchUsageBase(BaseModel):
     sale_detail_id: int = Field(
-        ...,
-        gt=0,
-        description="ID del detalle de venta asociado",
+        ..., gt=0, description="ID del detalle de venta asociado"
     )
     batch_id: int = Field(
-        ...,
-        gt=0,
-        description="ID del lote de producto usado",
+        ..., gt=0, description="ID del lote de producto usado"
     )
     quantity_used: int = Field(
-        ...,
-        gt=0,
-        description="Cantidad descontada del lote",
+        ..., gt=0, description="Cantidad descontada del lote"
     )
 
 
 # ============================================
-# 🔹 CREATE SCHEMA
-# (normalmente solo se usa internamente al cerrar la venta)
+# 🟢 CREATE  (uso interno — complete_sale)
 # ============================================
-
 class SaleBatchUsageCreate(SaleBatchUsageBase):
     model_config = ConfigDict(
         extra="forbid",
@@ -44,31 +35,22 @@ class SaleBatchUsageCreate(SaleBatchUsageBase):
 
 
 # ============================================
-# 🔹 UPDATE SCHEMA
-# ⚠️ Rara vez se usa (auditoría / corrección)
+# 🟡 UPDATE  (auditoría / corrección puntual)
 # ============================================
-
 class SaleBatchUsageUpdate(BaseModel):
     quantity_used: Optional[int] = Field(
-        None,
-        gt=0,
-        description="Nueva cantidad usada del lote",
+        None, gt=0, description="Nueva cantidad usada del lote"
     )
 
     model_config = ConfigDict(
         extra="forbid",
-        json_schema_extra={
-            "example": {
-                "quantity_used": 5,
-            }
-        },
+        json_schema_extra={"example": {"quantity_used": 5}},
     )
 
 
 # ============================================
-# 🔹 RESPONSE SCHEMA
+# 🔵 RESPONSE
 # ============================================
-
 class SaleBatchUsageResponse(SaleBatchUsageBase):
     id: int
     created_at: datetime
@@ -90,17 +72,14 @@ class SaleBatchUsageResponse(SaleBatchUsageBase):
 
 
 # ============================================
-# 🔹 RESPONSE CON RELACIONES
+# 🧩 RESPONSE CON RELACIONES
 # ============================================
-
 class SaleBatchUsageDetailsResponse(SaleBatchUsageResponse):
     batch: Optional["ProductBatchResponse"] = Field(
-        None,
-        description="Información del lote utilizado",
+        None, description="Información del lote utilizado"
     )
     sale_detail: Optional["SaleDetailResponse"] = Field(
-        None,
-        description="Detalle de venta asociado",
+        None, description="Detalle de venta asociado"
     )
 
     model_config = ConfigDict(
@@ -131,11 +110,14 @@ class SaleBatchUsageDetailsResponse(SaleBatchUsageResponse):
 
 
 # ============================================
-# 🔹 Forward references
+# 🔁 Forward references
 # ============================================
-
-from typing import TYPE_CHECKING
-
 if TYPE_CHECKING:
-    from ..product_batches.schemas import ProductBatchResponse
+    from ..product_batch.schemas import ProductBatchResponse
     from ..sale_details.schemas import SaleDetailResponse
+
+# Necesario para que Pydantic resuelva los tipos al importar el módulo
+from ..product_batch.schemas import ProductBatchResponse  # noqa: E402
+from ..sale_details.schemas import SaleDetailResponse  # noqa: E402
+
+SaleBatchUsageDetailsResponse.model_rebuild()
