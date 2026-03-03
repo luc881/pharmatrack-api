@@ -94,6 +94,10 @@ tags_metadata = [
         "description": "Órdenes de compra a proveedores.",
     },
     {
+        "name": "Purchase Details",
+        "description": "Líneas de detalle de cada orden de compra (productos, cantidades, lotes).",
+    },
+    {
         "name": "Health Check",
         "description": "Estado del servidor.",
     },

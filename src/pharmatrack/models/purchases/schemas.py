@@ -1,146 +1,72 @@
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
-# -----------------------
-# Base schema
-# -----------------------
+# =========================================================
+# 🔹 Base
+# =========================================================
 class PurchaseBase(BaseModel):
-    warehouse_id: int = Field(..., description="ID del almacén asociado")
-    user_id: int = Field(..., description="ID del usuario que registró la compra")
-    branch_id: int = Field(..., description="ID de la sucursal")
-    supplier_id: int = Field(..., description="ID del proveedor")
-
-    date_emision: datetime = Field(..., description="Fecha de emisión del comprobante")
-    date_entrega: datetime = Field(..., description="Fecha de entrega de la compra")
-
-    state: int = Field(..., ge=1, le=4, description="1=Solicitud, 2=Revisión, 3=Parcial, 4=Entregado")
-    type_comprobant: str = Field(..., max_length=100, description="Tipo de comprobante")
-    n_comprobant: str = Field(..., max_length=100, description="Número de comprobante")
-
-    total: float = Field(..., description="Monto total de la compra")
-    importe: float = Field(..., description="Importe sin impuestos")
-    igv: float = Field(..., description="Impuesto IGV aplicado")
-
-    description: Optional[str] = Field(None, description="Descripción o notas adicionales")
+    supplier_id: int = Field(..., ge=1, description="ID del proveedor")
+    user_id: int = Field(..., ge=1, description="ID del usuario que registra la compra")
+    total: float = Field(..., gt=0, description="Total de la compra")
+    description: Optional[str] = Field(None, max_length=2000, description="Notas u observaciones")
 
 
-# -----------------------
-# Create schema
-# -----------------------
+# =========================================================
+# 🟢 Create
+# =========================================================
 class PurchaseCreate(PurchaseBase):
-    model_config = {
-        "extra": "forbid",
-        "json_schema_extra": {
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
             "example": {
-                "warehouse_id": 1,
+                "supplier_id": 1,
                 "user_id": 2,
-                "branch_id": 3,
-                "supplier_id": 5,
-                "date_emision": "2024-08-15T12:00:00",
-                "date_entrega": "2024-08-20T12:00:00",
-                "state": 1,
-                "type_comprobant": "Factura",
-                "n_comprobant": "FAC-2024-00045",
-                "total": 1180.00,
-                "importe": 1000.00,
-                "igv": 180.00,
-                "description": "Compra de insumos electrónicos"
+                "total": 1500.00,
+                "description": "Reabastecimiento mensual de medicamentos",
             }
-        }
-    }
+        },
+    )
 
 
-# -----------------------
-# Update schema
-# -----------------------
+# =========================================================
+# 🟡 Update
+# =========================================================
 class PurchaseUpdate(BaseModel):
-    warehouse_id: Optional[int] = None
-    user_id: Optional[int] = None
-    branch_id: Optional[int] = None
-    supplier_id: Optional[int] = None
+    supplier_id: Optional[int] = Field(None, ge=1)
+    user_id: Optional[int] = Field(None, ge=1)
+    total: Optional[float] = Field(None, gt=0)
+    description: Optional[str] = Field(None, max_length=2000)
 
-    date_emision: Optional[datetime] = None
-    date_entrega: Optional[datetime] = None
-    state: Optional[int] = Field(None, ge=1, le=4)
-    type_comprobant: Optional[str] = Field(None, max_length=100)
-    n_comprobant: Optional[str] = Field(None, max_length=100)
-
-    total: Optional[float] = None
-    importe: Optional[float] = None
-    igv: Optional[float] = None
-
-    description: Optional[str] = None
-    deleted_at: Optional[datetime] = None
-
-    model_config = {
-        "extra": "forbid",
-        "json_schema_extra": {
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
             "example": {
-                "state": 2,
-                "description": "Compra en revisión antes de aprobación"
+                "total": 1800.00,
+                "description": "Ajuste por devolución parcial",
             }
-        }
-    }
+        },
+    )
 
 
-# -----------------------
-# Response schema
-# -----------------------
+# =========================================================
+# 🔵 Response
+# =========================================================
 class PurchaseResponse(PurchaseBase):
     id: int
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
-    deleted_at: Optional[datetime]
+    date_emision: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    model_config = {
-        "from_attributes": True,
-        "json_schema_extra": {
-            "example": {
-                "id": 101,
-                "warehouse_id": 1,
-                "user_id": 2,
-                "branch_id": 3,
-                "supplier_id": 5,
-                "date_emision": "2024-08-15T12:00:00",
-                "date_entrega": "2024-08-20T12:00:00",
-                "state": 1,
-                "type_comprobant": "Factura",
-                "n_comprobant": "FAC-2024-00045",
-                "total": 1180.00,
-                "importe": 1000.00,
-                "igv": 180.00,
-                "description": "Compra de insumos electrónicos",
-                "created_at": "2024-08-15T12:30:00",
-                "updated_at": "2024-08-15T12:30:00",
-                "deleted_at": None
-            }
-        }
-    }
+    model_config = ConfigDict(from_attributes=True)
 
 
-# -----------------------
-# With relations
-# -----------------------
-class PurchaseWithRelations(PurchaseResponse):
-    # To expand later:
-    # supplier: Optional["SupplierResponse"]
-    # branch: Optional["BranchResponse"]
-    # warehouse: Optional["WarehouseResponse"]
-    # user: Optional["UserResponse"]
-    pass
-
-
-# -----------------------
-# Search params
-# -----------------------
+# =========================================================
+# 🔍 Search params
+# =========================================================
 class PurchaseSearchParams(BaseModel):
-    state: Optional[int] = None
     supplier_id: Optional[int] = None
-    branch_id: Optional[int] = None
-    warehouse_id: Optional[int] = None
     user_id: Optional[int] = None
-    date_emision_from: Optional[datetime] = None
-    date_emision_to: Optional[datetime] = None
-    n_comprobant: Optional[str] = None
+
+    model_config = ConfigDict(extra="forbid")
