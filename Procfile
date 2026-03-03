@@ -1,1 +1,1 @@
-web: alembic upgrade head && uvicorn possystem.main:app --host 0.0.0.0 --port $PORT
+web: alembic upgrade head && uvicorn pharmatrack.main:app --host 0.0.0.0 --port $PORT --workers 2
