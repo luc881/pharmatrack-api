@@ -7,13 +7,11 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 
 # =========================================================
-# 🔹 Importar settings y Base con todos los modelos
+# 🔹 Importar Base con todos los modelos
 # =========================================================
-from pharmatrack.config import settings
 from pharmatrack.db.session import Base
 
 # Importar TODOS los modelos para que Alembic los detecte
-# Si no están importados aquí, Alembic no generará sus migraciones
 from pharmatrack.models.permissions.orm import Permission
 from pharmatrack.models.roles.orm import Role
 from pharmatrack.models.role_has_permissions.orm import role_has_permissions
@@ -40,15 +38,14 @@ from pharmatrack.models.purchase_details.orm import PurchaseDetail
 # =========================================================
 config = context.config
 
-# Inyectar DATABASE_URL desde settings (sobreescribe alembic.ini)
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# Leer DATABASE_URL directo del entorno (evita pasar por pydantic-settings)
+database_url = os.environ["DATABASE_URL"]
+config.set_main_option("sqlalchemy.url", database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Apuntar al metadata de tu Base para autogenerar migraciones
 target_metadata = Base.metadata
-
 
 # =========================================================
 # 🔹 Modo offline (genera SQL sin conectarse a la BD)
