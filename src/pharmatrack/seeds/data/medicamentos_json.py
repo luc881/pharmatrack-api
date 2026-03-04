@@ -1916,7 +1916,7 @@ MEDICAMENTOS = [
         "sku": "7501075722543",
         "title": "PABESORAG150MG/12.5MG 28TAB",
         "brand": None,
-        "cost": None,
+        "cost": 0,
         "product_master": None,
         "category": None,
         "ingredients": []
@@ -5343,7 +5343,7 @@ MEDICAMENTOS = [
         "sku": "7501825300533",
         "title": "LERGOSIN-A",
         "brand": None,
-        "cost": None,
+        "cost": 0,
         "product_master": None,
         "category": None,
         "ingredients": []
@@ -6008,7 +6008,7 @@ MEDICAMENTOS = [
         ]
     },
     {
-        "sku": "7502004401225",
+        "sku": "CLORAFENICOL-OFT-OFFENBACH",
         "title": "CLORAFENICOL OFTALMICO",
         "brand": None,
         "cost": 95,
@@ -7234,15 +7234,6 @@ MEDICAMENTOS = [
         "title": "LAPRIVER 50MG",
         "brand": None,
         "cost": 215,
-        "product_master": None,
-        "category": None,
-        "ingredients": []
-    },
-    {
-        "sku": "7502009747359",
-        "title": "VERIDEX TABS C/2",
-        "brand": "MAVER",
-        "cost": 75,
         "product_master": None,
         "category": None,
         "ingredients": []

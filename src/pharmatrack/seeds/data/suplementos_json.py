@@ -499,18 +499,6 @@ SUPLEMENTOS = [
         "ingredients": []
     },
     {
-        "sku": "7501590222214",
-        "title": "Materfol",
-        "brand": "Genérico",
-        "cost": 45,
-        "product_master": "Ácido fólico",
-        "category": "Suplementos y nutrición",
-        "subcategory": "Vitaminas",
-        "ingredients": [
-            {"name": "Ácido fólico", "amount": 0.4, "unit": "mg"}
-        ]
-    },
-    {
         "sku": "7501825300175",
         "title": "Convefer con Hierro Suspensión",
         "brand": "Genérico",

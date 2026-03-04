@@ -9,6 +9,7 @@ Uso: poetry run reset-migrations
 
 ⚠️  SOLO para desarrollo — nunca usar en producción.
 """
+import os
 import subprocess
 from pathlib import Path
 from pharmatrack.config import settings
@@ -39,16 +40,19 @@ def reset_migrations():
         archivo.unlink()
     print(f"   Eliminados de: {versions_path}")
 
+    alembic_env = {**os.environ, "DATABASE_URL": settings.database_url}
+
     # 3. Generar nueva migración inicial
     print("🔧 Generando nueva migración inicial...")
     subprocess.run(
         ["alembic", "revision", "--autogenerate", "-m", "initial migration"],
-        check=True
+        check=True,
+        env=alembic_env,
     )
 
     # 4. Aplicar la nueva migración
     print("🔧 Aplicando migración...")
-    subprocess.run(["alembic", "upgrade", "head"], check=True)
+    subprocess.run(["alembic", "upgrade", "head"], check=True, env=alembic_env)
 
     # 5. Correr seeds
     print("🌱 Ejecutando seeds...")
@@ -65,9 +69,9 @@ def _drop_all_tables():
     Evita el problema de constraints sin nombre que rompe 'alembic downgrade base'.
     """
     from sqlalchemy import text
-    from pharmatrack.db.session import engine
+    from pharmatrack.db.session import _get_engine
 
-    with engine.connect() as conn:
+    with _get_engine().connect() as conn:
         result = conn.execute(text(
             "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
         ))
