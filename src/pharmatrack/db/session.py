@@ -23,6 +23,9 @@ def _get_session_local():
         _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_get_engine())
     return _SessionLocal
 
+def SessionLocal() -> Session:
+    return _get_session_local()()
+
 def get_db() -> Session:
     db = _get_session_local()()
     try:
