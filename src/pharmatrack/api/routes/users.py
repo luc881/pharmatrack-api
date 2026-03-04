@@ -1,11 +1,15 @@
-from fastapi import Depends, HTTPException, APIRouter
-from starlette import status
-from ...models.users.orm import User
+from fastapi import Depends, HTTPException, APIRouter, Request
 from typing import Annotated
 from sqlalchemy.orm import Session
+from ...db.session import get_db
+from starlette import status
+from passlib.context import CryptContext
+from ...models.users.orm import User
+from ...models.branches.orm import Branch
+from ...models.roles.orm import Role
 from ...models.users.schemas import (
-    UserResponse,
     UserCreate,
+    UserResponse,
     UserUpdate,
     UserDetailsResponse,
     UserSearchParams,
@@ -13,12 +17,12 @@ from ...models.users.schemas import (
     PaginatedResponse,
     PaginationParams,
 )
-from ...models.branches.orm import Branch
-from ...models.roles.orm import Role
-from ...db.session import get_db
-from passlib.context import CryptContext
 from ...utils.permissions import CAN_READ_USERS, CAN_CREATE_USERS, CAN_UPDATE_USERS, CAN_DELETE_USERS
 from pharmatrack.utils.pagination import paginate
+from ...utils.rate_limit import limiter, LIMIT_READ, LIMIT_WRITE, LIMIT_SEARCH
+from ...utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 db_dependency = Annotated[Session, Depends(get_db)]
@@ -29,24 +33,31 @@ router = APIRouter(
 )
 
 
+# =========================================================
+# GET /
+# =========================================================
 @router.get("/",
             response_model=PaginatedResponse[UserResponse],
             summary="List all users",
-            description="Retrieve all users currently stored in the database.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_USERS)
-async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
+@limiter.limit(LIMIT_READ)
+async def read_all(request: Request, db: db_dependency, pagination: PaginationParams = Depends()):
     query = db.query(User).order_by(User.id.asc())
     return paginate(query, pagination)
 
 
+# =========================================================
+# GET /search
+# =========================================================
 @router.get("/search",
             response_model=PaginatedResponse[UserResponse],
             summary="Search users",
-            description="Search users by various filters.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_USERS)
+@limiter.limit(LIMIT_SEARCH)
 async def search_users(
+    request: Request,
     db: db_dependency,
     filters: UserSearchParams = Depends(),
     pagination: PaginationParams = Depends()
@@ -81,48 +92,51 @@ async def search_users(
     return paginate(query, pagination)
 
 
+# =========================================================
+# GET /{user_id}
+# =========================================================
 @router.get("/{user_id}",
             response_model=UserResponse,
             summary="Get user by ID",
-            description="Retrieve a user by their unique ID.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_USERS)
 async def read_user_by_id(user_id: int, db: db_dependency):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return user
 
 
+# =========================================================
+# GET /{user_id}/details
+# =========================================================
 @router.get("/{user_id}/details",
             response_model=UserDetailsResponse,
             summary="Get detailed user info",
-            description="Retrieve user along with role, permissions, and branch.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_USERS)
 async def read_user_details(user_id: int, db: db_dependency):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return user
 
 
+# =========================================================
+# POST /
+# =========================================================
 @router.post("/",
-            response_model=UserResponse,
-            status_code=status.HTTP_201_CREATED,
-            dependencies=CAN_CREATE_USERS)
-async def create_user(user: UserCreate, db: db_dependency):
+             response_model=UserResponse,
+             status_code=status.HTTP_201_CREATED,
+             dependencies=CAN_CREATE_USERS)
+@limiter.limit(LIMIT_WRITE)
+async def create_user(request: Request, user: UserCreate, db: db_dependency):
     plain_password = user.password.get_secret_value()
     hashed = bcrypt_context.hash(plain_password)
 
     existing_user = db.query(User).filter(User.email == user.email).first()
     if existing_user:
+        logger.warning("Duplicate user creation attempt email=%s", user.email)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="User with this email already exists"
@@ -143,22 +157,23 @@ async def create_user(user: UserCreate, db: db_dependency):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
+    logger.info("User created id=%s email=%s", new_user.id, new_user.email)
     return new_user
 
 
+# =========================================================
+# PUT /{user_id}
+# =========================================================
 @router.put("/{user_id}",
             response_model=UserResponse,
             summary="Update a user",
-            description="Update an existing user's details by their ID.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_UPDATE_USERS)
 async def update_user(user_id: int, user: UserUpdate, db: db_dependency):
     existing_user = db.query(User).filter(User.id == user_id).first()
     if not existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     if user.branch_id is not None:
         if not db.query(Branch).filter(Branch.id == user.branch_id).first():
@@ -178,21 +193,29 @@ async def update_user(user_id: int, user: UserUpdate, db: db_dependency):
 
     db.commit()
     db.refresh(existing_user)
+    logger.info("User updated id=%s", user_id)
     return existing_user
 
 
+# =========================================================
+# PUT /{user_id}/change-password
+# La validacion de fortaleza de contrasena la hace el schema
+# ChangePasswordRequest via @field_validator (retorna 422).
+# Aqui solo verificamos la contrasena vieja y el duplicado.
+# =========================================================
 @router.put("/{user_id}/change-password",
             summary="Change user password",
-            description="Allows a user to change their password by providing the old password.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_UPDATE_USERS)
-async def change_password(user_id: int, data: ChangePasswordRequest, db: db_dependency):
+@limiter.limit(LIMIT_WRITE)
+async def change_password(request: Request, user_id: int, data: ChangePasswordRequest, db: db_dependency):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     old_pass = data.old_password.get_secret_value()
     if not bcrypt_context.verify(old_pass, user.password):
+        logger.warning("Wrong old password attempt for user id=%s", user_id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La contraseña anterior es incorrecta"
@@ -206,32 +229,27 @@ async def change_password(user_id: int, data: ChangePasswordRequest, db: db_depe
             detail="La nueva contraseña no puede ser igual a la anterior."
         )
 
-    if len(new_pass) < 8 or not any(c.isupper() for c in new_pass) or not any(c.isdigit() for c in new_pass):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="La nueva contraseña no cumple los requisitos mínimos."
-        )
-
-    hashed = bcrypt_context.hash(new_pass)
-    user.password = hashed
-
+    user.password = bcrypt_context.hash(new_pass)
     db.commit()
     db.refresh(user)
+
+    logger.info("Password changed for user id=%s", user_id)
     return {"message": "Contraseña actualizada correctamente"}
 
 
+# =========================================================
+# DELETE /{user_id}
+# =========================================================
 @router.delete("/{user_id}",
-            status_code=status.HTTP_204_NO_CONTENT,
-            summary="Delete a user",
-            description="Delete an existing user by their ID.",
-            dependencies=CAN_DELETE_USERS)
-async def delete_user(user_id: int, db: db_dependency):
+               status_code=status.HTTP_204_NO_CONTENT,
+               summary="Delete a user",
+               dependencies=CAN_DELETE_USERS)
+@limiter.limit(LIMIT_WRITE)
+async def delete_user(request: Request, user_id: int, db: db_dependency):
     existing_user = db.query(User).filter(User.id == user_id).first()
     if not existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     db.delete(existing_user)
     db.commit()
+    logger.info("User deleted id=%s", user_id)
     return None

@@ -6,8 +6,10 @@ from slowapi.errors import RateLimitExceeded
 
 from .api.v1 import api_v1_router
 from .config import settings
-from .utils.logger import logger
-from .utils.rate_limit import limiter, _rate_limit_exceeded_handler
+from .utils.logger import get_logger
+logger = get_logger(__name__)
+from slowapi import _rate_limit_exceeded_handler
+from .utils.rate_limit import limiter
 
 tags_metadata = [
     {"name": "Auth",               "description": "Login, refresh token y logout."},
