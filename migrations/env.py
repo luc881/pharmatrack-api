@@ -39,7 +39,16 @@ from pharmatrack.models.purchase_details.orm import PurchaseDetail
 config = context.config
 
 # Leer DATABASE_URL directo del entorno (evita pasar por pydantic-settings)
-database_url = os.environ["DATABASE_URL"]
+database_url = (
+    os.environ.get("DATABASE_URL")
+    or os.environ.get("DATABASE_PRIVATE_URL")
+    or os.environ.get("POSTGRES_URL")
+)
+
+if not database_url:
+    available = [k for k in os.environ if "DATA" in k or "PG" in k or "POSTGRES" in k]
+    raise RuntimeError(f"No database URL found. DB-related env vars available: {available}")
+
 config.set_main_option("sqlalchemy.url", database_url)
 
 if config.config_file_name is not None:
