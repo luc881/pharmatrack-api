@@ -9,8 +9,6 @@ Uso: poetry run reset-migrations
 
 ⚠️  SOLO para desarrollo — nunca usar en producción.
 """
-import os
-import shutil
 import subprocess
 from pathlib import Path
 from pharmatrack.config import settings
@@ -21,7 +19,6 @@ def reset_migrations():
         print("❌ Este comando no puede ejecutarse en producción.")
         return
 
-    # Buscar la carpeta versions/ relativa a donde está este script
     versions_path = Path(__file__).resolve().parent.parent.parent.parent / "migrations" / "versions"
 
     if not versions_path.exists():
@@ -31,9 +28,10 @@ def reset_migrations():
 
     print("⚠️  Regenerando migración inicial de desarrollo...")
 
-    # 1. Bajar todas las migraciones activas (limpia alembic_version en la BD)
-    print("🗑️  Bajando migraciones actuales...")
-    subprocess.run(["alembic", "downgrade", "base"], check=True)
+    # 1. Borrar todas las tablas directamente vía SQL (más confiable que alembic downgrade,
+    #    ya que downgrade falla si los constraints autogenerados no tienen nombre).
+    print("🗑️  Eliminando tablas de la base de datos...")
+    _drop_all_tables()
 
     # 2. Borrar todos los archivos de versiones
     print("🗑️  Eliminando archivos de versiones...")
@@ -58,6 +56,31 @@ def reset_migrations():
     init_db()
 
     print("✅ Migración inicial regenerada y seeds aplicados.")
+
+
+def _drop_all_tables():
+    """
+    Elimina todas las tablas del schema public (incluyendo alembic_version)
+    usando CASCADE para respetar foreign keys sin importar el orden.
+    Evita el problema de constraints sin nombre que rompe 'alembic downgrade base'.
+    """
+    from sqlalchemy import text
+    from pharmatrack.db.session import engine
+
+    with engine.connect() as conn:
+        result = conn.execute(text(
+            "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+        ))
+        tables = [row[0] for row in result]
+
+        if not tables:
+            print("   No hay tablas que eliminar.")
+            return
+
+        tables_str = ", ".join(f'"{t}"' for t in tables)
+        conn.execute(text(f"DROP TABLE IF EXISTS {tables_str} CASCADE"))
+        conn.commit()
+        print(f"   Eliminadas {len(tables)} tablas: {', '.join(tables)}")
 
 
 if __name__ == "__main__":
