@@ -48,8 +48,10 @@ router = APIRouter(
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCTS)
 @limiter.limit(LIMIT_READ)
-async def read_all(request: Request, db: db_dependency, pagination: PaginationParams = Depends()):
+async def read_all(request: Request, db: db_dependency, pagination: PaginationParams = Depends(), search: str | None = None):
     query = db.query(Product).order_by(Product.created_at.desc())
+    if search:
+        query = query.filter(Product.title.ilike(f"%{search}%"))
     return paginate(query, pagination)
 
 
