@@ -18,6 +18,7 @@ from ...models.users.schemas import (
     PaginationParams,
 )
 from ...utils.permissions import CAN_READ_USERS, CAN_CREATE_USERS, CAN_UPDATE_USERS, CAN_DELETE_USERS
+from ...utils.security import user_dependency
 from pharmatrack.utils.pagination import paginate
 from ...utils.rate_limit import limiter, LIMIT_READ, LIMIT_WRITE, LIMIT_SEARCH
 from ...utils.logger import get_logger
@@ -208,7 +209,10 @@ async def update_user(user_id: int, user: UserUpdate, db: db_dependency):
             status_code=status.HTTP_200_OK,
             dependencies=CAN_UPDATE_USERS)
 @limiter.limit(LIMIT_WRITE)
-async def change_password(request: Request, user_id: int, data: ChangePasswordRequest, db: db_dependency):
+async def change_password(request: Request, user_id: int, data: ChangePasswordRequest, db: db_dependency, token_data: user_dependency):
+    if token_data["id"] != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot change another user's password")
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")

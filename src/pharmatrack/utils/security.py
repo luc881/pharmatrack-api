@@ -80,20 +80,29 @@ def create_refresh_token() -> str:
 
 
 def save_refresh_token(db: Session, user_id: int, refresh_token: str) -> None:
-    """Guarda el refresh token en el campo remember_token del usuario."""
+    """Guarda el refresh token y su fecha de expiración en el usuario."""
     user = db.query(User).filter(User.id == user_id).first()
     if user:
         user.remember_token = refresh_token
+        user.refresh_token_expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
         db.commit()
 
 
 def validate_refresh_token(db: Session, refresh_token: str) -> User:
     """
     Busca el usuario que tiene ese refresh token.
-    Lanza 401 si no existe o ya fue invalidado.
+    Lanza 401 si no existe, ya fue invalidado, o expiró.
     """
     user = db.query(User).filter(User.remember_token == refresh_token).first()
     if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token"
+        )
+    if user.refresh_token_expires_at and user.refresh_token_expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        user.remember_token = None
+        user.refresh_token_expires_at = None
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired refresh token"

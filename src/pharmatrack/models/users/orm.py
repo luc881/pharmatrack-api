@@ -14,6 +14,7 @@ class User(Base):
     email_verified_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), nullable=True)
     password: Mapped[str] = mapped_column(String(255), nullable=False)
     remember_token: Mapped[str] = mapped_column(String(100), nullable=True)
+    refresh_token_expires_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), nullable=True)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now(), onupdate=func.now())
     role_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("roles.id"), nullable=True)
