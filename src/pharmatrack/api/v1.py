@@ -4,7 +4,7 @@ from .routes import (
     product_categories, products, sales, sale_payments,
     sale_details, refund_products, suppliers, purchases,
     purchase_details, product_batch, sale_batch_usage,
-    product_master, product_brand, ingredients, stats, sensor_readings, dashboard
+    product_master, product_brand, ingredients, stats, sensor_readings, dashboard, calendar
 )
 
 api_v1_router = APIRouter(prefix="/api/v1")
@@ -31,3 +31,4 @@ api_v1_router.include_router(purchase_details.router)
 api_v1_router.include_router(stats.router)
 api_v1_router.include_router(sensor_readings.router)
 api_v1_router.include_router(dashboard.router)
+api_v1_router.include_router(calendar.router)
