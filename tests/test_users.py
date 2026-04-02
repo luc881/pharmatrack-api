@@ -377,8 +377,8 @@ def test_change_password_user_not_found(auth_headers):
         "new_password": "NewPassword123"
     }
     response = users_put("/99999/change-password", json=payload, headers=auth_headers)
-    assert response.status_code == status.HTTP_404_NOT_FOUND
-    assert response.json()["detail"] == "User not found"
+    # Identity check (token owner != user_id) fires before the DB lookup
+    assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
 def test_change_password_incorrect_old(test_user_with_role_permissions_branch_auth, auth_headers):
