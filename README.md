@@ -1,5 +1,7 @@
 # 💊 PharmaTrack API
 
+![Tests](https://github.com/luc881/pharmatrack-api/actions/workflows/test.yml/badge.svg)
+
 API REST para gestión de inventario y ventas de una farmacia, desarrollada con **FastAPI**, **SQLAlchemy** y **PostgreSQL**. Incluye autenticación JWT con refresh tokens, control de permisos por roles, gestión de productos con lotes, ventas, compras y más.
 
 ---
