@@ -42,18 +42,52 @@ router = APIRouter(
 # =========================================================
 # GET /
 # =========================================================
+_ORDERING_MAP = {
+    "title":          Product.title.asc(),
+    "-title":         Product.title.desc(),
+    "price_retail":   Product.price_retail.asc(),
+    "-price_retail":  Product.price_retail.desc(),
+    "price_cost":     Product.price_cost.asc(),
+    "-price_cost":    Product.price_cost.desc(),
+    "created_at":     Product.created_at.asc(),
+    "-created_at":    Product.created_at.desc(),
+}
+
+
 @router.get("/",
             response_model=PaginatedResponse[ProductResponse],
             summary="List all products",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCTS)
 @limiter.limit(LIMIT_READ)
-async def read_all(request: Request, db: db_dependency, pagination: PaginationParams = Depends(), search: str | None = None, sku: str | None = None):
-    query = db.query(Product).order_by(Product.created_at.desc())
+async def read_all(
+    request: Request,
+    db: db_dependency,
+    pagination: PaginationParams = Depends(),
+    search: str | None = None,
+    sku: str | None = None,
+    brand_id: int | None = None,
+    category_id: int | None = None,
+    is_active: bool | None = None,
+    ordering: str | None = None,
+):
+    query = db.query(Product)
+
     if sku:
         query = query.filter(Product.sku == sku)
     elif search:
         query = query.filter(Product.title.ilike(f"%{search}%"))
+
+    if brand_id is not None:
+        query = query.filter(Product.brand_id == brand_id)
+    if category_id is not None:
+        query = query.filter(Product.product_category_id == category_id)
+    if is_active is not None:
+        query = query.filter(Product.is_active == is_active)
+
+    order_clause = _ORDERING_MAP.get(ordering) if ordering else None
+    query = query.order_by(order_clause if order_clause is not None else Product.created_at.desc())
+
     return paginate(query, pagination)
 
 
