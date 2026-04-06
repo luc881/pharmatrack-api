@@ -1,4 +1,5 @@
 from fastapi import Depends, HTTPException, APIRouter, Request
+from sqlalchemy import or_
 from typing import Annotated
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -76,7 +77,9 @@ async def read_all(
     if sku:
         query = query.filter(Product.sku == sku)
     elif search:
-        query = query.filter(Product.title.ilike(f"%{search}%"))
+        query = query.filter(
+            or_(Product.title.ilike(f"%{search}%"), Product.sku.ilike(f"%{search}%"))
+        )
 
     if brand_id is not None:
         query = query.filter(Product.brand_id == brand_id)
