@@ -1,8 +1,9 @@
-from sqlalchemy import BigInteger, Double, TIMESTAMP, Text, ForeignKey
+from sqlalchemy import BigInteger, Numeric, TIMESTAMP, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from ...db.session import Base
 from datetime import datetime
+from decimal import Decimal
 
 
 class Purchase(Base):
@@ -24,7 +25,7 @@ class Purchase(Base):
     date_emision: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=False), server_default=func.now()
     )
-    total: Mapped[float] = mapped_column(Double, nullable=False)
+    total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(

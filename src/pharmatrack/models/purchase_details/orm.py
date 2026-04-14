@@ -1,8 +1,9 @@
-from sqlalchemy import BigInteger, Double, Date, TIMESTAMP, String, ForeignKey
+from sqlalchemy import BigInteger, Numeric, Date, TIMESTAMP, String, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from ...db.session import Base
 from datetime import datetime, date
+from decimal import Decimal
 from typing import Optional
 
 
@@ -22,8 +23,8 @@ class PurchaseDetail(Base):
         nullable=False,
     )
 
-    quantity: Mapped[float] = mapped_column(Double, nullable=False)
-    unit_price: Mapped[float] = mapped_column(Double, nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(10, 4), nullable=False)
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
 
     expiration_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     lot_code: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)

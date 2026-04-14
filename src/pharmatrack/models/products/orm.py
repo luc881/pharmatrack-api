@@ -1,10 +1,11 @@
 from sqlalchemy import (
-    String, BigInteger, Double, Text, TIMESTAMP, Boolean, ForeignKey
+    String, BigInteger, Double, Numeric, Text, TIMESTAMP, Boolean, ForeignKey
 )
 from sqlalchemy.sql import func
 from ...db.session import Base
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime
+from decimal import Decimal
 from ..product_has_ingredients.orm import ProductHasIngredient
 
 
@@ -35,8 +36,8 @@ class Product(Base):
     )
 
     # --- Precios ---
-    price_retail: Mapped[float] = mapped_column(Double, nullable=False)
-    price_cost: Mapped[float] = mapped_column(Double, nullable=False)
+    price_retail: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    price_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
 
     # --- Descripción y control ---
     description: Mapped[str] = mapped_column(Text, nullable=True)
