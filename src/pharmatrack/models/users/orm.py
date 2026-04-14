@@ -1,8 +1,9 @@
-from sqlalchemy import String, BigInteger, SmallInteger, TIMESTAMP, ForeignKey, Boolean
+from sqlalchemy import String, BigInteger, SmallInteger, TIMESTAMP, ForeignKey, Boolean, Enum as SAEnum
 from sqlalchemy.sql import func
 from ...db.session import Base
 from datetime import datetime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from pharmatrack.types.users import GenderEnum, DocumentTypeEnum
 
 class User(Base):
     __tablename__ = "users"
@@ -21,10 +22,14 @@ class User(Base):
     avatar: Mapped[str] = mapped_column(String(255), nullable=True)
     branch_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("branches.id"), nullable=True)
     phone: Mapped[str] = mapped_column(String(50), nullable=True)
-    type_document: Mapped[str] = mapped_column(String(50), nullable=True)
+    type_document: Mapped[DocumentTypeEnum] = mapped_column(
+        SAEnum(DocumentTypeEnum, name="documenttypeenum", create_type=False), nullable=True
+    )
     n_document: Mapped[str] = mapped_column(String(50), nullable=True)
     deleted_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), nullable=True)
-    gender: Mapped[str] = mapped_column(String(5), nullable=True)  # M = masculino, F = femenino
+    gender: Mapped[GenderEnum] = mapped_column(
+        SAEnum(GenderEnum, name="genderenum", create_type=False), nullable=True
+    )
 
     # Relationship to Role
     role: Mapped["Role"] = relationship("Role", back_populates="users", lazy="selectin")
