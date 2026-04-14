@@ -35,6 +35,20 @@ router = APIRouter(
 
 
 # =========================================================
+# GET /me
+# =========================================================
+@router.get("/me",
+            response_model=UserDetailsResponse,
+            summary="Get current authenticated user",
+            status_code=status.HTTP_200_OK)
+async def get_me(db: db_dependency, token_data: user_dependency):
+    user = db.query(User).filter(User.id == token_data["id"]).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    return user
+
+
+# =========================================================
 # GET /
 # =========================================================
 @router.get("/",
