@@ -22,7 +22,7 @@ class IngredientBase(BaseModel):
     @classmethod
     def normalize_name(cls, v: str) -> str:
         v = v.strip().lower()
-        if not re.fullmatch(r"^[a-z0-9._\- ]+$", v):
+        if not re.fullmatch(r"^[a-z0-9áéíóúüñ._\- ]+$", v):
             raise ValueError("Invalid ingredient name")
         return v
 
@@ -64,7 +64,7 @@ class IngredientUpdate(BaseModel):
         if v is None:
             return v
         v = v.strip().lower()
-        if not re.fullmatch(r"^[a-z0-9._\- ]+$", v):
+        if not re.fullmatch(r"^[a-z0-9áéíóúüñ._\- ]+$", v):
             raise ValueError("Invalid ingredient name")
         return v
 
