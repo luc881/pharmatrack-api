@@ -110,6 +110,15 @@ CAN_CREATE_INGREDIENTS = [Depends(require_permission("ingredients.create"))]
 CAN_UPDATE_INGREDIENTS = [Depends(require_permission("ingredients.update"))]
 CAN_DELETE_INGREDIENTS = [Depends(require_permission("ingredients.delete"))]
 
+# Permissions for sensor reading operations
+CAN_READ_SENSOR_READINGS = [Depends(require_permission("sensorreadings.read"))]
+CAN_CREATE_SENSOR_READINGS = [Depends(require_permission("sensorreadings.create"))]
+CAN_UPDATE_SENSOR_READINGS = [Depends(require_permission("sensorreadings.update"))]
+CAN_DELETE_SENSOR_READINGS = [Depends(require_permission("sensorreadings.delete"))]
+
+# Permissions for dashboard operations
+CAN_READ_DASHBOARD = [Depends(require_permission("dashboard.read"))]
+
 # Permissions for unit operations
 # CAN_READ_UNITS = [Depends(require_permission("units.read"))]
 # CAN_CREATE_UNITS = [Depends(require_permission("units.create"))]

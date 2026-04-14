@@ -126,14 +126,14 @@ def require_permission(permission: str):
         token_data: user_dependency,
         db: db_dependency
     ):
-        user = db.query(User).filter(User.id == token_data["id"]).first()
+        user = db.query(User).filter(User.id == token_data["id"], User.deleted_at.is_(None)).first()
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials"
             )
 
-        if not user.role:
+        if not user.role or user.role.deleted_at is not None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Role not assigned"

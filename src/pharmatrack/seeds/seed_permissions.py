@@ -85,6 +85,12 @@ PERMISSIONS = [
 
     # Sale Batch Usage
     "salebatchusages.read", "salebatchusages.create", "salebatchusages.update", "salebatchusages.delete",
+
+    # Sensor Readings
+    "sensorreadings.read", "sensorreadings.create", "sensorreadings.update", "sensorreadings.delete",
+
+    # Dashboard
+    "dashboard.read",
 ]
 
 

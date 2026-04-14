@@ -13,7 +13,7 @@ from ...models.sale_details.orm import SaleDetail
 from ...models.sale_payments.orm import SalePayment
 from ...models.products.orm import Product
 from ...models.product_batch.orm import ProductBatch
-from ...utils.permissions import CAN_READ_SALES
+from ...utils.permissions import CAN_READ_DASHBOARD
 from ...utils.rate_limit import limiter, LIMIT_READ
 
 db_dependency = Annotated[Session, Depends(get_db)]
@@ -68,7 +68,7 @@ class DashboardStats(BaseModel):
     response_model=DashboardStats,
     summary="Dashboard statistics",
     status_code=status.HTTP_200_OK,
-    dependencies=CAN_READ_SALES,
+    dependencies=CAN_READ_DASHBOARD,
 )
 @limiter.limit(LIMIT_READ)
 async def get_dashboard_stats(request: Request, db: db_dependency):

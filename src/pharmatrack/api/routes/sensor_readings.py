@@ -11,7 +11,7 @@ from ...models.sensor_readings.schemas import (
     PaginatedResponse,
     PaginationParams,
 )
-from ...utils.permissions import CAN_READ_SALES  # permiso reutilizado para lectura de historial
+from ...utils.permissions import CAN_READ_SENSOR_READINGS
 from pharmatrack.utils.pagination import paginate
 from ...utils.rate_limit import limiter, LIMIT_READ
 from ...utils.logger import get_logger
@@ -83,7 +83,7 @@ async def get_latest(request: Request, db: db_dependency):
     response_model=PaginatedResponse[SensorReadingResponse],
     summary="Historial de lecturas del sensor",
     status_code=status.HTTP_200_OK,
-    dependencies=CAN_READ_SALES,
+    dependencies=CAN_READ_SENSOR_READINGS,
 )
 @limiter.limit(LIMIT_READ)
 async def get_readings(request: Request, db: db_dependency, pagination: PaginationParams = Depends()):
