@@ -15,11 +15,13 @@ class Purchase(Base):
         BigInteger,
         ForeignKey("suppliers.id", ondelete="RESTRICT"),
         nullable=False,
+        index=True,
     )
     user_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
+        index=True,
     )
 
     date_emision: Mapped[datetime] = mapped_column(

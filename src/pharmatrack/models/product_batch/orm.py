@@ -16,7 +16,8 @@ class ProductBatch(Base):
     product_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("products.id", ondelete="CASCADE"),
-        nullable=False
+        nullable=False,
+        index=True,
     )
 
     lot_code: Mapped[Optional[str]] = mapped_column(

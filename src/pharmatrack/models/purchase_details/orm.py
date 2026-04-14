@@ -16,11 +16,13 @@ class PurchaseDetail(Base):
         BigInteger,
         ForeignKey("purchases.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
     product_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("products.id", ondelete="RESTRICT"),
         nullable=False,
+        index=True,
     )
 
     quantity: Mapped[Decimal] = mapped_column(Numeric(10, 4), nullable=False)
