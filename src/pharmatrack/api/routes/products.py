@@ -55,7 +55,7 @@ _ORDERING_MAP = {
 }
 
 
-@router.get("/",
+@router.get("",
             response_model=PaginatedResponse[ProductResponse],
             summary="List all products",
             status_code=status.HTTP_200_OK,
@@ -143,7 +143,7 @@ async def read_product(product_id: int, db: db_dependency):
 # =========================================================
 # POST /
 # =========================================================
-@router.post("/",
+@router.post("",
              response_model=ProductDetailsResponse,
              summary="Create a new product",
              status_code=status.HTTP_201_CREATED,

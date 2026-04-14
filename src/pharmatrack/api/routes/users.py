@@ -51,7 +51,7 @@ async def get_me(db: db_dependency, token_data: user_dependency):
 # =========================================================
 # GET /
 # =========================================================
-@router.get("/",
+@router.get("",
             response_model=PaginatedResponse[UserResponse],
             summary="List all users",
             status_code=status.HTTP_200_OK,
@@ -140,7 +140,7 @@ async def read_user_details(user_id: int, db: db_dependency):
 # =========================================================
 # POST /
 # =========================================================
-@router.post("/",
+@router.post("",
              response_model=UserResponse,
              status_code=status.HTTP_201_CREATED,
              dependencies=CAN_CREATE_USERS)

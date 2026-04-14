@@ -51,6 +51,7 @@ app = FastAPI(
     license_info={"name": "Proyecto academico"},
     openapi_tags=tags_metadata,
     lifespan=lifespan,
+    redirect_slashes=False,
     # Ocultar docs en produccion para no exponer el schema publico
     docs_url=None if settings.is_production else "/docs",
     redoc_url=None if settings.is_production else "/redoc",

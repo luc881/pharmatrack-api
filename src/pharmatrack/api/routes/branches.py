@@ -15,7 +15,7 @@ router = APIRouter(
 )
 
 
-@router.get('/',
+@router.get('',
             response_model=list[BranchResponse],
             summary="List all branches",
             description="Retrieve all branches currently stored in the database.",
@@ -57,7 +57,7 @@ async def read_users_by_branch(branch_id: int, db: db_dependency):
     return branch_model
 
 
-@router.post('/',
+@router.post('',
             status_code=status.HTTP_201_CREATED,
             response_model=BranchResponse,
             summary="Create a new branch",

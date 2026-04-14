@@ -22,7 +22,7 @@ router = APIRouter(prefix="/suppliers", tags=["Suppliers"])
 # GET ALL
 # ------------------------------------------------------------------
 @router.get(
-    "/",
+    "",
     response_model=list[SupplierResponse],
     summary="List all suppliers",
     status_code=status.HTTP_200_OK,
@@ -53,7 +53,7 @@ async def read_one(supplier_id: int, db: db_dependency):
 # CREATE
 # ------------------------------------------------------------------
 @router.post(
-    "/",
+    "",
     response_model=SupplierResponse,
     summary="Create a new supplier",
     status_code=status.HTTP_201_CREATED,

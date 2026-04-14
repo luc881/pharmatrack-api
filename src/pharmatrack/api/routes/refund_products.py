@@ -134,7 +134,7 @@ def update_sale_status_after_refund(db: Session, sale_detail_id: int):
 # GET ALL
 # -----------------------
 @router.get(
-    "/",
+    "",
     response_model=list[RefundProductResponse],
     summary="List all refund products",
     status_code=status.HTTP_200_OK,
@@ -148,7 +148,7 @@ async def read_all(db: db_dependency):
 # CREATE
 # -----------------------
 @router.post(
-    "/",
+    "",
     response_model=RefundProductResponse,
     summary="Create a new refund product",
     status_code=status.HTTP_201_CREATED,

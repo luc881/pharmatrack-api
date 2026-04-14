@@ -28,7 +28,7 @@ router = APIRouter(prefix="/purchase-details", tags=["Purchase Details"])
 # GET ALL
 # ------------------------------------------------------------------
 @router.get(
-    "/",
+    "",
     response_model=list[PurchaseDetailResponse],
     summary="List all purchase details",
     status_code=status.HTTP_200_OK,
@@ -61,7 +61,7 @@ async def read_one(detail_id: int, db: db_dependency):
 # CREATE
 # ------------------------------------------------------------------
 @router.post(
-    "/",
+    "",
     response_model=PurchaseDetailResponse,
     summary="Create a new purchase detail",
     status_code=status.HTTP_201_CREATED,

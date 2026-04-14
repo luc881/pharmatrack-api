@@ -33,7 +33,7 @@ router = APIRouter(
 # =========================================================
 # GET /
 # =========================================================
-@router.get("/",
+@router.get("",
             response_model=PaginatedResponse[ProductCategoryResponse],
             summary="List all product categories",
             status_code=status.HTTP_200_OK,
@@ -113,7 +113,7 @@ async def get_subtree(category_id: int, db: db_dependency):
 # =========================================================
 # POST /
 # =========================================================
-@router.post("/",
+@router.post("",
              response_model=ProductCategoryResponse,
              summary="Create a new product category",
              status_code=status.HTTP_201_CREATED,

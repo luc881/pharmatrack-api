@@ -32,7 +32,7 @@ router = APIRouter(
 # POST /  — público, lo usa el ESP32
 # =========================================================
 @router.post(
-    "/",
+    "",
     response_model=SensorReadingResponse,
     summary="Registrar lectura de sensor",
     status_code=status.HTTP_201_CREATED,
@@ -79,7 +79,7 @@ async def get_latest(request: Request, db: db_dependency):
 # GET /  — requiere auth, historial paginado
 # =========================================================
 @router.get(
-    "/",
+    "",
     response_model=PaginatedResponse[SensorReadingResponse],
     summary="Historial de lecturas del sensor",
     status_code=status.HTTP_200_OK,

@@ -41,7 +41,7 @@ router = APIRouter(
 # GET /
 # =========================================================
 @router.get(
-    "/",
+    "",
     response_model=PaginatedResponse[SaleResponse],
     summary="List all sales",
     status_code=status.HTTP_200_OK,
@@ -107,7 +107,7 @@ async def read_by_id(sale_id: int, db: db_dependency):
 # POST /
 # =========================================================
 @router.post(
-    "/",
+    "",
     response_model=SaleResponse,
     status_code=status.HTTP_201_CREATED,
     dependencies=CAN_CREATE_SALES,

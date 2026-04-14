@@ -35,7 +35,7 @@ router = APIRouter(
 # GET ALL PRODUCT BATCHES
 # ---------------------------------------------------------------------
 @router.get(
-    "/",
+    "",
     response_model=PaginatedResponse[ProductBatchResponse],
     summary="List all product batches",
     description="Retrieve all product batches currently stored in the database.",
@@ -99,7 +99,7 @@ def get_product_batch_details(product_batch_id: int, db: db_dependency):
 # CREATE PRODUCT BATCH
 # ---------------------------------------------------------------------
 @router.post(
-    "/",
+    "",
     response_model=ProductBatchResponse,
     summary="Create a new product batch",
     description="Create a new product batch with the provided details.",

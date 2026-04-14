@@ -18,7 +18,7 @@ router = APIRouter(
 )
 
 @router.get(
-    "/",
+    "",
     response_model=list[SalePaymentResponse],
     summary="List all sale payments",
     description="Retrieve all sale payments currently stored in the database.",
@@ -30,7 +30,7 @@ async def read_all(db: db_dependency):
     return sale_payments
 
 @router.post(
-    "/",
+    "",
     response_model=SalePaymentResponse,
     summary="Create a new sale payment",
     description="Create a new sale payment with the provided details.",

@@ -26,7 +26,7 @@ router = APIRouter(
 )
 
 
-@router.get("/",
+@router.get("",
             response_model=PaginatedResponse[ProductBrandResponse],
             summary="List all product brands",
             description="Retrieve all product brands currently stored in the database.",
@@ -37,7 +37,7 @@ async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
     return paginate(query, pagination)
 
 
-@router.get("/search/",
+@router.get("/search",
             response_model=PaginatedResponse[ProductBrandDetailsResponse],
             summary="Search product brands with filters",
             description="Advanced filtering of product brands, including product attributes.",
@@ -96,7 +96,7 @@ async def read_brand(brand_id: int, db: db_dependency):
     return brand
 
 
-@router.post("/",
+@router.post("",
              response_model=ProductBrandResponse,
              summary="Create a new product brand",
              description="Create a new product brand using the provided data.",

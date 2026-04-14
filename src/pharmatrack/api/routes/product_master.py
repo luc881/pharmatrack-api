@@ -27,7 +27,7 @@ router = APIRouter(
 )
 
 
-@router.get("/",
+@router.get("",
             response_model=PaginatedResponse[ProductMasterResponse],
             summary="List all product masters",
             description="Retrieve all product masters currently stored in the database.",
@@ -53,7 +53,7 @@ async def read_product_master(master_id: int, db: db_dependency):
     return master
 
 
-@router.post("/",
+@router.post("",
              response_model=ProductMasterResponse,
              summary="Create a new product master",
              status_code=status.HTTP_201_CREATED,

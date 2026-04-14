@@ -25,7 +25,7 @@ router = APIRouter(
 # GET /
 # =========================================================
 @router.get(
-    "/",
+    "",
     response_model=List[SaleBatchUsageResponse],
     summary="List all sale-batch usages",
     description="Retrieve all records linking sale details with product batches.",

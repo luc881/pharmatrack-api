@@ -24,7 +24,7 @@ router = APIRouter(
 )
 
 
-@router.get("/",
+@router.get("",
             response_model=PaginatedResponse[RoleResponse],
             summary="List all roles",
             description="Retrieve all roles currently stored in the database.",
@@ -59,7 +59,7 @@ async def read_by_id_with_permissions(role_id: int, db: db_dependency):
     return role
 
 
-@router.post("/",
+@router.post("",
             status_code=status.HTTP_201_CREATED,
             response_model=RoleWithPermissions,
             summary="Create a new role with optional permissions",

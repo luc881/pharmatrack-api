@@ -37,7 +37,7 @@ router = APIRouter(
 # GET /
 # =========================================================
 @router.get(
-    "/",
+    "",
     response_model=PaginatedResponse[SaleDetailResponse],
     summary="List all sale details",
     status_code=status.HTTP_200_OK,
@@ -78,7 +78,7 @@ def search_sale_details(
 # POST /
 # =========================================================
 @router.post(
-    "/",
+    "",
     response_model=SaleDetailResponse,
     status_code=status.HTTP_201_CREATED,
     dependencies=CAN_CREATE_SALE_DETAILS,

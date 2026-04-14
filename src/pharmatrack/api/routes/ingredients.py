@@ -23,7 +23,7 @@ router = APIRouter(
 )
 
 
-@router.get("/",
+@router.get("",
             response_model=PaginatedResponse[IngredientResponse],
             summary="List all ingredients",
             description="Retrieve all ingredients currently stored in the database.",
@@ -34,7 +34,7 @@ async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
     return paginate(query, pagination)
 
 
-@router.post("/",
+@router.post("",
             response_model=IngredientResponse,
             summary="Create a new ingredient",
             description="Create a new ingredient with the provided details.",

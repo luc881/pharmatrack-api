@@ -23,7 +23,7 @@ router = APIRouter(
 )
 
 
-@router.get("/",
+@router.get("",
             response_model=PaginatedResponse[PermissionResponse],
             summary="List all permissions",
             description="Retrieve all permissions currently stored in the database.",
@@ -60,7 +60,7 @@ async def read_permission_with_roles(permission_id: int, db: db_dependency):
     return permission
 
 
-@router.post("/",
+@router.post("",
             status_code=status.HTTP_201_CREATED,
             response_model=PermissionResponse,
             summary="Create a new permission",
