@@ -11,6 +11,7 @@ from ...models.roles.schemas import (
     PaginatedResponse,
     PaginationParams,
 )
+from pharmatrack.models.products.schemas import BulkDeleteRequest
 from ...models.permissions.orm import Permission
 from ...db.session import get_db
 from ...utils.permissions import CAN_READ_ROLES, CAN_CREATE_ROLES, CAN_UPDATE_ROLES, CAN_DELETE_ROLES
@@ -144,6 +145,23 @@ async def update_role(role_id: int, db: db_dependency, role_request: RoleUpdate)
     db.commit()
     db.refresh(role)
     return role
+
+
+@router.delete("/bulk",
+            status_code=status.HTTP_200_OK,
+            summary="Bulk delete roles",
+            description="Deletes multiple roles atomically. Fails if any ID does not exist.",
+            dependencies=CAN_DELETE_ROLES)
+async def bulk_delete_roles(payload: BulkDeleteRequest, db: db_dependency):
+    roles = db.query(Role).filter(Role.id.in_(payload.ids)).all()
+    found_ids = {r.id for r in roles}
+    missing = [i for i in payload.ids if i not in found_ids]
+    if missing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Roles not found: {missing}")
+    for role in roles:
+        db.delete(role)
+    db.commit()
+    return {"deleted": len(roles)}
 
 
 @router.delete("/{role_id}",

@@ -17,6 +17,7 @@ from ...models.users.schemas import (
     PaginatedResponse,
     PaginationParams,
 )
+from pharmatrack.models.products.schemas import BulkDeleteRequest
 from ...utils.permissions import CAN_READ_USERS, CAN_CREATE_USERS, CAN_UPDATE_USERS, CAN_DELETE_USERS
 from ...utils.security import user_dependency
 from pharmatrack.utils.pagination import paginate
@@ -253,6 +254,27 @@ async def change_password(request: Request, user_id: int, data: ChangePasswordRe
 
     logger.info("Password changed for user id=%s", user_id)
     return {"message": "Contraseña actualizada correctamente"}
+
+
+# =========================================================
+# DELETE /bulk
+# =========================================================
+@router.delete("/bulk",
+               status_code=status.HTTP_200_OK,
+               summary="Bulk delete users",
+               description="Deletes multiple users atomically. Fails if any ID does not exist.",
+               dependencies=CAN_DELETE_USERS)
+@limiter.limit(LIMIT_WRITE)
+async def bulk_delete_users(request: Request, payload: BulkDeleteRequest, db: db_dependency):
+    users = db.query(User).filter(User.id.in_(payload.ids)).all()
+    found_ids = {u.id for u in users}
+    missing = [i for i in payload.ids if i not in found_ids]
+    if missing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Users not found: {missing}")
+    for user in users:
+        db.delete(user)
+    db.commit()
+    return {"deleted": len(users)}
 
 
 # =========================================================

@@ -15,6 +15,7 @@ from ...models.products.schemas import (
     ProductDetailsResponse,
     PaginationParams,
     PaginatedResponse,
+    BulkDeleteRequest,
     _product_slug,
 )
 from ...utils.permissions import CAN_READ_PRODUCTS, CAN_CREATE_PRODUCTS, CAN_UPDATE_PRODUCTS, CAN_DELETE_PRODUCTS
@@ -315,6 +316,27 @@ async def toggle_product_active(product_id: int, db: db_dependency):
     db.refresh(product)
     logger.info("Product id=%s toggled is_active=%s", product_id, product.is_active)
     return product
+
+
+# =========================================================
+# DELETE /bulk
+# =========================================================
+@router.delete("/bulk",
+               status_code=status.HTTP_200_OK,
+               summary="Bulk delete products",
+               description="Deletes multiple products atomically. Fails if any ID does not exist.",
+               dependencies=CAN_DELETE_PRODUCTS)
+@limiter.limit(LIMIT_WRITE)
+async def bulk_delete_products(request: Request, payload: BulkDeleteRequest, db: db_dependency):
+    products = db.query(Product).filter(Product.id.in_(payload.ids)).all()
+    found_ids = {p.id for p in products}
+    missing = [i for i in payload.ids if i not in found_ids]
+    if missing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Products not found: {missing}")
+    for product in products:
+        db.delete(product)
+    db.commit()
+    return {"deleted": len(products)}
 
 
 # =========================================================

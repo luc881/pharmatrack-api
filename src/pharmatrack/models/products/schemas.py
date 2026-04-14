@@ -30,6 +30,10 @@ class PaginationParams(BaseModel):
     page: int = Field(default=1, ge=1, description="Número de página")
     page_size: int = Field(default=20, ge=1, le=500, description="Items por página")
 
+
+class BulkDeleteRequest(BaseModel):
+    ids: List[int] = Field(..., min_length=1, description="IDs a eliminar")
+
     @property
     def offset(self) -> int:
         return (self.page - 1) * self.page_size
