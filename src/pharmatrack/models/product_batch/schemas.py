@@ -3,6 +3,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from ..products.schemas import PaginatedResponse, PaginationParams
+from pharmatrack.types.common import FutureOrPresentDate
 
 
 # =========================================================
@@ -10,7 +11,7 @@ from ..products.schemas import PaginatedResponse, PaginationParams
 # =========================================================
 class ProductBatchBase(BaseModel):
     lot_code: Optional[str] = Field(None, max_length=100, description="Código o identificador del lote")
-    expiration_date: date = Field(..., description="Fecha de caducidad del lote")
+    expiration_date: FutureOrPresentDate = Field(..., description="Fecha de caducidad del lote")
     quantity: int = Field(..., ge=0, description="Cantidad disponible en el lote")
     purchase_price: Optional[float] = Field(None, ge=0, description="Precio de compra por unidad del lote")
 
@@ -48,7 +49,7 @@ class ProductBatchCreate(ProductBatchBase):
 # =========================================================
 class ProductBatchUpdate(BaseModel):
     lot_code: Optional[str] = Field(None, max_length=100)
-    expiration_date: Optional[date] = None
+    expiration_date: Optional[FutureOrPresentDate] = None
     quantity: Optional[int] = Field(None, ge=0)
     purchase_price: Optional[float] = Field(None, ge=0)
 

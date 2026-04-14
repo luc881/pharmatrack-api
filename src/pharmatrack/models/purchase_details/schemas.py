@@ -2,6 +2,7 @@ from typing import Optional
 from datetime import datetime, date
 from pydantic import BaseModel, Field, ConfigDict
 from pharmatrack.models.products.schemas import PaginatedResponse, PaginationParams
+from pharmatrack.types.common import FutureOrPresentDate
 
 __all__ = ["PaginatedResponse", "PaginationParams"]
 
@@ -14,7 +15,7 @@ class PurchaseDetailBase(BaseModel):
     product_id: int = Field(..., ge=1, description="ID del producto")
     quantity: float = Field(..., gt=0, description="Cantidad recibida")
     unit_price: float = Field(..., ge=0, description="Precio unitario de compra")
-    expiration_date: Optional[date] = Field(None, description="Fecha de vencimiento del lote")
+    expiration_date: Optional[FutureOrPresentDate] = Field(None, description="Fecha de vencimiento del lote")
     lot_code: Optional[str] = Field(None, max_length=100, description="Código de lote")
 
 
@@ -43,7 +44,7 @@ class PurchaseDetailCreate(PurchaseDetailBase):
 class PurchaseDetailUpdate(BaseModel):
     quantity: Optional[float] = Field(None, gt=0)
     unit_price: Optional[float] = Field(None, ge=0)
-    expiration_date: Optional[date] = None
+    expiration_date: Optional[FutureOrPresentDate] = None
     lot_code: Optional[str] = Field(None, max_length=100)
 
     model_config = ConfigDict(

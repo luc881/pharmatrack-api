@@ -2,9 +2,11 @@
 Tipos Pydantic reutilizables en toda la API.
 Importar desde aquí en lugar de redefinir en cada módulo.
 """
+from datetime import date
 from decimal import Decimal
 from typing import Annotated, Optional
 from pydantic import StringConstraints, Field, HttpUrl
+from pydantic.functional_validators import AfterValidator
 from pydantic.types import NonNegativeFloat
 
 
@@ -80,4 +82,20 @@ ImageURLStr = Annotated[
 IsActiveFlag = Annotated[
     bool,
     Field(description="Indica si el registro está activo")
+]
+
+
+# -----------------------------------------------
+# 📅 Fechas validadas
+# -----------------------------------------------
+
+def _check_future_or_present(v: date) -> date:
+    if v < date.today():
+        raise ValueError("La fecha de vencimiento no puede ser una fecha pasada")
+    return v
+
+FutureOrPresentDate = Annotated[
+    date,
+    AfterValidator(_check_future_or_present),
+    Field(description="Fecha de vencimiento (hoy o futura)"),
 ]
