@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException, APIRouter, Request
 from typing import Annotated
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from datetime import datetime, timezone
 from ...db.session import get_db
 from starlette import status
@@ -53,14 +54,47 @@ async def get_me(db: db_dependency, token_data: user_dependency):
 # =========================================================
 # GET /
 # =========================================================
+_USER_ORDERING_MAP = {
+    "name":        User.name.asc(),
+    "-name":       User.name.desc(),
+    "created_at":  User.created_at.asc(),
+    "-created_at": User.created_at.desc(),
+}
+
+
 @router.get("",
             response_model=PaginatedResponse[UserResponse],
             summary="List all users",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_USERS)
 @limiter.limit(LIMIT_READ)
-async def read_all(request: Request, db: db_dependency, pagination: PaginationParams = Depends()):
-    query = db.query(User).filter(User.deleted_at.is_(None)).order_by(User.id.asc())
+async def read_all(
+    request: Request,
+    db: db_dependency,
+    pagination: PaginationParams = Depends(),
+    search: str | None = None,
+    role_id: int | None = None,
+    branch_id: int | None = None,
+    gender: str | None = None,
+    ordering: str | None = None,
+):
+    query = db.query(User).filter(User.deleted_at.is_(None))
+
+    if search:
+        term = f"%{search}%"
+        query = query.filter(
+            or_(User.name.ilike(term), User.surname.ilike(term), User.email.ilike(term))
+        )
+    if role_id is not None:
+        query = query.filter(User.role_id == role_id)
+    if branch_id is not None:
+        query = query.filter(User.branch_id == branch_id)
+    if gender is not None:
+        query = query.filter(User.gender == gender.upper())
+
+    order_clause = _USER_ORDERING_MAP.get(ordering) if ordering else None
+    query = query.order_by(order_clause if order_clause is not None else User.id.asc())
+
     return paginate(query, pagination)
 
 
