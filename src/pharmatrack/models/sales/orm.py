@@ -1,11 +1,12 @@
 from sqlalchemy import (
-    String, BigInteger, TIMESTAMP, ForeignKey, Text, Numeric
+    BigInteger, TIMESTAMP, ForeignKey, Text, Numeric, Enum as SAEnum
 )
 from sqlalchemy.sql import func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ...db.session import Base
 from datetime import datetime
 from decimal import Decimal
+from pharmatrack.types.sales import SaleStatusEnum
 
 
 class Sale(Base):
@@ -25,9 +26,11 @@ class Sale(Base):
     discount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, default=0)
     total: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
 
-    status: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="completed"
-    )  # completed | cancelled | refunded
+    status: Mapped[SaleStatusEnum] = mapped_column(
+        SAEnum(SaleStatusEnum, name="salestatusenum", create_type=False),
+        nullable=False,
+        default=SaleStatusEnum.DRAFT,
+    )
 
     description: Mapped[str] = mapped_column(Text, nullable=True)
 

@@ -1,11 +1,12 @@
 from sqlalchemy import (
-    String, BigInteger, TIMESTAMP, ForeignKey, Numeric
+    String, BigInteger, TIMESTAMP, ForeignKey, Numeric, Enum as SAEnum
 )
 from sqlalchemy.sql import func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ...db.session import Base
 from datetime import datetime
 from decimal import Decimal
+from pharmatrack.types.sales import PaymentMethodEnum
 
 
 class SalePayment(Base):
@@ -17,9 +18,10 @@ class SalePayment(Base):
         BigInteger, ForeignKey("sales.id"), nullable=False, index=True
     )
 
-    method_payment: Mapped[str] = mapped_column(
-        String(30), nullable=False
-    )  # cash | card | transfer
+    method_payment: Mapped[PaymentMethodEnum] = mapped_column(
+        SAEnum(PaymentMethodEnum, name="paymentmethodenum", create_type=False),
+        nullable=False,
+    )
 
     transaction_number: Mapped[str] = mapped_column(String(100), nullable=True)
     bank: Mapped[str] = mapped_column(String(100), nullable=True)
