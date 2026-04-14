@@ -2,7 +2,7 @@ from typing import Optional
 from datetime import datetime
 from decimal import Decimal
 from pydantic import BaseModel, Field
-from pharmatrack.types.sales import PaymentMethodEnum
+from pharmatrack.types.sales import PaymentMethodEnum, MexicanBankEnum
 
 
 # -----------------------
@@ -18,9 +18,8 @@ class SalePaymentBase(BaseModel):
         max_length=100,
         description="Número de transacción"
     )
-    bank: Optional[str] = Field(
+    bank: Optional[MexicanBankEnum] = Field(
         None,
-        max_length=100,
         description="Banco emisor o receptor"
     )
     amount: Decimal = Field(
@@ -61,7 +60,7 @@ class SalePaymentUpdate(BaseModel):
     sale_id: Optional[int] = Field(None, gt=0)
     method_payment: Optional[PaymentMethodEnum] = None
     transaction_number: Optional[str] = Field(None, max_length=100)
-    bank: Optional[str] = Field(None, max_length=100)
+    bank: Optional[MexicanBankEnum] = None
     amount: Optional[Decimal] = Field(None, gt=0)
 
     model_config = {
@@ -136,9 +135,8 @@ class SalePaymentSearchParams(BaseModel):
         None,
         description="Filtrar por método de pago"
     )
-    bank: Optional[str] = Field(
+    bank: Optional[MexicanBankEnum] = Field(
         None,
-        max_length=100,
         description="Filtrar por banco"
     )
     date_from: Optional[datetime] = Field(None, description="Fecha inicio")

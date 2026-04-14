@@ -1,6 +1,6 @@
-from typing import Optional, TYPE_CHECKING, Dict
+from typing import Optional, TYPE_CHECKING, Dict, Annotated
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # -----------------------
 # Base schema
@@ -61,8 +61,26 @@ class RefundProductResponse(RefundProductBase):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None
-    reintegrated_batches: Optional[Dict[str, float]] = Field(default_factory=dict)
+    reintegrated_batches: Optional[Dict[str, float]] = Field(
+        default_factory=dict,
+        description="Mapa de batch_id → cantidad reintegrada. Claves: IDs de lote como string. Valores: cantidades > 0.",
+    )
 
+    @field_validator("reintegrated_batches", mode="before")
+    @classmethod
+    def validate_reintegrated_batches(cls, v):
+        if v is None:
+            return {}
+        if not isinstance(v, dict):
+            raise ValueError("reintegrated_batches debe ser un objeto {batch_id: quantity}")
+        result = {}
+        for key, qty in v.items():
+            if not str(key).isdigit():
+                raise ValueError(f"Clave inválida '{key}': debe ser un ID de lote numérico")
+            if not isinstance(qty, (int, float)) or qty <= 0:
+                raise ValueError(f"Cantidad inválida para batch {key}: debe ser un número mayor a 0")
+            result[str(key)] = float(qty)
+        return result
 
     model_config = {
         "from_attributes": True,

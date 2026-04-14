@@ -1,4 +1,4 @@
-from sqlalchemy import String, BigInteger, Double, Date, ForeignKey, Integer, TIMESTAMP, UniqueConstraint
+from sqlalchemy import String, BigInteger, Double, Date, ForeignKey, Integer, TIMESTAMP, Index
 from sqlalchemy.sql import func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime, date
@@ -9,7 +9,15 @@ from typing import Optional
 class ProductBatch(Base):
     __tablename__ = "product_batches"
     __table_args__ = (
-        UniqueConstraint("product_id", "lot_code", name="uq_product_lot_code"),
+        # Partial unique index: prevents duplicate lot_codes per product
+        # but allows multiple batches without a lot_code (NULL != NULL in SQL)
+        Index(
+            "uq_product_lot_code_notnull",
+            "product_id",
+            "lot_code",
+            unique=True,
+            postgresql_where="lot_code IS NOT NULL",
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
