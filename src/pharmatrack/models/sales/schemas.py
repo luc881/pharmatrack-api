@@ -4,6 +4,7 @@ from decimal import Decimal
 from pydantic import BaseModel, Field, ConfigDict
 
 from pharmatrack.models.products.schemas import PaginatedResponse, PaginationParams
+from pharmatrack.types.sales import SaleStatusEnum
 
 
 # =========================================================
@@ -18,9 +19,9 @@ class SaleBase(BaseModel):
     discount: Decimal = Field(0, ge=0, description="Descuento aplicado")
     total: Decimal = Field(..., ge=0, description="Total de la venta")
 
-    status: str = Field(
-        "completed",
-        description="Estado de la venta (completed | cancelled | refunded)"
+    status: SaleStatusEnum = Field(
+        SaleStatusEnum.COMPLETED,
+        description="Estado de la venta"
     )
 
     description: Optional[str] = Field(None, description="Descripción de la venta")
@@ -58,9 +59,7 @@ class SaleUpdate(BaseModel):
     discount: Optional[Decimal] = Field(None, ge=0)
     total: Optional[Decimal] = Field(None, ge=0)
 
-    status: Optional[str] = Field(
-        None, description="completed | cancelled | refunded"
-    )
+    status: Optional[SaleStatusEnum] = Field(None, description="Estado de la venta")
 
     description: Optional[str] = None
 
@@ -138,9 +137,7 @@ class SaleDetailResponse(SaleResponse):
 class SaleSearchParams(BaseModel):
     user_id: Optional[int] = Field(None, gt=0, description="Filtrar por usuario")
     branch_id: Optional[int] = Field(None, gt=0, description="Filtrar por sucursal")
-    status: Optional[str] = Field(
-        None, description="completed | cancelled | refunded"
-    )
+    status: Optional[SaleStatusEnum] = Field(None, description="Estado de la venta")
     date_from: Optional[datetime] = Field(None, description="Fecha inicio")
     date_to: Optional[datetime] = Field(None, description="Fecha fin")
 

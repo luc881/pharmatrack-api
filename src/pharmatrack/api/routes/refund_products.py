@@ -5,6 +5,7 @@ from starlette import status
 from datetime import datetime
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import func
+from pharmatrack.types.sales import SaleStatusEnum
 
 from ...db.session import get_db
 from ...models.refund_products.orm import RefundProduct
@@ -81,7 +82,7 @@ def update_sale_status_after_refund(db: Session, sale_detail_id: int):
         return None
 
     # Solo procesar si la venta está en estado "completed" o "partially_refunded"
-    if sale.status not in ["completed", "partially_refunded", "refunded"]:
+    if sale.status not in (SaleStatusEnum.COMPLETED, SaleStatusEnum.PARTIALLY_REFUNDED, SaleStatusEnum.REFUNDED):
         return sale
 
     # Obtener todos los sale_details de esta venta
@@ -114,11 +115,11 @@ def update_sale_status_after_refund(db: Session, sale_detail_id: int):
 
     # Determinar estado final de la venta
     if all_not_refunded:
-        new_status = "completed"
+        new_status = SaleStatusEnum.COMPLETED
     elif all_fully_refunded:
-        new_status = "refunded"
+        new_status = SaleStatusEnum.REFUNDED
     elif any_partially_refunded:
-        new_status = "partially_refunded"
+        new_status = SaleStatusEnum.PARTIALLY_REFUNDED
     else:
         new_status = sale.status  # Mantener estado actual
 

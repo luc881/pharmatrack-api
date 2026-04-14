@@ -3,6 +3,7 @@ from typing import Annotated
 from sqlalchemy.orm import Session
 from starlette import status
 from decimal import Decimal
+from pharmatrack.types.sales import SaleStatusEnum
 
 from ...db.session import get_db
 from ...models.sale_details.schemas import (
@@ -88,7 +89,7 @@ def create(sale_detail: SaleDetailCreate, db: db_dependency):
     if not sale:
         raise HTTPException(status_code=404, detail="Associated sale not found")
 
-    if sale.status != "draft":
+    if sale.status != SaleStatusEnum.DRAFT:
         raise HTTPException(
             status_code=400,
             detail="Cannot add details to a non-draft sale",
@@ -142,7 +143,7 @@ def update(sale_detail_id: int, sale_detail: SaleDetailUpdate, db: db_dependency
         raise HTTPException(status_code=404, detail="Sale detail not found")
 
     sale = detail.sale
-    if sale.status != "draft":
+    if sale.status != SaleStatusEnum.DRAFT:
         raise HTTPException(
             status_code=400,
             detail="Cannot modify details of a non-draft sale",
@@ -194,7 +195,7 @@ def delete(sale_detail_id: int, db: db_dependency):
         raise HTTPException(status_code=404, detail="Sale detail not found")
 
     sale = detail.sale
-    if sale.status != "draft":
+    if sale.status != SaleStatusEnum.DRAFT:
         raise HTTPException(
             status_code=400,
             detail="Cannot delete details of a non-draft sale",

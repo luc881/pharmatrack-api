@@ -15,6 +15,7 @@ from ...models.products.orm import Product
 from ...models.product_batch.orm import ProductBatch
 from ...utils.permissions import CAN_READ_DASHBOARD
 from ...utils.rate_limit import limiter, LIMIT_READ
+from pharmatrack.types.sales import SaleStatusEnum
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
@@ -84,7 +85,7 @@ async def get_dashboard_stats(request: Request, db: db_dependency):
             func.count(Sale.id).label("count"),
         )
         .filter(
-            Sale.status == "completed",
+            Sale.status == SaleStatusEnum.COMPLETED,
             Sale.date_sale >= first_of_twelve_months_ago,
         )
         .group_by("month")
@@ -151,7 +152,7 @@ async def get_dashboard_stats(request: Request, db: db_dependency):
                 func.count(Sale.id).label("count"),
             )
             .filter(
-                Sale.status == "completed",
+                Sale.status == SaleStatusEnum.COMPLETED,
                 Sale.date_sale >= start,
                 Sale.date_sale < end,
             )

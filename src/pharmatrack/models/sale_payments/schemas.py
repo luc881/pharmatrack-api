@@ -2,16 +2,16 @@ from typing import Optional
 from datetime import datetime
 from decimal import Decimal
 from pydantic import BaseModel, Field
+from pharmatrack.types.sales import PaymentMethodEnum
 
 
 # -----------------------
 # Base schema (shared fields)
 # -----------------------
 class SalePaymentBase(BaseModel):
-    method_payment: str = Field(
+    method_payment: PaymentMethodEnum = Field(
         ...,
-        max_length=30,
-        description="Método de pago (cash | card | transfer)"
+        description="Método de pago"
     )
     transaction_number: Optional[str] = Field(
         None,
@@ -59,7 +59,7 @@ class SalePaymentCreate(SalePaymentBase):
 # -----------------------
 class SalePaymentUpdate(BaseModel):
     sale_id: Optional[int] = Field(None, gt=0)
-    method_payment: Optional[str] = Field(None, max_length=30)
+    method_payment: Optional[PaymentMethodEnum] = None
     transaction_number: Optional[str] = Field(None, max_length=100)
     bank: Optional[str] = Field(None, max_length=100)
     amount: Optional[Decimal] = Field(None, gt=0)
@@ -132,9 +132,8 @@ class SalePaymentDetailResponse(SalePaymentResponse):
 # -----------------------
 class SalePaymentSearchParams(BaseModel):
     sale_id: Optional[int] = Field(None, gt=0, description="Filtrar por ID de venta")
-    method_payment: Optional[str] = Field(
+    method_payment: Optional[PaymentMethodEnum] = Field(
         None,
-        max_length=30,
         description="Filtrar por método de pago"
     )
     bank: Optional[str] = Field(

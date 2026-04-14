@@ -17,6 +17,7 @@ from ...models.sales.schemas import (
     PaginatedResponse,
     PaginationParams,
 )
+from pharmatrack.types.sales import SaleStatusEnum
 from ...utils.permissions import (
     CAN_READ_SALES, CAN_CREATE_SALES, CAN_UPDATE_SALES, CAN_DELETE_SALES
 )
@@ -30,7 +31,6 @@ logger = get_logger(__name__)
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
-VALID_SALE_STATUS = ["draft", "completed", "cancelled", "refunded", "partially_refunded"]
 
 router = APIRouter(
     prefix="/sales",
@@ -61,7 +61,7 @@ async def read_all(
     request: Request,
     db: db_dependency,
     pagination: PaginationParams = Depends(),
-    status_filter: Optional[str] = None,
+    status_filter: Optional[SaleStatusEnum] = None,
     user_id: Optional[int] = None,
     branch_id: Optional[int] = None,
     date_from: Optional[datetime] = None,
@@ -158,7 +158,7 @@ async def create(request: Request, sale: SaleCreate, db: db_dependency):
         user_id=sale.user_id,
         branch_id=sale.branch_id,
         description=sale.description,
-        status="draft",
+        status=SaleStatusEnum.DRAFT,
         subtotal=0,
         tax=0,
         discount=0,
@@ -191,7 +191,7 @@ def complete_sale(sale_id: int, db: db_dependency):
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
 
-    if sale.status != "draft":
+    if sale.status != SaleStatusEnum.DRAFT:
         raise HTTPException(status_code=400, detail="Only draft sales can be completed")
 
     if not sale.sale_details:
@@ -201,7 +201,7 @@ def complete_sale(sale_id: int, db: db_dependency):
         allocate_batches_for_sale_detail(db, detail)
 
     recalc_sale_totals(db, sale)
-    sale.status = "completed"
+    sale.status = SaleStatusEnum.COMPLETED
 
     db.commit()
     db.refresh(sale)
@@ -232,13 +232,10 @@ async def update(sale_id: int, sale: SaleUpdate, db: db_dependency):
     if sale.branch_id and not db.query(Branch).filter_by(id=sale.branch_id).first():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Branch ID does not exist.")
 
-    if sale.status and sale.status not in VALID_SALE_STATUS:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid sale status.")
-
-    if sale.status in ["refunded", "partially_refunded"]:
+    if sale.status in (SaleStatusEnum.REFUNDED, SaleStatusEnum.PARTIALLY_REFUNDED):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Refund statuses can only be set automatically by the refund system.")
 
-    if existing_sale.status != "draft":
+    if existing_sale.status != SaleStatusEnum.DRAFT:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only draft sales can be modified.")
 
     for key, value in sale.model_dump(exclude_unset=True).items():
