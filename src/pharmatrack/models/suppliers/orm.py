@@ -12,10 +12,10 @@ class Supplier(Base):
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     logo: Mapped[str] = mapped_column(String(255), nullable=True)
-    email: Mapped[str] = mapped_column(String(250), nullable=True, unique=True)
+    email: Mapped[str] = mapped_column(String(250), nullable=True)
     phone: Mapped[str] = mapped_column(String(25), nullable=True)
     address: Mapped[str] = mapped_column(String(250), nullable=True)
-    rfc: Mapped[str] = mapped_column(String(50), nullable=True, unique=True)
+    rfc: Mapped[str] = mapped_column(String(50), nullable=True)
 
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
 
