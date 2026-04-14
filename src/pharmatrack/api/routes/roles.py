@@ -1,5 +1,6 @@
 from fastapi import Depends, HTTPException, APIRouter
 from starlette import status
+from datetime import datetime, timezone
 from ...models.roles.orm import Role
 from typing import Annotated
 from sqlalchemy.orm import Session
@@ -15,6 +16,7 @@ from pharmatrack.models.products.schemas import BulkDeleteRequest
 from ...models.permissions.orm import Permission
 from ...db.session import get_db
 from ...utils.permissions import CAN_READ_ROLES, CAN_CREATE_ROLES, CAN_UPDATE_ROLES, CAN_DELETE_ROLES
+
 from pharmatrack.utils.pagination import paginate
 
 db_dependency = Annotated[Session, Depends(get_db)]
@@ -32,7 +34,7 @@ router = APIRouter(
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_ROLES)
 async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
-    query = db.query(Role).order_by(Role.id.asc())
+    query = db.query(Role).filter(Role.deleted_at.is_(None)).order_by(Role.id.asc())
     return paginate(query, pagination)
 
 
@@ -43,7 +45,7 @@ async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_ROLES)
 async def read_all_with_permissions(db: db_dependency, pagination: PaginationParams = Depends()):
-    query = db.query(Role).order_by(Role.id.asc())
+    query = db.query(Role).filter(Role.deleted_at.is_(None)).order_by(Role.id.asc())
     return paginate(query, pagination)
 
 
@@ -54,7 +56,7 @@ async def read_all_with_permissions(db: db_dependency, pagination: PaginationPar
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_ROLES)
 async def read_by_id_with_permissions(role_id: int, db: db_dependency):
-    role = db.query(Role).filter(Role.id == role_id).first()
+    role = db.query(Role).filter(Role.id == role_id, Role.deleted_at.is_(None)).first()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
     return role
@@ -149,29 +151,45 @@ async def update_role(role_id: int, db: db_dependency, role_request: RoleUpdate)
 
 @router.delete("/bulk",
             status_code=status.HTTP_200_OK,
-            summary="Bulk delete roles",
-            description="Deletes multiple roles atomically. Fails if any ID does not exist.",
+            summary="Bulk soft-delete roles",
+            description="Soft-deletes multiple roles atomically. Fails if any ID does not exist or is already deleted.",
             dependencies=CAN_DELETE_ROLES)
 async def bulk_delete_roles(payload: BulkDeleteRequest, db: db_dependency):
-    roles = db.query(Role).filter(Role.id.in_(payload.ids)).all()
+    roles = db.query(Role).filter(Role.id.in_(payload.ids), Role.deleted_at.is_(None)).all()
     found_ids = {r.id for r in roles}
     missing = [i for i in payload.ids if i not in found_ids]
     if missing:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Roles not found: {missing}")
+    now = datetime.now(timezone.utc)
     for role in roles:
-        db.delete(role)
+        role.deleted_at = now
     db.commit()
     return {"deleted": len(roles)}
 
 
 @router.delete("/{role_id}",
             status_code=status.HTTP_204_NO_CONTENT,
-            summary="Delete a role",
-            description="Deletes a role by ID. This will remove the role and its associations from the database.",
+            summary="Soft-delete a role",
+            description="Marks a role as deleted without removing it from the database.",
             dependencies=CAN_DELETE_ROLES)
 async def delete_role(role_id: int, db: db_dependency):
-    role = db.query(Role).filter(Role.id == role_id).one_or_none()
+    role = db.query(Role).filter(Role.id == role_id, Role.deleted_at.is_(None)).one_or_none()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
-    db.delete(role)
+    role.deleted_at = datetime.now(timezone.utc)
     db.commit()
+
+
+@router.patch("/{role_id}/restore",
+            status_code=status.HTTP_200_OK,
+            response_model=RoleWithPermissions,
+            summary="Restore a soft-deleted role",
+            dependencies=CAN_UPDATE_ROLES)
+async def restore_role(role_id: int, db: db_dependency):
+    role = db.query(Role).filter(Role.id == role_id, Role.deleted_at.isnot(None)).one_or_none()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found or not deleted")
+    role.deleted_at = None
+    db.commit()
+    db.refresh(role)
+    return role

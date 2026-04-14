@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException, APIRouter, Request
 from typing import Annotated
 from sqlalchemy.orm import Session
+from datetime import datetime, timezone
 from ...db.session import get_db
 from starlette import status
 from passlib.context import CryptContext
@@ -59,7 +60,7 @@ async def get_me(db: db_dependency, token_data: user_dependency):
             dependencies=CAN_READ_USERS)
 @limiter.limit(LIMIT_READ)
 async def read_all(request: Request, db: db_dependency, pagination: PaginationParams = Depends()):
-    query = db.query(User).order_by(User.id.asc())
+    query = db.query(User).filter(User.deleted_at.is_(None)).order_by(User.id.asc())
     return paginate(query, pagination)
 
 
@@ -117,7 +118,7 @@ async def search_users(
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_USERS)
 async def read_user_by_id(user_id: int, db: db_dependency):
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return user
@@ -132,7 +133,7 @@ async def read_user_by_id(user_id: int, db: db_dependency):
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_USERS)
 async def read_user_details(user_id: int, db: db_dependency):
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return user
@@ -266,13 +267,14 @@ async def change_password(request: Request, user_id: int, data: ChangePasswordRe
                dependencies=CAN_DELETE_USERS)
 @limiter.limit(LIMIT_WRITE)
 async def bulk_delete_users(request: Request, payload: BulkDeleteRequest, db: db_dependency):
-    users = db.query(User).filter(User.id.in_(payload.ids)).all()
+    users = db.query(User).filter(User.id.in_(payload.ids), User.deleted_at.is_(None)).all()
     found_ids = {u.id for u in users}
     missing = [i for i in payload.ids if i not in found_ids]
     if missing:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Users not found: {missing}")
+    now = datetime.now(timezone.utc)
     for user in users:
-        db.delete(user)
+        user.deleted_at = now
     db.commit()
     return {"deleted": len(users)}
 
@@ -282,14 +284,33 @@ async def bulk_delete_users(request: Request, payload: BulkDeleteRequest, db: db
 # =========================================================
 @router.delete("/{user_id}",
                status_code=status.HTTP_204_NO_CONTENT,
-               summary="Delete a user",
+               summary="Soft-delete a user",
                dependencies=CAN_DELETE_USERS)
 @limiter.limit(LIMIT_WRITE)
 async def delete_user(request: Request, user_id: int, db: db_dependency):
-    existing_user = db.query(User).filter(User.id == user_id).first()
+    existing_user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
     if not existing_user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    db.delete(existing_user)
+    existing_user.deleted_at = datetime.now(timezone.utc)
     db.commit()
-    logger.info("User deleted id=%s", user_id)
+    logger.info("User soft-deleted id=%s", user_id)
     return None
+
+
+# =========================================================
+# PATCH /{user_id}/restore
+# =========================================================
+@router.patch("/{user_id}/restore",
+              status_code=status.HTTP_200_OK,
+              response_model=UserResponse,
+              summary="Restore a soft-deleted user",
+              dependencies=CAN_UPDATE_USERS)
+async def restore_user(user_id: int, db: db_dependency):
+    user = db.query(User).filter(User.id == user_id, User.deleted_at.isnot(None)).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found or not deleted")
+    user.deleted_at = None
+    db.commit()
+    db.refresh(user)
+    logger.info("User restored id=%s", user_id)
+    return user

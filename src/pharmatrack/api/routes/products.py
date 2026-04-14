@@ -1,5 +1,6 @@
 from fastapi import Depends, HTTPException, APIRouter, Request
 from sqlalchemy import or_
+from datetime import datetime, timezone
 from typing import Annotated
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -73,7 +74,7 @@ async def read_all(
     is_active: bool | None = None,
     ordering: str | None = None,
 ):
-    query = db.query(Product)
+    query = db.query(Product).filter(Product.deleted_at.is_(None))
 
     if sku:
         query = query.filter(Product.sku == sku)
@@ -110,7 +111,7 @@ async def search_products(
     params: ProductSearchParams = Depends(),
     pagination: PaginationParams = Depends()
 ):
-    query = db.query(Product)
+    query = db.query(Product).filter(Product.deleted_at.is_(None))
 
     if params.title:
         query = query.filter(Product.title.ilike(f"%{params.title}%"))
@@ -135,7 +136,7 @@ async def search_products(
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCTS)
 async def read_product(product_id: int, db: db_dependency):
-    product = db.query(Product).filter(Product.id == product_id).first()
+    product = db.query(Product).filter(Product.id == product_id, Product.deleted_at.is_(None)).first()
     if not product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
     return product
@@ -307,7 +308,7 @@ async def update_product(product_id: int, product_request: ProductUpdate, db: db
               summary="Toggle product availability",
               dependencies=CAN_UPDATE_PRODUCTS)
 async def toggle_product_active(product_id: int, db: db_dependency):
-    product = db.query(Product).filter(Product.id == product_id).first()
+    product = db.query(Product).filter(Product.id == product_id, Product.deleted_at.is_(None)).first()
     if not product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
 
@@ -328,13 +329,14 @@ async def toggle_product_active(product_id: int, db: db_dependency):
                dependencies=CAN_DELETE_PRODUCTS)
 @limiter.limit(LIMIT_WRITE)
 async def bulk_delete_products(request: Request, payload: BulkDeleteRequest, db: db_dependency):
-    products = db.query(Product).filter(Product.id.in_(payload.ids)).all()
+    products = db.query(Product).filter(Product.id.in_(payload.ids), Product.deleted_at.is_(None)).all()
     found_ids = {p.id for p in products}
     missing = [i for i in payload.ids if i not in found_ids]
     if missing:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Products not found: {missing}")
+    now = datetime.now(timezone.utc)
     for product in products:
-        db.delete(product)
+        product.deleted_at = now
     db.commit()
     return {"deleted": len(products)}
 
@@ -344,15 +346,33 @@ async def bulk_delete_products(request: Request, payload: BulkDeleteRequest, db:
 # =========================================================
 @router.delete("/{product_id}",
                status_code=status.HTTP_204_NO_CONTENT,
-               summary="Delete a product",
+               summary="Soft-delete a product",
                dependencies=CAN_DELETE_PRODUCTS)
 @limiter.limit(LIMIT_WRITE)
 async def delete_product(request: Request, product_id: int, db: db_dependency):
-    existing_product = db.query(Product).filter(Product.id == product_id).first()
+    existing_product = db.query(Product).filter(Product.id == product_id, Product.deleted_at.is_(None)).first()
     if not existing_product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
-
-    db.delete(existing_product)
+    existing_product.deleted_at = datetime.now(timezone.utc)
     db.commit()
-    logger.info("Product deleted id=%s", product_id)
+    logger.info("Product soft-deleted id=%s", product_id)
     return None
+
+
+# =========================================================
+# PATCH /{product_id}/restore
+# =========================================================
+@router.patch("/{product_id}/restore",
+              status_code=status.HTTP_200_OK,
+              response_model=ProductDetailsResponse,
+              summary="Restore a soft-deleted product",
+              dependencies=CAN_UPDATE_PRODUCTS)
+async def restore_product(product_id: int, db: db_dependency):
+    product = db.query(Product).filter(Product.id == product_id, Product.deleted_at.isnot(None)).first()
+    if not product:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found or not deleted")
+    product.deleted_at = None
+    db.commit()
+    db.refresh(product)
+    logger.info("Product restored id=%s", product_id)
+    return product

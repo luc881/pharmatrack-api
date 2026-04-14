@@ -23,8 +23,7 @@ class User(Base):
     phone: Mapped[str] = mapped_column(String(50), nullable=True)
     type_document: Mapped[str] = mapped_column(String(50), nullable=True)
     n_document: Mapped[str] = mapped_column(String(50), nullable=True)
-    # deleted_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), nullable=True)
-    # state: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)  # True = activo, False = inactivo
+    deleted_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), nullable=True)
     gender: Mapped[str] = mapped_column(String(5), nullable=True)  # M = masculino, F = femenino
 
     # Relationship to Role

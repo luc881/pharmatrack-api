@@ -67,6 +67,7 @@ class Product(Base):
         server_default=func.now(),
         onupdate=func.now()
     )
+    deleted_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), nullable=True)
 
     # --- Relaciones ---
     sale_details = relationship("SaleDetail", back_populates="product")
