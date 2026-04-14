@@ -19,7 +19,8 @@ class SalePayment(Base):
     )
 
     method_payment: Mapped[PaymentMethodEnum] = mapped_column(
-        SAEnum(PaymentMethodEnum, name="paymentmethodenum", create_type=False),
+        SAEnum(PaymentMethodEnum, name="paymentmethodenum", create_type=False,
+               values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         index=True,
     )

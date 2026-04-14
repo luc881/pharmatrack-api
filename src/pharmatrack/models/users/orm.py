@@ -23,12 +23,14 @@ class User(Base):
     branch_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("branches.id"), nullable=True)
     phone: Mapped[str] = mapped_column(String(50), nullable=True)
     type_document: Mapped[DocumentTypeEnum] = mapped_column(
-        SAEnum(DocumentTypeEnum, name="documenttypeenum", create_type=False), nullable=True
+        SAEnum(DocumentTypeEnum, name="documenttypeenum", create_type=False,
+               values_callable=lambda x: [e.value for e in x]), nullable=True
     )
     n_document: Mapped[str] = mapped_column(String(50), nullable=True)
     deleted_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), nullable=True)
     gender: Mapped[GenderEnum] = mapped_column(
-        SAEnum(GenderEnum, name="genderenum", create_type=False), nullable=True
+        SAEnum(GenderEnum, name="genderenum", create_type=False,
+               values_callable=lambda x: [e.value for e in x]), nullable=True
     )
 
     # Relationship to Role

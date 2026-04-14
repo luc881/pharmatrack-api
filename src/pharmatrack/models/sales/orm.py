@@ -27,7 +27,8 @@ class Sale(Base):
     total: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
 
     status: Mapped[SaleStatusEnum] = mapped_column(
-        SAEnum(SaleStatusEnum, name="salestatusenum", create_type=False),
+        SAEnum(SaleStatusEnum, name="salestatusenum", create_type=False,
+               values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=SaleStatusEnum.DRAFT,
         index=True,
