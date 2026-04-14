@@ -22,7 +22,7 @@ class BranchBase(BaseModel):
         clean = {}
         for key, value in values.items():
             if isinstance(value, str):
-                clean[key] = value.strip().lower()
+                clean[key] = value.strip()
             else:
                 clean[key] = value
         return clean
