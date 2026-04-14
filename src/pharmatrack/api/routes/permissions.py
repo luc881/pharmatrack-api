@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, APIRouter
+from fastapi import Depends, HTTPException, APIRouter, Request
 from starlette import status
 from ...models.permissions.orm import Permission
 from typing import Annotated
@@ -14,6 +14,7 @@ from ...models.permissions.schemas import (
 from ...db.session import get_db
 from ...utils.permissions import CAN_READ_PERMISSIONS, CAN_CREATE_PERMISSIONS, CAN_UPDATE_PERMISSIONS, CAN_DELETE_PERMISSIONS
 from pharmatrack.utils.pagination import paginate
+from ...utils.rate_limit import limiter, LIMIT_READ
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
@@ -32,6 +33,17 @@ router = APIRouter(
 async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
     query = db.query(Permission).order_by(Permission.id.asc())
     return paginate(query, pagination)
+
+
+@router.get("/all",
+            response_model=list[PermissionResponse],
+            summary="Get all permissions (no pagination)",
+            description="Returns the full list of permissions. Intended for dropdowns and role assignment forms.",
+            status_code=status.HTTP_200_OK,
+            dependencies=CAN_READ_PERMISSIONS)
+@limiter.limit(LIMIT_READ)
+async def read_all_no_pagination(request: Request, db: db_dependency):
+    return db.query(Permission).order_by(Permission.name.asc()).all()
 
 
 @router.get("/{permission_id}",
