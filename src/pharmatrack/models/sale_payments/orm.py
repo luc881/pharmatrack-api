@@ -21,6 +21,7 @@ class SalePayment(Base):
     method_payment: Mapped[PaymentMethodEnum] = mapped_column(
         SAEnum(PaymentMethodEnum, name="paymentmethodenum", create_type=False),
         nullable=False,
+        index=True,
     )
 
     transaction_number: Mapped[str] = mapped_column(String(100), nullable=True)

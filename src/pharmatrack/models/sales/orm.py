@@ -30,6 +30,7 @@ class Sale(Base):
         SAEnum(SaleStatusEnum, name="salestatusenum", create_type=False),
         nullable=False,
         default=SaleStatusEnum.DRAFT,
+        index=True,
     )
 
     description: Mapped[str] = mapped_column(Text, nullable=True)
