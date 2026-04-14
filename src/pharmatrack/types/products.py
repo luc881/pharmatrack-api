@@ -3,6 +3,20 @@ from typing import Annotated, Optional
 from pydantic import StringConstraints, Field, HttpUrl
 from pydantic.types import NonNegativeFloat
 
+# Tipos reutilizables — importados desde common para no duplicar
+from pharmatrack.types.common import (
+    DiscountPercentage,
+    TaxPercentage,
+    IsActiveFlag,
+    DescriptionStr,
+    ImageURLStr,
+)
+
+__all__ = [
+    "DiscountPercentage", "TaxPercentage", "IsActiveFlag",
+    "DescriptionStr", "ImageURLStr",
+]
+
 
 # -------------------------------
 # 🔤 String types
@@ -19,21 +33,9 @@ ProductTitleStr = Annotated[
     Field(description="Título del producto")
 ]
 
-ProductDescriptionStr = Annotated[
-    str,
-    StringConstraints(
-        max_length=2000
-    ),
-    Field(description="Descripción del producto")
-]
+ProductDescriptionStr = DescriptionStr  # alias semántico
 
-ProductImageURL = Annotated[
-    HttpUrl,
-    StringConstraints(
-        max_length=250,
-    ),
-    Field(description="Imagen del producto")
-]
+ProductImageURL = ImageURLStr  # alias semántico
 
 # ⚠️ SKU real puede tener espacios, slash, #
 ProductSKUStr = Annotated[
@@ -97,16 +99,6 @@ PriceCost = Annotated[
     Field(description="Precio de costo del producto")
 ]
 
-DiscountPercentage = Annotated[
-    Optional[NonNegativeFloat],
-    Field(le=100, description="Porcentaje de descuento máximo permitido")
-]
-
-TaxPercentage = Annotated[
-    Optional[NonNegativeFloat],
-    Field(le=100, description="Porcentaje de impuesto aplicado al producto")
-]
-
 WarrantyDays = Annotated[
     Optional[NonNegativeFloat],
     Field(description="Número de días de garantía del producto")
@@ -142,10 +134,7 @@ AllowWithoutStockFlag = Annotated[
     Field(description="Permite venta sin stock")
 ]
 
-IsActiveFlag = Annotated[
-    bool,
-    Field(description="Producto activo o desactivado")
-]
+# IsActiveFlag importado desde common.py
 
 IsTaxableFlag = Annotated[
     bool,

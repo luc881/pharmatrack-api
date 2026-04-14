@@ -2,6 +2,11 @@
 from typing import Annotated, Optional
 from pydantic import StringConstraints, Field, HttpUrl
 from enum import Enum
+from pharmatrack.types.common import ImageURLStr, IsActiveFlag
+
+# Aliases semánticos desde common
+CategoryImageURL = ImageURLStr
+IsCategoryActiveFlag = IsActiveFlag
 
 
 # -------------------------------
@@ -18,25 +23,7 @@ CategoryNameStr = Annotated[
     Field(description="Nombre de la categoría de producto")
 ]
 
-CategoryImageURL = Annotated[
-    HttpUrl,
-    StringConstraints(
-        max_length=250,
-    ),
-    Field(None, description="URL de la imagen representativa de la categoría")
-]
-
-
-# -------------------------------
-# ⚡ Boolean flags (semánticos)
-# -------------------------------
-
-IsCategoryActiveFlag = Annotated[
-    bool,
-    Field(
-        description="Indica si la categoría está activa (True = activa, False = inactiva)"
-    )
-]
+# CategoryImageURL e IsCategoryActiveFlag importados desde common.py (ver arriba)
 
 
 # -------------------------------

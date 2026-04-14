@@ -1,7 +1,9 @@
-from enum import Enum
-from typing import Annotated, Optional
-from pydantic import StringConstraints, Field, HttpUrl
-from pydantic.types import NonNegativeFloat
+from typing import Annotated
+from pydantic import StringConstraints, Field
+from pharmatrack.types.common import DescriptionStr
+
+# DescriptionStr reutilizado desde common
+IngredientDescriptionStr = DescriptionStr  # alias semántico
 
 
 # -------------------------------
@@ -15,13 +17,5 @@ IngredientTitleStr = Annotated[
         max_length=250,
         pattern=r"^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\-.,'\"() ]+$"
     ),
-    Field(description="Título del producto")
-]
-
-IngredientDescriptionStr = Annotated[
-    str,
-    StringConstraints(
-        max_length=2000
-    ),
-    Field(description="Descripción del producto")
+    Field(description="Nombre del ingrediente activo")
 ]
