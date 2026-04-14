@@ -1,7 +1,8 @@
 from fastapi import Depends, HTTPException, APIRouter, Request
-from typing import Annotated
+from typing import Annotated, Optional
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
+from datetime import datetime
 from ...db.session import get_db
 from starlette import status
 
@@ -40,6 +41,14 @@ router = APIRouter(
 # =========================================================
 # GET /
 # =========================================================
+_SALE_ORDERING_MAP = {
+    "date_sale":  Sale.date_sale.asc(),
+    "-date_sale": Sale.date_sale.desc(),
+    "total":      Sale.total.asc(),
+    "-total":     Sale.total.desc(),
+}
+
+
 @router.get(
     "",
     response_model=PaginatedResponse[SaleResponse],
@@ -48,8 +57,33 @@ router = APIRouter(
     dependencies=CAN_READ_SALES,
 )
 @limiter.limit(LIMIT_READ)
-async def read_all(request: Request, db: db_dependency, pagination: PaginationParams = Depends()):
-    query = db.query(Sale).order_by(Sale.date_sale.desc())
+async def read_all(
+    request: Request,
+    db: db_dependency,
+    pagination: PaginationParams = Depends(),
+    status_filter: Optional[str] = None,
+    user_id: Optional[int] = None,
+    branch_id: Optional[int] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+    ordering: Optional[str] = None,
+):
+    query = db.query(Sale)
+
+    if status_filter is not None:
+        query = query.filter(Sale.status == status_filter)
+    if user_id is not None:
+        query = query.filter(Sale.user_id == user_id)
+    if branch_id is not None:
+        query = query.filter(Sale.branch_id == branch_id)
+    if date_from is not None:
+        query = query.filter(Sale.date_sale >= date_from)
+    if date_to is not None:
+        query = query.filter(Sale.date_sale <= date_to)
+
+    order_clause = _SALE_ORDERING_MAP.get(ordering) if ordering else None
+    query = query.order_by(order_clause if order_clause is not None else Sale.date_sale.desc())
+
     return paginate(query, pagination)
 
 
