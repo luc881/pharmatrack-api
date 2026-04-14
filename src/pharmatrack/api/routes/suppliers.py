@@ -1,17 +1,25 @@
-from fastapi import Depends, HTTPException, APIRouter
+from fastapi import Depends, HTTPException, APIRouter, Request
 from typing import Annotated
 from sqlalchemy.orm import Session
 from starlette import status
 
 from ...db.session import get_db
 from ...models.suppliers.orm import Supplier
-from ...models.suppliers.schemas import SupplierCreate, SupplierResponse, SupplierUpdate
+from ...models.suppliers.schemas import (
+    SupplierCreate,
+    SupplierResponse,
+    SupplierUpdate,
+    PaginatedResponse,
+    PaginationParams,
+)
 from ...utils.permissions import (
     CAN_READ_SUPPLIERS,
     CAN_CREATE_SUPPLIERS,
     CAN_UPDATE_SUPPLIERS,
     CAN_DELETE_SUPPLIERS,
 )
+from pharmatrack.utils.pagination import paginate
+from ...utils.rate_limit import limiter, LIMIT_READ, LIMIT_WRITE
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
@@ -23,13 +31,14 @@ router = APIRouter(prefix="/suppliers", tags=["Suppliers"])
 # ------------------------------------------------------------------
 @router.get(
     "",
-    response_model=list[SupplierResponse],
+    response_model=PaginatedResponse[SupplierResponse],
     summary="List all suppliers",
     status_code=status.HTTP_200_OK,
     dependencies=CAN_READ_SUPPLIERS,
 )
-async def read_all(db: db_dependency):
-    return db.query(Supplier).all()
+@limiter.limit(LIMIT_READ)
+async def read_all(request: Request, db: db_dependency, pagination: PaginationParams = Depends()):
+    return paginate(db.query(Supplier).order_by(Supplier.id.asc()), pagination)
 
 
 # ------------------------------------------------------------------
@@ -59,7 +68,8 @@ async def read_one(supplier_id: int, db: db_dependency):
     status_code=status.HTTP_201_CREATED,
     dependencies=CAN_CREATE_SUPPLIERS,
 )
-async def create(payload: SupplierCreate, db: db_dependency):
+@limiter.limit(LIMIT_WRITE)
+async def create(request: Request, payload: SupplierCreate, db: db_dependency):
     if payload.email:
         if db.query(Supplier).filter(Supplier.email == payload.email).first():
             raise HTTPException(
@@ -88,7 +98,8 @@ async def create(payload: SupplierCreate, db: db_dependency):
     status_code=status.HTTP_200_OK,
     dependencies=CAN_UPDATE_SUPPLIERS,
 )
-async def update(supplier_id: int, payload: SupplierUpdate, db: db_dependency):
+@limiter.limit(LIMIT_WRITE)
+async def update(request: Request, supplier_id: int, payload: SupplierUpdate, db: db_dependency):
     supplier = db.get(Supplier, supplier_id)
     if not supplier:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supplier not found")
