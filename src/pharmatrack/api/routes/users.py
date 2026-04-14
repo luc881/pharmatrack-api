@@ -45,7 +45,7 @@ router = APIRouter(
             summary="Get current authenticated user",
             status_code=status.HTTP_200_OK)
 async def get_me(db: db_dependency, token_data: user_dependency):
-    user = db.query(User).filter(User.id == token_data["id"]).first()
+    user = db.query(User).filter(User.id == token_data["id"], User.deleted_at.is_(None)).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return user
@@ -119,7 +119,7 @@ async def search_users(
             detail="Debe especificar al menos un filtro para la búsqueda"
         )
 
-    query = db.query(User)
+    query = db.query(User).filter(User.deleted_at.is_(None))
 
     if filters.name:
         query = query.filter(User.name.ilike(f"%{filters.name}%"))
@@ -222,7 +222,7 @@ async def create_user(request: Request, user: UserCreate, db: db_dependency):
             status_code=status.HTTP_200_OK,
             dependencies=CAN_UPDATE_USERS)
 async def update_user(user_id: int, user: UserUpdate, db: db_dependency):
-    existing_user = db.query(User).filter(User.id == user_id).first()
+    existing_user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
     if not existing_user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 

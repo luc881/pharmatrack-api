@@ -27,7 +27,7 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 # 🔹 Autenticación
 # =========================================================
 def authenticate_user(db, email: str, password: str):
-    user_model = db.query(User).filter(User.email == email).first()
+    user_model = db.query(User).filter(User.email == email, User.deleted_at.is_(None)).first()
     if not user_model or not bcrypt_context.verify(password, user_model.password):
         return False
     return user_model

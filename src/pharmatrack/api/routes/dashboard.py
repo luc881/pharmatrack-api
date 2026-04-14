@@ -79,7 +79,7 @@ async def get_dashboard_summary(request: Request, db: db_dependency):
     # ── Total de productos activos ────────────────────────────────────────────
     total_products: int = (
         db.query(func.count(Product.id))
-        .filter(Product.is_active == True)
+        .filter(Product.is_active == True, Product.deleted_at.is_(None))
         .scalar()
         or 0
     )
