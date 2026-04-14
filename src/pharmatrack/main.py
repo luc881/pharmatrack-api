@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
@@ -67,6 +68,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = []
+    for error in exc.errors():
+        loc = error.get("loc", [])
+        # Drop the first segment ("body" / "query" / "path") — not useful for the frontend
+        field_parts = [str(p) for p in loc[1:]] if len(loc) > 1 else [str(p) for p in loc]
+        field = ".".join(field_parts) if field_parts else "unknown"
+        errors.append({"field": field, "message": error["msg"]})
+    return JSONResponse(status_code=422, content={"detail": errors})
 
 
 @app.exception_handler(Exception)
