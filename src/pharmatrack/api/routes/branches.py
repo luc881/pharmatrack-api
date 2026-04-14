@@ -3,7 +3,8 @@ from starlette import status
 from ...models.branches.orm import Branch
 from typing import Annotated
 from sqlalchemy.orm import Session
-from ...models.branches.schemas import BranchResponse, BranchBase, BranchUpdate,BranchWithUsersResponse
+from datetime import datetime, timezone
+from ...models.branches.schemas import BranchResponse, BranchBase, BranchUpdate, BranchWithUsersResponse
 from ...db.session import get_db
 from ...utils.permissions import CAN_READ_BRANCHES, CAN_CREATE_BRANCHES, CAN_UPDATE_BRANCHES, CAN_DELETE_BRANCHES
 
@@ -23,8 +24,7 @@ router = APIRouter(
             dependencies=CAN_READ_BRANCHES
             )
 async def read_all(db: db_dependency):
-    branches = db.query(Branch).all()
-    return branches
+    return db.query(Branch).filter(Branch.deleted_at.is_(None)).all()
 
 
 @router.get('/{branch_id}',
@@ -34,7 +34,7 @@ async def read_all(db: db_dependency):
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_BRANCHES)
 async def read_by_id(branch_id: int, db: db_dependency):
-    branch_model = db.query(Branch).filter(Branch.id == branch_id).first()
+    branch_model = db.query(Branch).filter(Branch.id == branch_id, Branch.deleted_at.is_(None)).first()
 
     if not branch_model:
         raise HTTPException(status_code=404, detail='Branch not found')
@@ -45,11 +45,11 @@ async def read_by_id(branch_id: int, db: db_dependency):
 @router.get('/{branch_id}/users',
             summary="Get users by branch ID",
             description="Retrieve all users associated with a specific branch by its ID.",
-            response_model = BranchWithUsersResponse,
+            response_model=BranchWithUsersResponse,
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_BRANCHES)
 async def read_users_by_branch(branch_id: int, db: db_dependency):
-    branch_model = db.query(Branch).filter(Branch.id == branch_id).first()
+    branch_model = db.query(Branch).filter(Branch.id == branch_id, Branch.deleted_at.is_(None)).first()
 
     if not branch_model:
         raise HTTPException(status_code=404, detail='Branch not found')
@@ -66,7 +66,7 @@ async def read_users_by_branch(branch_id: int, db: db_dependency):
 async def create_branch(db: db_dependency, branch_request: BranchBase):
     branch_model = Branch(**branch_request.model_dump())
 
-    branch_found = db.query(Branch).filter(Branch.name.ilike(branch_model.name)).first()
+    branch_found = db.query(Branch).filter(Branch.name.ilike(branch_model.name), Branch.deleted_at.is_(None)).first()
 
     if branch_found:
         raise HTTPException(status_code=409, detail='Branch already exists')
@@ -84,7 +84,7 @@ async def create_branch(db: db_dependency, branch_request: BranchBase):
             description="Updates an existing branch in the database.",
             dependencies=CAN_UPDATE_BRANCHES)
 async def update_branch(branch_id: int, db: db_dependency, branch_request: BranchUpdate):
-    branch_model = db.query(Branch).filter(Branch.id == branch_id).first()
+    branch_model = db.query(Branch).filter(Branch.id == branch_id, Branch.deleted_at.is_(None)).first()
 
     if not branch_model:
         raise HTTPException(status_code=404, detail='Branch not found')
@@ -97,17 +97,34 @@ async def update_branch(branch_id: int, db: db_dependency, branch_request: Branc
     return branch_model
 
 
+@router.patch('/{branch_id}/restore',
+              status_code=status.HTTP_200_OK,
+              response_model=BranchResponse,
+              summary="Restore a soft-deleted branch",
+              dependencies=CAN_UPDATE_BRANCHES)
+async def restore_branch(branch_id: int, db: db_dependency):
+    branch_model = db.query(Branch).filter(Branch.id == branch_id, Branch.deleted_at.isnot(None)).first()
+
+    if not branch_model:
+        raise HTTPException(status_code=404, detail='Branch not found or not deleted')
+
+    branch_model.deleted_at = None
+    db.commit()
+    db.refresh(branch_model)
+    return branch_model
+
+
 @router.delete('/{branch_id}',
             status_code=status.HTTP_204_NO_CONTENT,
-            summary="Delete a branch",
-            description="Deletes an existing branch from the database.",
+            summary="Soft-delete a branch",
+            description="Soft-deletes an existing branch from the database.",
             dependencies=CAN_DELETE_BRANCHES)
 async def delete_branch(branch_id: int, db: db_dependency):
-    branch_model = db.query(Branch).filter(Branch.id == branch_id).first()
+    branch_model = db.query(Branch).filter(Branch.id == branch_id, Branch.deleted_at.is_(None)).first()
 
     if not branch_model:
         raise HTTPException(status_code=404, detail='Branch not found')
 
-    db.delete(branch_model)
+    branch_model.deleted_at = datetime.now(timezone.utc)
     db.commit()
     return None

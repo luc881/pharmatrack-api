@@ -26,7 +26,7 @@ router = APIRouter(
     dependencies=CAN_READ_SALE_PAYMENTS
 )
 async def read_all(db: db_dependency):
-    sale_payments = db.query(SalePayment).all()
+    sale_payments = db.query(SalePayment).filter(SalePayment.deleted_at.is_(None)).all()
     return sale_payments
 
 @router.post(

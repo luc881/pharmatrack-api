@@ -34,6 +34,7 @@ class SalePayment(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+    deleted_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), nullable=True)
 
     # Relationship
     sale: Mapped["Sale"] = relationship("Sale", back_populates="sale_payments")

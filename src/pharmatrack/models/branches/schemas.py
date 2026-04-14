@@ -79,6 +79,7 @@ class BranchResponse(BranchBase):
     id: int
     created_at: Optional[datetime] = Field(None, description="Fecha de creación")
     updated_at: Optional[datetime] = Field(None, description="Fecha de última actualización")
+    deleted_at: Optional[datetime] = None
 
     model_config = ConfigDict(
         from_attributes= True,  # Permite usar .from_orm / en Pydantic v2: from_attributes
