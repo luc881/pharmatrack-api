@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, APIRouter
+from fastapi import Depends, HTTPException, APIRouter, Query
 from starlette import status
 from ...models.branches.orm import Branch
 from typing import Annotated
@@ -23,8 +23,14 @@ router = APIRouter(
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_BRANCHES
             )
-async def read_all(db: db_dependency):
-    return db.query(Branch).filter(Branch.deleted_at.is_(None)).all()
+async def read_all(
+    db: db_dependency,
+    include_deleted: bool = Query(False, description="Si es true, incluye sucursales eliminadas"),
+):
+    query = db.query(Branch)
+    if not include_deleted:
+        query = query.filter(Branch.deleted_at.is_(None))
+    return query.all()
 
 
 @router.get('/{branch_id}',
