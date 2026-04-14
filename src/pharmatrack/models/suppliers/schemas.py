@@ -2,6 +2,7 @@ from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from pharmatrack.models.products.schemas import PaginatedResponse, PaginationParams
+from pharmatrack.types.suppliers import SupplierNameStr, SupplierRFCStr, SupplierPhoneStr
 
 __all__ = ["PaginatedResponse", "PaginationParams"]
 
@@ -10,12 +11,12 @@ __all__ = ["PaginatedResponse", "PaginationParams"]
 # 🔹 Base
 # =========================================================
 class SupplierBase(BaseModel):
-    name: str = Field(..., max_length=255, description="Nombre o razón social del proveedor")
+    name: SupplierNameStr = Field(..., description="Nombre o razón social del proveedor")
     logo: Optional[str] = Field(None, max_length=255, description="URL del logo o imagen")
     email: Optional[EmailStr] = Field(None, description="Correo electrónico")
-    phone: Optional[str] = Field(None, max_length=25, description="Teléfono de contacto")
+    phone: SupplierPhoneStr = Field(None, description="Teléfono de contacto")
     address: Optional[str] = Field(None, max_length=250, description="Dirección")
-    rfc: Optional[str] = Field(None, max_length=50, description="RFC / identificación tributaria")
+    rfc: Optional[SupplierRFCStr] = Field(None, description="RFC / identificación tributaria")
     is_active: bool = Field(True, description="Estado del proveedor")
 
 
@@ -43,12 +44,12 @@ class SupplierCreate(SupplierBase):
 # 🟡 Update
 # =========================================================
 class SupplierUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=255)
+    name: Optional[SupplierNameStr] = None
     logo: Optional[str] = Field(None, max_length=255)
     email: Optional[EmailStr] = None
-    phone: Optional[str] = Field(None, max_length=25)
+    phone: SupplierPhoneStr = None
     address: Optional[str] = Field(None, max_length=250)
-    rfc: Optional[str] = Field(None, max_length=50)
+    rfc: Optional[SupplierRFCStr] = None
     is_active: Optional[bool] = None
 
     model_config = ConfigDict(
