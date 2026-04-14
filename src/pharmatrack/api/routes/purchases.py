@@ -1,11 +1,17 @@
-from fastapi import Depends, HTTPException, APIRouter
+from fastapi import Depends, HTTPException, APIRouter, Request
 from typing import Annotated
 from sqlalchemy.orm import Session
 from starlette import status
 
 from ...db.session import get_db
 from ...models.purchases.orm import Purchase
-from ...models.purchases.schemas import PurchaseCreate, PurchaseResponse, PurchaseUpdate
+from ...models.purchases.schemas import (
+    PurchaseCreate,
+    PurchaseResponse,
+    PurchaseUpdate,
+    PaginatedResponse,
+    PaginationParams,
+)
 from ...models.suppliers.orm import Supplier
 from ...models.users.orm import User
 from ...utils.permissions import (
@@ -14,6 +20,8 @@ from ...utils.permissions import (
     CAN_UPDATE_PURCHASES,
     CAN_DELETE_PURCHASES,
 )
+from pharmatrack.utils.pagination import paginate
+from ...utils.rate_limit import limiter, LIMIT_READ, LIMIT_WRITE
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
@@ -25,13 +33,14 @@ router = APIRouter(prefix="/purchases", tags=["Purchases"])
 # ------------------------------------------------------------------
 @router.get(
     "",
-    response_model=list[PurchaseResponse],
+    response_model=PaginatedResponse[PurchaseResponse],
     summary="List all purchases",
     status_code=status.HTTP_200_OK,
     dependencies=CAN_READ_PURCHASES,
 )
-async def read_all(db: db_dependency):
-    return db.query(Purchase).all()
+@limiter.limit(LIMIT_READ)
+async def read_all(request: Request, db: db_dependency, pagination: PaginationParams = Depends()):
+    return paginate(db.query(Purchase).order_by(Purchase.id.desc()), pagination)
 
 
 # ------------------------------------------------------------------
@@ -61,7 +70,8 @@ async def read_one(purchase_id: int, db: db_dependency):
     status_code=status.HTTP_201_CREATED,
     dependencies=CAN_CREATE_PURCHASES,
 )
-async def create(payload: PurchaseCreate, db: db_dependency):
+@limiter.limit(LIMIT_WRITE)
+async def create(request: Request, payload: PurchaseCreate, db: db_dependency):
     if not db.get(Supplier, payload.supplier_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supplier not found")
     if not db.get(User, payload.user_id):
@@ -84,7 +94,8 @@ async def create(payload: PurchaseCreate, db: db_dependency):
     status_code=status.HTTP_200_OK,
     dependencies=CAN_UPDATE_PURCHASES,
 )
-async def update(purchase_id: int, payload: PurchaseUpdate, db: db_dependency):
+@limiter.limit(LIMIT_WRITE)
+async def update(request: Request, purchase_id: int, payload: PurchaseUpdate, db: db_dependency):
     purchase = db.get(Purchase, purchase_id)
     if not purchase:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Purchase not found")

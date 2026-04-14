@@ -1,6 +1,9 @@
 from typing import Optional
 from datetime import datetime, date
 from pydantic import BaseModel, Field, ConfigDict
+from pharmatrack.models.products.schemas import PaginatedResponse, PaginationParams
+
+__all__ = ["PaginatedResponse", "PaginationParams"]
 
 
 # =========================================================
