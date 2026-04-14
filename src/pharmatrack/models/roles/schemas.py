@@ -16,8 +16,8 @@ class RoleBase(BaseModel):
     @classmethod
     def strip_lower_and_validate(cls, v: str) -> str:
         v = v.strip().lower()
-        if not re.fullmatch(r"^[a-zA-Z0-9._ ]+$", v):
-            raise ValueError("Invalid permission name pattern, only lowercase letters and '.' are allowed")
+        if not re.fullmatch(r"^[a-zA-Z0-9._\- áéíóúüñÁÉÍÓÚÜÑ]+$", v):
+            raise ValueError("Role name may only contain letters (including accented), numbers, spaces, dots, hyphens and underscores")
         return v
 
 
