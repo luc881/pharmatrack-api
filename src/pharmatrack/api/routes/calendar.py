@@ -1,12 +1,10 @@
-from datetime import date
+from datetime import date, timedelta
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from starlette import status
-from typing import Annotated
-
-from fastapi import Depends
 from ...db.session import get_db
 from ...models.product_batch.orm import ProductBatch
 from ...models.products.orm import Product
@@ -44,11 +42,23 @@ class CalendarEvent(BaseModel):
     dependencies=CAN_READ_PRODUCT_BATCHES,
 )
 @limiter.limit(LIMIT_READ)
-async def get_calendar_events(request: Request, db: db_dependency):
+async def get_calendar_events(
+    request: Request,
+    db: db_dependency,
+    start: Optional[date] = None,
+    end: Optional[date] = None,
+):
+    range_start = start or date.today()
+    range_end = end or (date.today() + timedelta(days=365))
+
     rows = (
         db.query(ProductBatch, Product.title)
         .join(Product, Product.id == ProductBatch.product_id)
-        .filter(ProductBatch.expiration_date.isnot(None))
+        .filter(
+            ProductBatch.expiration_date.isnot(None),
+            ProductBatch.expiration_date >= range_start,
+            ProductBatch.expiration_date <= range_end,
+        )
         .order_by(ProductBatch.expiration_date.asc())
         .all()
     )
