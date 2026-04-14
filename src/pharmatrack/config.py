@@ -23,7 +23,10 @@ class Settings(BaseSettings):
     # =========================================================
     # 🔒 CORS
     # =========================================================
-    allowed_origins: list[str] = ["*"]
+    # En producción, setear ALLOWED_ORIGINS en Railway como JSON:
+    # ["https://app.farmaciaselene.com"]
+    # No usar "*" con allow_credentials=True — los browsers lo rechazan.
+    allowed_origins: list[str] = ["https://app.farmaciaselene.com"]
 
     # =========================================================
     # 📋 Logging

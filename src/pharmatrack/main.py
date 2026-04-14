@@ -61,9 +61,11 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+_CORS_ORIGINS = settings.allowed_origins if settings.is_production else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins if settings.is_production else ["*"],
+    allow_origins=_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -91,9 +93,13 @@ async def global_exception_handler(request: Request, exc: Exception):
         exc,
         exc_info=True,
     )
+    origin = request.headers.get("origin", "")
+    cors_origin = origin if (origin and ("*" in _CORS_ORIGINS or origin in _CORS_ORIGINS)) else ""
+    headers = {"Access-Control-Allow-Origin": cors_origin} if cors_origin else {}
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error"},
+        headers=headers,
     )
 
 
