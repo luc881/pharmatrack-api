@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, APIRouter, Response
+from fastapi import Depends, HTTPException, APIRouter, Response, Request
 from typing import Annotated
 from sqlalchemy.orm import Session, joinedload
 from starlette import status
@@ -21,6 +21,7 @@ from ...models.product_batch.schemas import (
 )
 from ...models.products.orm import Product
 from pharmatrack.utils.pagination import paginate
+from ...utils.rate_limit import limiter, LIMIT_READ, LIMIT_WRITE
 
 
 db_dependency = Annotated[Session, Depends(get_db)]
@@ -42,7 +43,8 @@ router = APIRouter(
     status_code=status.HTTP_200_OK,
     dependencies=CAN_READ_PRODUCT_BATCHES
 )
-def read_all_product_batches(db: db_dependency, pagination: PaginationParams = Depends()):
+@limiter.limit(LIMIT_READ)
+def read_all_product_batches(request: Request, db: db_dependency, pagination: PaginationParams = Depends()):
     query = db.query(ProductBatch).order_by(ProductBatch.id.asc())
     return paginate(query, pagination)
 
@@ -58,7 +60,8 @@ def read_all_product_batches(db: db_dependency, pagination: PaginationParams = D
     status_code=status.HTTP_200_OK,
     dependencies=CAN_READ_PRODUCT_BATCHES
 )
-def read_all_product_batches_with_details(db: db_dependency, pagination: PaginationParams = Depends()):
+@limiter.limit(LIMIT_READ)
+def read_all_product_batches_with_details(request: Request, db: db_dependency, pagination: PaginationParams = Depends()):
     query = (
         db.query(ProductBatch)
         .options(joinedload(ProductBatch.product))
@@ -78,7 +81,8 @@ def read_all_product_batches_with_details(db: db_dependency, pagination: Paginat
     status_code=status.HTTP_200_OK,
     dependencies=CAN_READ_PRODUCT_BATCHES
 )
-def get_product_batch_details(product_batch_id: int, db: db_dependency):
+@limiter.limit(LIMIT_READ)
+def get_product_batch_details(request: Request, product_batch_id: int, db: db_dependency):
     product_batch = (
         db.query(ProductBatch)
         .options(joinedload(ProductBatch.product))
@@ -106,7 +110,8 @@ def get_product_batch_details(product_batch_id: int, db: db_dependency):
     status_code=status.HTTP_201_CREATED,
     dependencies=CAN_CREATE_PRODUCT_BATCHES
 )
-def create_product_batch(product_batch: ProductBatchCreate, db: db_dependency):
+@limiter.limit(LIMIT_WRITE)
+def create_product_batch(request: Request, product_batch: ProductBatchCreate, db: db_dependency):
     existing_product = db.query(Product).filter(Product.id == product_batch.product_id).first()
 
     if not existing_product:
@@ -146,7 +151,8 @@ def create_product_batch(product_batch: ProductBatchCreate, db: db_dependency):
     status_code=status.HTTP_200_OK,
     dependencies=CAN_UPDATE_PRODUCT_BATCHES
 )
-def update_product_batch(product_batch_id: int, payload: ProductBatchUpdate, db: db_dependency):
+@limiter.limit(LIMIT_WRITE)
+def update_product_batch(request: Request, product_batch_id: int, payload: ProductBatchUpdate, db: db_dependency):
 
     existing_product_batch = db.get(ProductBatch, product_batch_id)
     if not existing_product_batch:
@@ -196,7 +202,8 @@ def update_product_batch(product_batch_id: int, payload: ProductBatchUpdate, db:
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=CAN_DELETE_PRODUCT_BATCHES
 )
-def delete_product_batch(product_batch_id: int, db: db_dependency):
+@limiter.limit(LIMIT_WRITE)
+def delete_product_batch(request: Request, product_batch_id: int, db: db_dependency):
     existing_product_batch = db.query(ProductBatch).filter(ProductBatch.id == product_batch_id).first()
 
     if not existing_product_batch:
