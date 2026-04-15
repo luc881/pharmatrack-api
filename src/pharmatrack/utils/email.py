@@ -4,7 +4,7 @@ from pharmatrack.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-FROM_ADDRESS = "noreply@farmaciaselene.com"
+FROM_ADDRESS = "noreply@contact.farmaciaselene.com"
 
 
 def send_password_reset_email(to_email: str, token: str) -> None:
