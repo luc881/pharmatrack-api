@@ -8,20 +8,22 @@ FROM_ADDRESS = "noreply@farmaciaselene.com"
 
 
 def send_password_reset_email(to_email: str, token: str) -> None:
-    """
-    Envía el correo de reset de contraseña usando Resend.
-    Falla silenciosamente con log de error para no exponer info al cliente.
-    """
     reset_link = f"{settings.frontend_url}/auth/reset-password?token={token}"
 
-    resend.api_key = settings.resend_api_key
+    logger.info(
+        "Sending password reset email to=%s frontend_url=%s api_key_set=%s",
+        to_email,
+        settings.frontend_url,
+        bool(settings.resend_api_key),
+    )
 
-    try:
-        resend.Emails.send({
-            "from": FROM_ADDRESS,
-            "to": [to_email],
-            "subject": "Restablecer contraseña — PharmaTrack",
-            "html": f"""
+    client = resend.Resend(api_key=settings.resend_api_key)
+
+    response = client.emails.send({
+        "from": FROM_ADDRESS,
+        "to": [to_email],
+        "subject": "Restablecer contraseña — PharmaTrack",
+        "html": f"""
 <!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8"></head>
@@ -46,8 +48,6 @@ def send_password_reset_email(to_email: str, token: str) -> None:
 </body>
 </html>
 """,
-        })
-        logger.info("Password reset email sent to %s", to_email)
-    except Exception as e:
-        logger.error("Failed to send password reset email to %s: %s", to_email, e)
-        raise
+    })
+
+    logger.info("Password reset email sent to=%s resend_id=%s", to_email, response.id)

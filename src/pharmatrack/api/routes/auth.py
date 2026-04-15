@@ -161,9 +161,8 @@ async def forgot_password(request: Request, payload: ForgotPasswordRequest, db: 
 
     try:
         send_password_reset_email(to_email=user.email, token=token)
-    except Exception:
-        # El email falló pero el token ya está guardado — logeado en send_password_reset_email
-        pass
+    except Exception as e:
+        logger.error("Password reset email FAILED for user id=%s error=%s", user.id, e, exc_info=True)
 
     logger.info("Password reset requested for user id=%s", user.id)
     return _FORGOT_RESPONSE
