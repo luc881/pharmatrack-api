@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     allowed_origins: list[str] = ["https://app.farmaciaselene.com"]
 
     # =========================================================
+    # 📧 Email (Resend)
+    # =========================================================
+    resend_api_key: str = ""
+    frontend_url: str = "https://pharmatrack-frontend.vercel.app"
+
+    # =========================================================
     # 📋 Logging
     # =========================================================
     log_level: str = "DEBUG"

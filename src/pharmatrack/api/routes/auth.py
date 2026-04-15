@@ -1,11 +1,12 @@
 from fastapi import Depends, HTTPException, APIRouter, Request
 from typing import Annotated
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from ...db.session import get_db
 from fastapi.security import OAuth2PasswordRequestForm
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from starlette import status
+import secrets
 from ...utils.security import (
     authenticate_user,
     create_jwt_token,
@@ -15,18 +16,32 @@ from ...utils.security import (
     revoke_refresh_token,
     user_dependency,
     REFRESH_TOKEN_EXPIRE_DAYS,
+    bcrypt_context,
 )
 from ...utils.rate_limit import limiter, LIMIT_AUTH, LIMIT_WRITE
 from ...utils.logger import get_logger
+from ...models.users.orm import User
+from ...models.password_reset_tokens.orm import PasswordResetToken
 
 logger = get_logger(__name__)
 
 db_dependency = Annotated[Session, Depends(get_db)]
 auth_dependency = Annotated[OAuth2PasswordRequestForm, Depends()]
 
+PASSWORD_RESET_EXPIRE_MINUTES = 15
+
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
 
 
 router = APIRouter(
@@ -107,3 +122,95 @@ async def logout(request: Request, token_data: user_dependency, db: db_dependenc
     revoke_refresh_token(db, token_data["id"])
     logger.info("User logged out id=%s", token_data["id"])
     return {"message": "Successfully logged out"}
+
+
+# =========================================================
+# POST /forgot-password
+# =========================================================
+_FORGOT_RESPONSE = {"message": "Si el correo existe recibirás un link para restablecer tu contraseña"}
+
+@router.post(
+    "/forgot-password",
+    status_code=status.HTTP_200_OK,
+    summary="Solicitar reset de contraseña",
+)
+@limiter.limit(LIMIT_AUTH)
+async def forgot_password(request: Request, payload: ForgotPasswordRequest, db: db_dependency):
+    from ...utils.email import send_password_reset_email
+
+    user = db.query(User).filter(
+        User.email == payload.email,
+        User.deleted_at.is_(None),
+    ).first()
+
+    # Siempre devolver la misma respuesta — no revelar si el email existe
+    if not user:
+        return _FORGOT_RESPONSE
+
+    token = secrets.token_urlsafe(64)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=PASSWORD_RESET_EXPIRE_MINUTES)
+
+    reset_token = PasswordResetToken(
+        token=token,
+        user_id=user.id,
+        expires_at=expires_at,
+        used=False,
+    )
+    db.add(reset_token)
+    db.commit()
+
+    try:
+        send_password_reset_email(to_email=user.email, token=token)
+    except Exception:
+        # El email falló pero el token ya está guardado — logeado en send_password_reset_email
+        pass
+
+    logger.info("Password reset requested for user id=%s", user.id)
+    return _FORGOT_RESPONSE
+
+
+# =========================================================
+# POST /reset-password
+# =========================================================
+@router.post(
+    "/reset-password",
+    status_code=status.HTTP_200_OK,
+    summary="Restablecer contraseña con token",
+)
+@limiter.limit(LIMIT_AUTH)
+async def reset_password(request: Request, payload: ResetPasswordRequest, db: db_dependency):
+    reset_token = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == payload.token,
+    ).first()
+
+    if not reset_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token inválido o expirado",
+        )
+
+    if reset_token.used:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Este token ya fue utilizado",
+        )
+
+    if reset_token.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token inválido o expirado",
+        )
+
+    user = db.query(User).filter(User.id == reset_token.user_id).first()
+    if not user or user.deleted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token inválido o expirado",
+        )
+
+    user.password = bcrypt_context.hash(payload.new_password)
+    reset_token.used = True
+    db.commit()
+
+    logger.info("Password reset completed for user id=%s", user.id)
+    return {"message": "Contraseña actualizada correctamente"}
