@@ -17,9 +17,9 @@ def send_password_reset_email(to_email: str, token: str) -> None:
         bool(settings.resend_api_key),
     )
 
-    client = resend.Resend(api_key=settings.resend_api_key)
+    resend.api_key = settings.resend_api_key
 
-    response = client.emails.send({
+    response = resend.Emails.send({
         "from": FROM_ADDRESS,
         "to": [to_email],
         "subject": "Restablecer contraseña — PharmaTrack",
@@ -50,4 +50,4 @@ def send_password_reset_email(to_email: str, token: str) -> None:
 """,
     })
 
-    logger.info("Password reset email sent to=%s resend_id=%s", to_email, response.id)
+    logger.info("Password reset email sent to=%s resend_id=%s", to_email, response.get("id"))
