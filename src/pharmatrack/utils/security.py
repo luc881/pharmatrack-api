@@ -1,8 +1,9 @@
 from fastapi import Depends, HTTPException
 from starlette import status
 from ..models.users.orm import User
+from ..models.roles.orm import Role
 from typing import Annotated
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from ..db.session import get_db
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
@@ -27,7 +28,12 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 # 🔹 Autenticación
 # =========================================================
 def authenticate_user(db, email: str, password: str):
-    user_model = db.query(User).filter(User.email == email, User.deleted_at.is_(None)).first()
+    user_model = (
+        db.query(User)
+        .options(selectinload(User.role).selectinload(Role.permissions))
+        .filter(User.email == email, User.deleted_at.is_(None))
+        .first()
+    )
     if not user_model or not bcrypt_context.verify(password, user_model.password):
         return False
     return user_model
@@ -36,11 +42,18 @@ def authenticate_user(db, email: str, password: str):
 # =========================================================
 # 🔹 Access Token (JWT)
 # =========================================================
-def create_jwt_token(username: str, user_id: int, role: str, expires_delta: timedelta):
+def create_jwt_token(
+    username: str,
+    user_id: int,
+    role: str,
+    expires_delta: timedelta,
+    permissions: list[str] | None = None,
+):
     encode = {
         "sub": username,
         "id": user_id,
-        "role": role
+        "role": role,
+        "permissions": permissions or [],
     }
     expires = datetime.now(timezone.utc) + expires_delta
     encode.update({"exp": expires})
@@ -93,7 +106,12 @@ def validate_refresh_token(db: Session, refresh_token: str) -> User:
     Busca el usuario que tiene ese refresh token.
     Lanza 401 si no existe, ya fue invalidado, o expiró.
     """
-    user = db.query(User).filter(User.remember_token == refresh_token).first()
+    user = (
+        db.query(User)
+        .options(selectinload(User.role).selectinload(Role.permissions))
+        .filter(User.remember_token == refresh_token)
+        .first()
+    )
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

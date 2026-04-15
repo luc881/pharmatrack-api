@@ -50,10 +50,12 @@ async def login_user(request: Request, form_data: auth_dependency, db: db_depend
             headers={"WWW-Authenticate": "Bearer"}
         )
 
+    permissions = [p.name for p in user.role.permissions] if user.role else []
     access_token = create_jwt_token(
         username=user.email,
         user_id=user.id,
         role=user.role.name if user.role else None,
+        permissions=permissions,
         expires_delta=timedelta(minutes=30)
     )
     refresh_token = create_refresh_token()
@@ -78,10 +80,12 @@ async def login_user(request: Request, form_data: auth_dependency, db: db_depend
 async def refresh_access_token(request: Request, payload: RefreshTokenRequest, db: db_dependency):
     user = validate_refresh_token(db, payload.refresh_token)
 
+    permissions = [p.name for p in user.role.permissions] if user.role else []
     new_access_token = create_jwt_token(
         username=user.email,
         user_id=user.id,
         role=user.role.name if user.role else None,
+        permissions=permissions,
         expires_delta=timedelta(minutes=30)
     )
 
