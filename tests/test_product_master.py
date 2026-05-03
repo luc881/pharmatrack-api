@@ -134,7 +134,7 @@ def test_create_master_no_auth():
 
 def test_update_master(auth_headers, test_product_master):
     payload = {
-        "name": "Nuevo nombre",
+        "name": "Nuevo Nombre",
         "description": "Descripción actualizada",
     }
     response = prodMaster_put(str(test_product_master.id), json=payload, headers=auth_headers)
@@ -174,7 +174,7 @@ def test_partial_update_only_name(auth_headers, test_product_master):
     )
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert data["name"] == "Solo nombre"
+    assert data["name"] == "Solo Nombre"
     assert data["description"] == test_product_master.description
 
 
