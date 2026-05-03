@@ -13,9 +13,9 @@ def test_read_all_suppliers(auth_headers, test_supplier):
     response = suppliers_get("/", headers=auth_headers)
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert isinstance(data, list)
-    assert len(data) >= 1
-    assert any(item["id"] == test_supplier.id for item in data)
+    assert "data" in data
+    assert data["total"] >= 1
+    assert any(item["id"] == test_supplier.id for item in data["data"])
 
 
 def test_read_all_suppliers_no_auth():
@@ -51,10 +51,10 @@ def test_read_supplier_by_id_no_auth(test_supplier):
 # ------------------------------------------------------------------
 def test_create_supplier(auth_headers):
     payload = {
-        "name": "Distribuidora Nueva S.A.",
+        "name": "Distribuidora Nueva S.a.",
         "logo": "https://example.com/logo_nueva.png",
         "email": "nueva@distribuidora.com",
-        "phone": "+52 555-111-2222",
+        "phone": "+525551112222",
         "address": "Calle Nueva 456, CDMX",
         "rfc": "NUE123456789",
         "is_active": True,
@@ -109,8 +109,8 @@ def test_create_supplier_no_auth():
 # ------------------------------------------------------------------
 def test_update_supplier(auth_headers, test_supplier):
     payload = {
-        "name": "Distribuidora ABC S.A. de C.V.",
-        "phone": "+52 555-987-6543",
+        "name": "Distribuidora Abc S.a. De C.v.",
+        "phone": "+525559876543",
         "is_active": False,
     }
     response = suppliers_put(f"/{test_supplier.id}", json=payload, headers=auth_headers)
