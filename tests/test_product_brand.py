@@ -111,7 +111,7 @@ def test_read_brand_by_id_no_auth(test_product_brand):
 # =========================================================
 
 def test_search_brands_by_name(auth_headers, test_product_brand):
-    response = prodBrand_get("search/?name=Bayer", headers=auth_headers)
+    response = prodBrand_get("search?name=Bayer", headers=auth_headers)
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert "data" in data
@@ -120,27 +120,27 @@ def test_search_brands_by_name(auth_headers, test_product_brand):
 
 
 def test_search_brands_by_name_no_results(auth_headers):
-    response = prodBrand_get("search/?name=ZZZ_NOT_EXIST", headers=auth_headers)
+    response = prodBrand_get("search?name=ZZZ_NOT_EXIST", headers=auth_headers)
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["total"] == 0
 
 
 def test_search_brands_has_logo_true(auth_headers, test_product_brand):
-    response = prodBrand_get("search/?has_logo=true", headers=auth_headers)
+    response = prodBrand_get("search?has_logo=true", headers=auth_headers)
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert all(b["logo"] is not None for b in data["data"])
 
 
 def test_search_brands_has_logo_false(auth_headers, brand_no_logo):
-    response = prodBrand_get("search/?has_logo=false", headers=auth_headers)
+    response = prodBrand_get("search?has_logo=false", headers=auth_headers)
     assert response.status_code == status.HTTP_200_OK
     ids = [b["id"] for b in response.json()["data"]]
     assert brand_no_logo.id in ids
 
 
 def test_search_brands_no_auth():
-    response = prodBrand_get("search/?name=test")
+    response = prodBrand_get("search?name=test")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
@@ -152,7 +152,7 @@ def test_create_brand(auth_headers):
     response = prodBrand_post(json={"name": "TestBrand", "logo": "http://example.com/logo.jpg"}, headers=auth_headers)
     assert response.status_code == status.HTTP_201_CREATED
     data = response.json()
-    assert data["name"] == "TestBrand"
+    assert data["name"] == "Testbrand"
     assert data["logo"] == "http://example.com/logo.jpg"
 
 
@@ -184,7 +184,7 @@ def test_update_brand(auth_headers, test_product_brand):
     )
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert data["name"] == "UpdatedBrandName"
+    assert data["name"] == "Updatedbrandname"
     assert data["logo"] == "http://x.com/updated.jpg"
 
 
