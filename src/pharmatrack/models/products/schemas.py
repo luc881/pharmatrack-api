@@ -1,6 +1,6 @@
 from typing import Optional, List, Generic, TypeVar, TYPE_CHECKING
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict, model_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
 from ..product_has_ingredients.schemas import ProductIngredientCreate, ProductIngredientAmount
 
@@ -19,6 +19,7 @@ from pharmatrack.types.products import (
     IsActiveFlag,
 )
 from pharmatrack.utils.slugify import slugify
+from pharmatrack.utils.normalize import norm_title, norm_sku, norm_unit
 
 
 # =========================================================
@@ -139,6 +140,21 @@ class ProductBase(BaseModel):
 
     is_active: IsActiveFlag = True
 
+    @field_validator("title")
+    @classmethod
+    def normalize_title(cls, v: str) -> str:
+        return norm_title(v)
+
+    @field_validator("sku", mode="before")
+    @classmethod
+    def normalize_sku(cls, v):
+        return norm_sku(v) if v is not None else v
+
+    @field_validator("unit_name", "base_unit_name", mode="before")
+    @classmethod
+    def normalize_units(cls, v):
+        return norm_unit(v) if v is not None else v
+
 
 # =========================================================
 # 🟢 Create
@@ -221,6 +237,21 @@ class ProductUpdate(BaseModel):
 
     # Auto-generated when title or sku change, not exposed in API docs
     slug: Optional[str] = Field(None, exclude=True)
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def normalize_title(cls, v):
+        return norm_title(v) if v is not None else v
+
+    @field_validator("sku", mode="before")
+    @classmethod
+    def normalize_sku(cls, v):
+        return norm_sku(v) if v is not None else v
+
+    @field_validator("unit_name", "base_unit_name", mode="before")
+    @classmethod
+    def normalize_units(cls, v):
+        return norm_unit(v) if v is not None else v
 
     @model_validator(mode="after")
     def generate_slug_if_changed(self) -> "ProductUpdate":
