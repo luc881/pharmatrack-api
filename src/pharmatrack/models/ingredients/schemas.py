@@ -9,6 +9,7 @@ from pharmatrack.types.ingredients import (
 )
 from pharmatrack.models.products.schemas import PaginatedResponse, PaginationParams
 from pharmatrack.utils.slugify import slugify
+from pharmatrack.utils.normalize import norm_lower
 
 
 # =========================================================
@@ -21,7 +22,7 @@ class IngredientBase(BaseModel):
     @field_validator("name")
     @classmethod
     def normalize_name(cls, v: str) -> str:
-        v = v.strip().lower()
+        v = norm_lower(v)
         if not re.fullmatch(r"^[a-z0-9áéíóúüñ._\- ]+$", v):
             raise ValueError("Invalid ingredient name")
         return v
@@ -63,7 +64,7 @@ class IngredientUpdate(BaseModel):
     def normalize_optional(cls, v):
         if v is None:
             return v
-        v = v.strip().lower()
+        v = norm_lower(v)
         if not re.fullmatch(r"^[a-z0-9áéíóúüñ._\- ]+$", v):
             raise ValueError("Invalid ingredient name")
         return v
