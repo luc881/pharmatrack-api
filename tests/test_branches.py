@@ -39,7 +39,7 @@ def test_read_branch_by_id(auth_headers, test_branch):
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["id"] == test_branch.id
-    assert data["name"] == "main branch"
+    assert data["name"] == "Main Branch"
 
 
 def test_read_branch_by_id_not_found(auth_headers):
@@ -80,8 +80,8 @@ def test_create_branch(auth_headers):
     response = branches_post(json=new_branch, headers=auth_headers)
     assert response.status_code == status.HTTP_201_CREATED
     data = response.json()
-    assert data["name"] == "new test branch"
-    assert data["address"] == "456 new st, city, country"
+    assert data["name"] == "New Test Branch"
+    assert data["address"] == "456 New St, City, Country"
 
 
 def test_create_branch_duplicate(auth_headers, test_branch):
@@ -117,8 +117,8 @@ def test_update_branch(auth_headers, test_branch):
     response = branches_put(str(test_branch.id), json=updated, headers=auth_headers)
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert data["name"] == "updated branch"
-    assert data["address"] == "456 updated st, city, country"
+    assert data["name"] == "Updated Branch"
+    assert data["address"] == "456 Updated St, City, Country"
 
 
 def test_update_branch_not_found(auth_headers):
