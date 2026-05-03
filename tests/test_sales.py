@@ -146,8 +146,8 @@ def test_update_sale_invalid_branch(auth_headers, test_sale, test_user_with_role
 def test_update_sale_invalid_status(auth_headers, test_sale):
     payload = {"status": "invalid_status"}
     response = sales_put(f"/{test_sale.id}", json=payload, headers=auth_headers)
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert response.json()["detail"] == "Invalid sale status."
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.json()["detail"][0]["field"] == "status"
 
 
 def test_update_completed_sale_rejected(auth_headers, completed_sale):
