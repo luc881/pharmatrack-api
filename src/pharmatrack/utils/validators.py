@@ -21,11 +21,13 @@ def validate_units_schema(data: ProductBase):
                 detail="Unit sale product cannot define base units"
             )
     else:
-        if not data.base_unit_name or not data.units_per_base:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Pack product must define base unit and quantity"
-            )
+        # Only enforce both-or-nothing when the user is explicitly defining pack info
+        if data.base_unit_name is not None or data.units_per_base is not None:
+            if not data.base_unit_name or not data.units_per_base:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Pack product must define base unit and quantity"
+                )
 
 
 def merge_product_units(product: Product, update: ProductUpdate) -> ProductBase:
