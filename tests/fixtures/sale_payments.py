@@ -9,7 +9,7 @@ def test_sale_payment(db_session, test_sale):
         sale_id=test_sale.id,
         method_payment="card",
         transaction_number="TX123456789",
-        bank="Bank of Test",
+        bank="BBVA",
         amount=100.00,
     )
     db_session.add(payment)
