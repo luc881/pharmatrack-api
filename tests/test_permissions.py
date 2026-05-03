@@ -131,7 +131,7 @@ def test_create_permission_strip_lowercase(auth_headers):
 def test_create_permission_invalid_pattern(auth_headers):
     response = permissions_post(json={"name": "Invalid_Permission1"}, headers=auth_headers)
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-    assert response.json()["detail"][0]["msg"] == "Value error, Invalid permission name pattern, only lowercase letters and '.' are allowed"
+    assert response.json()["detail"][0]["message"] == "Value error, Invalid permission name pattern, only lowercase letters and '.' are allowed"
 
 
 def test_create_permission_duplicate(auth_headers):
