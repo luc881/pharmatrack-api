@@ -64,7 +64,7 @@ ProductUnitName = Annotated[
     StringConstraints(
         min_length=1,
         max_length=50,
-        pattern=r"^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]+$"
+        pattern=r"^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ /\-(). ]+$"
     ),
     Field(description="Nombre de la unidad principal (ej. pieza, caja)")
 ]
@@ -74,7 +74,7 @@ ProductBaseUnitName = Annotated[
     StringConstraints(
         min_length=1,
         max_length=50,
-        pattern=r"^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]+$"
+        pattern=r"^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ /\-(). ]+$"
     ),
     Field(description="Nombre de la unidad base o fraccionada (ej. tableta, sobre)")
 ]
