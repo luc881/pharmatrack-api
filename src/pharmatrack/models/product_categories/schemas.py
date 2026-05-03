@@ -1,6 +1,7 @@
 from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pharmatrack.utils.normalize import norm_title
 
 from ...types.products_categories import (
     CategoryNameStr,
@@ -21,6 +22,11 @@ class ProductCategoryBase(BaseModel):
         None,
         description="ID de la categoría padre (NULL si es raíz)"
     )
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, v: str) -> str:
+        return norm_title(v)
 
 
 # =========================================================
@@ -48,6 +54,11 @@ class ProductCategoryUpdate(BaseModel):
     image: Optional[CategoryImageURL] = None
     is_active: Optional[IsCategoryActiveFlag] = None
     parent_id: Optional[int] = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def normalize_name(cls, v):
+        return norm_title(v) if v is not None else v
 
     model_config = ConfigDict(
         extra="forbid",

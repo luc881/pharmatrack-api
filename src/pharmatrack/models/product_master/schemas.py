@@ -1,8 +1,9 @@
 from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict, model_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
 from pharmatrack.utils.slugify import slugify
+from pharmatrack.utils.normalize import norm_title
 from ..products.schemas import ProductSimpleResponse, PaginatedResponse, PaginationParams
 
 
@@ -12,6 +13,11 @@ from ..products.schemas import ProductSimpleResponse, PaginatedResponse, Paginat
 class ProductMasterBase(BaseModel):
     name: str = Field(..., max_length=250)
     description: Optional[str] = Field(None, max_length=2000)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, v: str) -> str:
+        return norm_title(v)
 
 
 # =========================================================
@@ -43,6 +49,11 @@ class ProductMasterUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=250)
     description: Optional[str] = Field(None, max_length=2000)
     slug: Optional[str] = Field(None, exclude=True)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def normalize_name(cls, v):
+        return norm_title(v) if v is not None else v
 
     @model_validator(mode="after")
     def generate_slug_if_name_changed(self) -> "ProductMasterUpdate":
