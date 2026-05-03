@@ -1,8 +1,9 @@
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field, EmailStr, ConfigDict
+from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator
 from pharmatrack.models.products.schemas import PaginatedResponse, PaginationParams
 from pharmatrack.types.suppliers import SupplierNameStr, SupplierRFCStr, SupplierPhoneStr
+from pharmatrack.utils.normalize import norm_title
 
 __all__ = ["PaginatedResponse", "PaginationParams"]
 
@@ -18,6 +19,11 @@ class SupplierBase(BaseModel):
     address: Optional[str] = Field(None, max_length=250, description="Dirección")
     rfc: Optional[SupplierRFCStr] = Field(None, description="RFC / identificación tributaria")
     is_active: bool = Field(True, description="Estado del proveedor")
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, v: str) -> str:
+        return norm_title(v)
 
 
 # =========================================================
@@ -51,6 +57,11 @@ class SupplierUpdate(BaseModel):
     address: Optional[str] = Field(None, max_length=250)
     rfc: Optional[SupplierRFCStr] = None
     is_active: Optional[bool] = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def normalize_name(cls, v):
+        return norm_title(v) if v is not None else v
 
     model_config = ConfigDict(
         extra="forbid",

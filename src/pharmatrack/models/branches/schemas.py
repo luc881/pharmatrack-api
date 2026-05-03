@@ -2,6 +2,7 @@ from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 import re
+from pharmatrack.utils.normalize import norm_title
 
 
 
@@ -11,6 +12,11 @@ import re
 class BranchBase(BaseModel):
     name: str = Field(..., max_length=255, description="Nombre de la sucursal")
     address: str = Field(..., max_length=255, description="Dirección física de la sucursal")
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, v: str) -> str:
+        return norm_title(v)
 
     @model_validator(mode='before')
     @classmethod
@@ -60,6 +66,11 @@ class BranchCreate(BranchBase):
 class BranchUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=255, description="Nuevo nombre de la sucursal")
     address: Optional[str] = Field(None, max_length=255, description="Nueva dirección")
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def normalize_name(cls, v):
+        return norm_title(v) if v is not None else v
 
     model_config = ConfigDict(
         extra= "forbid",
