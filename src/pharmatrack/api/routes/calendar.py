@@ -1,5 +1,5 @@
-from datetime import date, timedelta
-from typing import Annotated, Optional
+from datetime import date
+from typing import Annotated, Optional, Any
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -21,7 +21,7 @@ def _batch_color(expiration_date: date) -> str:
     if diff < 0:    return "#B71D18"
     if diff <= 7:   return "#FF5630"
     if diff <= 30:  return "#FFAB00"
-    return "#22C55E"
+    return "#22c55e"
 
 
 class CalendarEvent(BaseModel):
@@ -32,6 +32,7 @@ class CalendarEvent(BaseModel):
     allDay: bool = True
     color: str
     textColor: str = "#fff"
+    extendedProps: dict[str, Any] = {}
 
 
 @router.get(
@@ -48,17 +49,19 @@ async def get_calendar_events(
     start: Optional[date] = None,
     end: Optional[date] = None,
 ):
-    range_start = start or date.today()
-    range_end = end or (date.today() + timedelta(days=365))
+    filters = [
+        ProductBatch.expiration_date.isnot(None),
+        ProductBatch.quantity > 0,
+    ]
+    if start:
+        filters.append(ProductBatch.expiration_date >= start)
+    if end:
+        filters.append(ProductBatch.expiration_date <= end)
 
     rows = (
         db.query(ProductBatch, Product.title)
         .join(Product, Product.id == ProductBatch.product_id)
-        .filter(
-            ProductBatch.expiration_date.isnot(None),
-            ProductBatch.expiration_date >= range_start,
-            ProductBatch.expiration_date <= range_end,
-        )
+        .filter(*filters)
         .order_by(ProductBatch.expiration_date.asc())
         .all()
     )
@@ -66,10 +69,11 @@ async def get_calendar_events(
     return [
         CalendarEvent(
             id=str(batch.id),
-            title=f"{title} ({batch.lot_code})" if batch.lot_code else title,
+            title=f"{title} — {batch.lot_code}" if batch.lot_code else title,
             start=batch.expiration_date,
             end=batch.expiration_date,
             color=_batch_color(batch.expiration_date),
+            extendedProps={"batch": {"quantity": batch.quantity}},
         )
         for batch, title in rows
     ]
