@@ -13,9 +13,9 @@ def test_read_all_purchases(auth_headers, test_purchase):
     response = purchase_get("/", headers=auth_headers)
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert isinstance(data, list)
-    assert len(data) >= 1
-    assert any(item["id"] == test_purchase.id for item in data)
+    assert "data" in data
+    assert data["total"] >= 1
+    assert any(item["id"] == test_purchase.id for item in data["data"])
 
 
 def test_read_all_purchases_no_auth():
