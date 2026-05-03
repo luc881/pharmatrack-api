@@ -13,7 +13,7 @@ TEST_DATABASE_URL = os.getenv(
     "postgresql://luc:1278972@localhost/pharmatrack_test"
 )
 
-engine = create_engine(TEST_DATABASE_URL)
+engine = create_engine(TEST_DATABASE_URL, pool_size=1, max_overflow=0)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base.metadata.drop_all(bind=engine)

@@ -53,4 +53,5 @@ def db_session():
 
     # Limpiar al terminar el test
     utils._current_session = None
+    session.rollback()
     session.close()
