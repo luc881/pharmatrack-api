@@ -51,7 +51,7 @@ def route_client_factory(client, prefix: str = ""):
         clean = path.strip("/")
         if clean:
             return f"{base}/{clean}"
-        return f"{base}/"
+        return base
 
     def get(path: str = "", **kwargs):
         return client.get(_url(path), **kwargs)
