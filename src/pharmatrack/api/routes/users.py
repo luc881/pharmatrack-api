@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, APIRouter, Request
 from typing import Annotated
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, cast, String
 from datetime import datetime, timezone
 from ...db.session import get_db
 from starlette import status
@@ -136,7 +136,7 @@ async def search_users(
     if filters.gender:
         query = query.filter(User.gender == filters.gender)
     if filters.type_document:
-        query = query.filter(User.type_document.ilike(f"%{filters.type_document}%"))
+        query = query.filter(cast(User.type_document, String).ilike(f"%{filters.type_document}%"))
     if filters.n_document:
         query = query.filter(User.n_document.ilike(f"%{filters.n_document}%"))
 

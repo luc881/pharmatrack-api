@@ -408,8 +408,8 @@ def test_change_password_weak_new_password(test_user_with_role_permissions_branc
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     errors = response.json()["detail"]
     assert any(
-        "no cumple los requisitos" in err.get("msg", "").lower() or
-        "debe tener al menos 8 caracteres" in err.get("msg", "").lower()
+        "no cumple los requisitos" in err.get("message", "").lower() or
+        "debe tener al menos 8 caracteres" in err.get("message", "").lower()
         for err in errors
     )
 
