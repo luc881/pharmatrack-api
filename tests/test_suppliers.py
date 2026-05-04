@@ -51,7 +51,7 @@ def test_read_supplier_by_id_no_auth(test_supplier):
 # ------------------------------------------------------------------
 def test_create_supplier(auth_headers):
     payload = {
-        "name": "Distribuidora Nueva S.a.",
+        "name": "Distribuidora Nueva S.A.",
         "logo": "https://example.com/logo_nueva.png",
         "email": "nueva@distribuidora.com",
         "phone": "+525551112222",
@@ -109,7 +109,7 @@ def test_create_supplier_no_auth():
 # ------------------------------------------------------------------
 def test_update_supplier(auth_headers, test_supplier):
     payload = {
-        "name": "Distribuidora Abc S.a. De C.v.",
+        "name": "Distribuidora Abc S.A. De C.V.",
         "phone": "+525559876543",
         "is_active": False,
     }

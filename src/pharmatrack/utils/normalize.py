@@ -2,12 +2,18 @@ import re
 
 
 def norm_title(v: str) -> str:
-    """'PARACETAMOL 500mg' → 'Paracetamol 500mg'. No capitaliza tras dígitos."""
     v = re.sub(r'\s+', ' ', v.strip())
-    return ' '.join(
-        w[0].upper() + w[1:].lower() if w and w[0].isalpha() else w
-        for w in v.split(' ')
-    )
+    def _cap(w):
+        if not w or not w[0].isalpha():
+            return w
+        # Abreviatura tipo s.a., a.c., c.v. → S.A., A.C., C.V.
+        if re.fullmatch(r'([A-Za-záéíóúüñÁÉÍÓÚÜÑ]\.)+', w):
+            return w.upper()
+        # Acrónimo todo mayúsculas → preservar (ABC, BBVA)
+        if w.isupper() and len(w) > 1:
+            return w
+        return w[0].upper() + w[1:].lower()
+    return ' '.join(_cap(w) for w in v.split(' '))
 
 
 def norm_lower(v: str) -> str:

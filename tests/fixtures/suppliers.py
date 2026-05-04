@@ -6,7 +6,7 @@ def test_supplier(db_session):
     from pharmatrack.models.suppliers.orm import Supplier
 
     supplier = Supplier(
-        name="Distribuidora Abc S.a.",
+        name="Distribuidora Abc S.A.",
         logo="https://example.com/logo.png",
         email="contacto@abc.com",
         phone="+52 555-123-4567",
@@ -25,7 +25,7 @@ def another_supplier(db_session):
     from pharmatrack.models.suppliers.orm import Supplier
 
     supplier = Supplier(
-        name="Otra Distribuidora S.a.",
+        name="Otra Distribuidora S.A.",
         logo="https://example.com/logo2.png",
         email="contacto2@abc.com",
         phone="+52 555-987-6543",
