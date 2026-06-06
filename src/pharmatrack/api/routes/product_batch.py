@@ -1,5 +1,5 @@
 from fastapi import Depends, HTTPException, APIRouter, Response, Request
-from typing import Annotated
+from typing import Annotated, Optional
 from sqlalchemy.orm import Session, joinedload
 from starlette import status
 
@@ -44,8 +44,15 @@ router = APIRouter(
     dependencies=CAN_READ_PRODUCT_BATCHES
 )
 @limiter.limit(LIMIT_READ)
-def read_all_product_batches(request: Request, db: db_dependency, pagination: PaginationParams = Depends()):
+def read_all_product_batches(
+    request: Request,
+    db: db_dependency,
+    pagination: PaginationParams = Depends(),
+    product_id: Optional[int] = None,
+):
     query = db.query(ProductBatch).order_by(ProductBatch.id.asc())
+    if product_id is not None:
+        query = query.filter(ProductBatch.product_id == product_id)
     return paginate(query, pagination)
 
 

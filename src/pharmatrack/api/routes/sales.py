@@ -181,9 +181,14 @@ async def create(request: Request, sale: SaleCreate, db: db_dependency):
     dependencies=CAN_UPDATE_SALES,
 )
 def complete_sale(sale_id: int, db: db_dependency):
+    from ...models.sale_details.orm import SaleDetail
+    from ...models.sale_batch_usage.orm import SaleBatchUsage
+
     sale = (
         db.query(Sale)
-        .options(joinedload(Sale.sale_details))
+        .options(
+            joinedload(Sale.sale_details).joinedload(SaleDetail.batch_usages)
+        )
         .filter(Sale.id == sale_id)
         .first()
     )
