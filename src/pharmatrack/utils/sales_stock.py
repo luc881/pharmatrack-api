@@ -14,20 +14,30 @@ def allocate_batches_for_sale_detail(
     """
     Assigns stock for a sale_detail.
 
-    If the frontend already pre-assigned batch usages (via POST /sale-batch-usages/),
-    those are validated and stock is deducted from the named batches.
-    Otherwise falls back to automatic FEFO allocation.
+    Queries the DB directly for pre-assigned SaleBatchUsage records so the
+    result is independent of how the caller loaded the sale_detail object.
+    If records exist → validate and deduct from those specific batches.
+    If none exist → automatic FEFO allocation.
     """
-    # Lazy-load is fine here; batch_usages is a list relationship on SaleDetail
-    if sale_detail.batch_usages:
-        _apply_preassigned_usages(db, sale_detail)
+    preassigned = (
+        db.query(SaleBatchUsage)
+        .filter(SaleBatchUsage.sale_detail_id == sale_detail.id)
+        .all()
+    )
+
+    if preassigned:
+        _apply_preassigned_usages(db, sale_detail, preassigned)
     else:
         _fefo_allocate(db, sale_detail)
 
 
-def _apply_preassigned_usages(db: Session, sale_detail: SaleDetail) -> None:
+def _apply_preassigned_usages(
+    db: Session,
+    sale_detail: SaleDetail,
+    usages: list[SaleBatchUsage],
+) -> None:
     """Validates and deducts stock from batches already chosen by the frontend."""
-    total_assigned = sum(u.quantity_used for u in sale_detail.batch_usages)
+    total_assigned = sum(u.quantity_used for u in usages)
     required = int(sale_detail.quantity)
 
     if total_assigned != required:
@@ -39,7 +49,7 @@ def _apply_preassigned_usages(db: Session, sale_detail: SaleDetail) -> None:
             ),
         )
 
-    for usage in sale_detail.batch_usages:
+    for usage in usages:
         batch = (
             db.query(ProductBatch)
             .filter(ProductBatch.id == usage.batch_id)
