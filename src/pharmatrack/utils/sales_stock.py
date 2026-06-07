@@ -31,6 +31,14 @@ def allocate_batches_for_sale_detail(
         _fefo_allocate(db, sale_detail)
 
 
+def _product_label(sale_detail: SaleDetail) -> str:
+    """Returns a human-readable product name for error messages."""
+    try:
+        return sale_detail.product.title
+    except Exception:
+        return f"producto {sale_detail.product_id}"
+
+
 def _apply_preassigned_usages(
     db: Session,
     sale_detail: SaleDetail,
@@ -44,8 +52,8 @@ def _apply_preassigned_usages(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                f"Pre-assigned batch quantities ({total_assigned}) do not match "
-                f"sale detail quantity ({required}) for product {sale_detail.product_id}"
+                f"Las cantidades pre-asignadas ({total_assigned}) no coinciden con "
+                f"la cantidad solicitada ({required}) para {_product_label(sale_detail)}"
             ),
         )
 
@@ -59,21 +67,28 @@ def _apply_preassigned_usages(
         if not batch:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Batch {usage.batch_id} not found",
+                detail=f"Lote {usage.batch_id} no encontrado",
             )
         if batch.quantity < usage.quantity_used:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
-                    f"Insufficient stock in batch {usage.batch_id} "
-                    f"(available: {batch.quantity}, required: {usage.quantity_used})"
+                    f"Stock insuficiente para {_product_label(sale_detail)} "
+                    f"(lote {usage.batch_id}: disponible {batch.quantity}, requerido {usage.quantity_used})"
                 ),
             )
         batch.quantity -= usage.quantity_used
 
 
 def _fefo_allocate(db: Session, sale_detail: SaleDetail) -> None:
-    """Automatic FEFO allocation when no batch usages are pre-assigned."""
+    """
+    FEFO automatic allocation.
+
+    Batches are consumed in expiration_date ASC order (soonest-to-expire first).
+    Batches with expiration_date=NULL (no-expiry stock) are placed last so
+    dated stock is always consumed before undated stock. Within the same date,
+    lower batch id wins (insertion order).
+    """
     remaining_qty = sale_detail.quantity
 
     batches = (
@@ -83,7 +98,7 @@ def _fefo_allocate(db: Session, sale_detail: SaleDetail) -> None:
             ProductBatch.quantity > 0,
         )
         .order_by(
-            ProductBatch.expiration_date.asc(),
+            ProductBatch.expiration_date.asc().nullslast(),
             ProductBatch.id.asc(),
         )
         .with_for_update()
@@ -93,7 +108,7 @@ def _fefo_allocate(db: Session, sale_detail: SaleDetail) -> None:
     if not batches:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"No stock available for product {sale_detail.product_id}",
+            detail=f"Stock insuficiente para {_product_label(sale_detail)}",
         )
 
     for batch in batches:
@@ -114,5 +129,5 @@ def _fefo_allocate(db: Session, sale_detail: SaleDetail) -> None:
     if remaining_qty > 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Insufficient stock for product {sale_detail.product_id}",
+            detail=f"Stock insuficiente para {_product_label(sale_detail)}",
         )
