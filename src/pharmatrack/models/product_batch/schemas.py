@@ -56,7 +56,7 @@ class ProductBatchCreate(ProductBatchBase):
 # =========================================================
 class ProductBatchUpdate(BaseModel):
     lot_code: Optional[str] = Field(None, max_length=100)
-    expiration_date: Optional[FutureOrPresentDate] = None
+    expiration_date: Optional[date] = None
     quantity: Optional[int] = Field(None, ge=0)
     purchase_price: Optional[float] = Field(None, ge=0)
 
