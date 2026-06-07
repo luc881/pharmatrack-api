@@ -23,11 +23,13 @@ class SensorReadingCreate(BaseModel):
 
 
 class SensorReadingResponse(BaseModel):
-    id: int
-    temperature: float
-    humidity: float
-    recorded_at: datetime
+    id: Optional[int] = None
+    temperature: Optional[float] = None
+    humidity: Optional[float] = None
+    recorded_at: Optional[datetime] = None
     device_id: Optional[str] = None
+    # True while FastAPI is reachable but the sensor hasn't sent data yet
+    offline: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

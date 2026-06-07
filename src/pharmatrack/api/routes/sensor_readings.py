@@ -71,7 +71,9 @@ async def get_latest(request: Request, db: db_dependency):
         .first()
     )
     if not reading:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No hay lecturas registradas.")
+        # Return 200 so CORS middleware always fires and the frontend
+        # receives a parseable response instead of a 404 with no body context.
+        return SensorReadingResponse(offline=True)
     return reading
 
 
