@@ -245,8 +245,9 @@ async def get_dashboard_stats(request: Request, db: db_dependency):
         cost = _month_cost(start, end)
         return MonthComparison(revenue=revenue, count=row.count, cost=cost, profit=revenue - cost)
 
+    tomorrow = today + timedelta(days=1)
     monthly_comparison = MonthlyComparison(
-        current_month=_month_stats(first_current, today),
+        current_month=_month_stats(first_current, tomorrow),
         previous_month=_month_stats(first_previous, first_current),
     )
 
