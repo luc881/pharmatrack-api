@@ -13,27 +13,30 @@ from pharmatrack.utils.normalize import norm_lower
 
 
 # =========================================================
-# 🔹 Base
+# 🔹 Base  (sin validación de formato — aplica a respuestas)
 # =========================================================
 class IngredientBase(BaseModel):
-    name: IngredientTitleStr
+    name: str = Field(min_length=1, max_length=250)
     description: Optional[IngredientDescriptionStr] = None
-
-    @field_validator("name")
-    @classmethod
-    def normalize_name(cls, v: str) -> str:
-        v = norm_lower(v)
-        if not re.fullmatch(r"^[a-z0-9áéíóúüñ._\- ]+$", v):
-            raise ValueError("Invalid ingredient name")
-        return v
 
 
 # =========================================================
 # 🟢 Create
 # =========================================================
 class IngredientCreate(IngredientBase):
+    # Restrict format on input only
+    name: IngredientTitleStr
+
     # slug is auto-generated from name, not exposed to the user
     slug: Optional[str] = Field(None, exclude=True)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, v: str) -> str:
+        v = norm_lower(v)
+        if not re.fullmatch(r"^[a-z0-9áéíóúüñ.,_()\- ]+$", v):
+            raise ValueError("Nombre de ingrediente inválido")
+        return v
 
     @model_validator(mode="after")
     def generate_slug(self) -> "IngredientCreate":
@@ -65,8 +68,8 @@ class IngredientUpdate(BaseModel):
         if v is None:
             return v
         v = norm_lower(v)
-        if not re.fullmatch(r"^[a-z0-9áéíóúüñ._\- ]+$", v):
-            raise ValueError("Invalid ingredient name")
+        if not re.fullmatch(r"^[a-z0-9áéíóúüñ.,_()\- ]+$", v):
+            raise ValueError("Nombre de ingrediente inválido")
         return v
 
     @model_validator(mode="after")
