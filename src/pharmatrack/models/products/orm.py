@@ -52,6 +52,9 @@ class Product(Base):
     allow_warranty: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")
     warranty_days: Mapped[float] = mapped_column(Double, nullable=True)
 
+    # --- Trazabilidad de lotes ---
+    tracks_batches: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
+
     # --- Unidades / fraccionamiento ---
     is_unit_sale: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")
     unit_name: Mapped[str] = mapped_column(String(50), nullable=False)

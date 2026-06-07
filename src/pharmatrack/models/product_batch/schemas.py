@@ -3,7 +3,6 @@ from datetime import date, datetime
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from ..products.schemas import PaginatedResponse, PaginationParams
-from pharmatrack.types.common import FutureOrPresentDate
 
 
 # =========================================================
@@ -11,16 +10,24 @@ from pharmatrack.types.common import FutureOrPresentDate
 # =========================================================
 class ProductBatchBase(BaseModel):
     lot_code: Optional[str] = Field(None, max_length=100, description="Código o identificador del lote")
-    expiration_date: FutureOrPresentDate = Field(..., description="Fecha de caducidad del lote")
+    expiration_date: Optional[date] = Field(None, description="Fecha de caducidad del lote. Null para productos sin trazabilidad de lotes.")
     quantity: int = Field(..., ge=0, description="Cantidad disponible en el lote")
     purchase_price: Optional[float] = Field(None, ge=0, description="Precio de compra por unidad del lote")
 
     model_config = dict(from_attributes=True)
 
     @field_validator("lot_code", mode="before")
-    def normalize_text(cls, v):
+    @classmethod
+    def normalize_lot_code(cls, v):
         if isinstance(v, str):
             return v.strip().upper()
+        return v
+
+    @field_validator("expiration_date", mode="after")
+    @classmethod
+    def check_expiration_date(cls, v):
+        if v is not None and v < date.today():
+            raise ValueError("La fecha de vencimiento no puede ser una fecha pasada")
         return v
 
 

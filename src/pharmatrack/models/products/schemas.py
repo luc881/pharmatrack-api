@@ -139,6 +139,7 @@ class ProductBase(BaseModel):
     product_category_id: int = Field(..., ge=1)
 
     is_active: IsActiveFlag = True
+    tracks_batches: bool = Field(default=True, description="Si False, el producto no maneja lotes con caducidad ni código")
 
     @field_validator("title")
     @classmethod
@@ -230,6 +231,7 @@ class ProductUpdate(BaseModel):
     product_category_id: Optional[int] = None
 
     is_active: Optional[IsActiveFlag] = None
+    tracks_batches: Optional[bool] = None
 
     brand_id: Optional[int] = None
     product_master_id: Optional[int] = None

@@ -6,6 +6,7 @@ from ...db.session import Base
 from typing import Optional
 
 
+
 class ProductBatch(Base):
     __tablename__ = "product_batches"
     __table_args__ = (
@@ -33,7 +34,7 @@ class ProductBatch(Base):
         nullable=True  # <-- CORRECTO: quitamos unique=True
     )
 
-    expiration_date: Mapped[date] = mapped_column(Date, nullable=False)
+    expiration_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     purchase_price: Mapped[Optional[float]] = mapped_column(Double, nullable=True)
 

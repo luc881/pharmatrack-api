@@ -127,17 +127,39 @@ def create_product_batch(request: Request, product_batch: ProductBatchCreate, db
             detail="Product with the given ID does not exist."
         )
 
-    existing_batch = db.query(ProductBatch) \
-        .filter(
-        ProductBatch.product_id == product_batch.product_id,
-        ProductBatch.lot_code == product_batch.lot_code
-    ).first()
-
-    if existing_batch:
-        raise HTTPException(
-            status_code=400,
-            detail="A batch with this lot_code already exists for this product."
+    # Upsert canónico para productos sin trazabilidad de lotes:
+    # si no viene lot_code ni expiration_date, acumular en el batch "stock" existente.
+    if product_batch.lot_code is None and product_batch.expiration_date is None:
+        canonical = (
+            db.query(ProductBatch)
+            .filter(
+                ProductBatch.product_id == product_batch.product_id,
+                ProductBatch.lot_code.is_(None),
+                ProductBatch.expiration_date.is_(None),
+            )
+            .first()
         )
+        if canonical:
+            canonical.quantity += product_batch.quantity
+            if product_batch.purchase_price is not None:
+                canonical.purchase_price = product_batch.purchase_price
+            db.commit()
+            db.refresh(canonical)
+            return canonical
+    elif product_batch.lot_code is not None:
+        existing_batch = (
+            db.query(ProductBatch)
+            .filter(
+                ProductBatch.product_id == product_batch.product_id,
+                ProductBatch.lot_code == product_batch.lot_code,
+            )
+            .first()
+        )
+        if existing_batch:
+            raise HTTPException(
+                status_code=400,
+                detail="A batch with this lot_code already exists for this product.",
+            )
 
     new_product_batch = ProductBatch(**product_batch.model_dump())
     db.add(new_product_batch)
