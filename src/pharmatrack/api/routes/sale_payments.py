@@ -1,5 +1,5 @@
 from fastapi import Depends, HTTPException, APIRouter
-from typing import Annotated
+from typing import Annotated, Optional
 from sqlalchemy.orm import Session
 from ...db.session import get_db
 from starlette import status
@@ -25,9 +25,11 @@ router = APIRouter(
     status_code=status.HTTP_200_OK,
     dependencies=CAN_READ_SALE_PAYMENTS
 )
-async def read_all(db: db_dependency):
-    sale_payments = db.query(SalePayment).filter(SalePayment.deleted_at.is_(None)).all()
-    return sale_payments
+async def read_all(db: db_dependency, sale_id: Optional[int] = None):
+    query = db.query(SalePayment).filter(SalePayment.deleted_at.is_(None))
+    if sale_id is not None:
+        query = query.filter(SalePayment.sale_id == sale_id)
+    return query.all()
 
 @router.post(
     "",

@@ -1,5 +1,5 @@
 from fastapi import Depends, HTTPException, APIRouter
-from typing import Annotated
+from typing import Annotated, Optional
 from sqlalchemy.orm import Session
 from starlette import status
 from decimal import Decimal
@@ -44,9 +44,11 @@ router = APIRouter(
     status_code=status.HTTP_200_OK,
     dependencies=CAN_READ_SALE_DETAILS,
 )
-def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
-    query = db.query(SaleDetail).order_by(SaleDetail.id.desc())
-    return paginate(query, pagination)
+def read_all(db: db_dependency, pagination: PaginationParams = Depends(), sale_id: Optional[int] = None):
+    query = db.query(SaleDetail)
+    if sale_id is not None:
+        query = query.filter(SaleDetail.sale_id == sale_id)
+    return paginate(query.order_by(SaleDetail.id.desc()), pagination)
 
 
 # =========================================================
