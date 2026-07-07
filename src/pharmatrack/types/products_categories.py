@@ -2,11 +2,11 @@
 from typing import Annotated, Optional
 from pydantic import StringConstraints, Field, HttpUrl
 from enum import Enum
-from pharmatrack.types.common import ImageURLStr, IsActiveFlag
+from pharmatrack.types.common import ImageURLStr
 
 # Aliases semánticos desde common
 CategoryImageURL = ImageURLStr
-IsCategoryActiveFlag = IsActiveFlag
+IsCategoryActiveFlag = bool
 
 
 # -------------------------------

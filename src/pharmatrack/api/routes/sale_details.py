@@ -5,7 +5,7 @@ from starlette import status
 from decimal import Decimal
 from pharmatrack.types.sales import SaleStatusEnum
 
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from ...models.sale_details.schemas import (
     SaleDetailCreate,
     SaleDetailResponse,
@@ -26,7 +26,6 @@ from ...utils.permissions import (
 from ...utils.sales_calculations import recalc_sale_totals
 from pharmatrack.utils.pagination import paginate
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(
     prefix="/saledetails",

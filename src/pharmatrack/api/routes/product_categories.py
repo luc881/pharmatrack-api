@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, APIRouter
 from typing import Annotated
 from sqlalchemy.orm import Session
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from starlette import status
 from ...models.product_categories.orm import ProductCategory
 from ...models.product_categories.schemas import (
@@ -22,7 +22,6 @@ from ...utils.product_categories_tree import build_category_tree, check_category
 from ...utils.category_slug import build_category_slug, rebuild_children_slugs
 from pharmatrack.utils.pagination import paginate
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(
     prefix="/productscategories",

@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, APIRouter
 from typing import Annotated
 from sqlalchemy.orm import Session
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from starlette import status
 from ...models.ingredients.orm import Ingredient
 from ...models.ingredients.schemas import (
@@ -14,7 +14,6 @@ from ...models.ingredients.schemas import (
 from ...utils.permissions import CAN_READ_INGREDIENTS, CAN_CREATE_INGREDIENTS, CAN_UPDATE_INGREDIENTS, CAN_DELETE_INGREDIENTS
 from pharmatrack.utils.pagination import paginate
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 
 router = APIRouter(

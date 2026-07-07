@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from starlette import status
 
 from ...models.products.orm import Product
@@ -34,7 +34,6 @@ from ...utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(
     prefix="/products",

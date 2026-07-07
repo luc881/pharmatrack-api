@@ -4,7 +4,7 @@ from ..models.users.orm import User
 from ..models.roles.orm import Role
 from typing import Annotated
 from sqlalchemy.orm import Session, selectinload
-from ..db.session import get_db
+from ..db.session import get_db, db_dependency
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from datetime import timedelta, datetime, timezone
@@ -13,7 +13,6 @@ import secrets
 from pharmatrack.config import settings
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-db_dependency = Annotated[Session, Depends(get_db)]
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 oauth2_dependency = Annotated[str, Depends(oauth2_scheme)]
 auth_dependency = Annotated[OAuth2PasswordRequestForm, Depends()]

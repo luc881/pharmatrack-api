@@ -3,7 +3,7 @@ from typing import Annotated, List, Optional
 from sqlalchemy.orm import Session, joinedload
 from starlette import status
 
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from ...models.sale_batch_usage.orm import SaleBatchUsage
 from ...models.sale_batch_usage.schemas import (
     SaleBatchUsageCreate,
@@ -19,7 +19,6 @@ from ...utils.permissions import (
 )
 from ...utils.rate_limit import limiter, LIMIT_WRITE
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(
     prefix="/sale-batch-usages",

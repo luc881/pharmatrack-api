@@ -3,7 +3,7 @@ from typing import Annotated, Optional
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from datetime import datetime
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from starlette import status
 
 from ...models.sales.orm import Sale
@@ -29,7 +29,6 @@ from ...utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 
 router = APIRouter(

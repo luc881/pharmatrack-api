@@ -1,8 +1,10 @@
-from typing import Optional, List, Generic, TypeVar, TYPE_CHECKING
+from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
 from ..product_has_ingredients.schemas import ProductIngredientCreate, ProductIngredientAmount
+# Re-export: muchos módulos importan la paginación desde aquí
+from pharmatrack.utils.pagination import PaginationParams, PaginatedResponse  # noqa: F401
 
 from pharmatrack.types.products import (
     ProductTitleStr,
@@ -16,62 +18,13 @@ from pharmatrack.types.products import (
     ProductUnitName,
     ProductBaseUnitName,
     IsUnitSaleFlag,
-    IsActiveFlag,
 )
 from pharmatrack.utils.slugify import slugify
 from pharmatrack.utils.normalize import norm_title, norm_sku, norm_unit
 
 
-# =========================================================
-# 🔹 Paginación genérica (reutilizable en toda la API)
-# =========================================================
-T = TypeVar("T")
-
-class PaginationParams(BaseModel):
-    page: int = Field(default=1, ge=1, description="Número de página")
-    page_size: int = Field(default=20, ge=1, le=500, description="Items por página")
-
-    @property
-    def offset(self) -> int:
-        return (self.page - 1) * self.page_size
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "page": 1,
-                "page_size": 20
-            }
-        }
-    )
-
-
 class BulkDeleteRequest(BaseModel):
     ids: List[int] = Field(..., min_length=1, description="IDs a eliminar")
-
-
-class PaginatedResponse(BaseModel, Generic[T]):
-    data: List[T]
-    total: int
-    page: int
-    page_size: int
-    total_pages: int
-    has_next: bool
-    has_prev: bool
-
-    model_config = ConfigDict(
-        from_attributes=True,
-        json_schema_extra={
-            "example": {
-                "data": [],
-                "total": 87,
-                "page": 2,
-                "page_size": 20,
-                "total_pages": 5,
-                "has_next": True,
-                "has_prev": True
-            }
-        }
-    )
 
 
 # =========================================================
@@ -82,7 +35,7 @@ class ProductSimpleResponse(BaseModel):
     title: ProductTitleStr
     sku: Optional[ProductSKUStr] = None
     price_retail: PriceRetail
-    is_active: IsActiveFlag
+    is_active: bool
 
     model_config = ConfigDict(
         from_attributes=True,
@@ -138,7 +91,7 @@ class ProductBase(BaseModel):
     # 🔥 REQUIRED CATEGORY
     product_category_id: int = Field(..., ge=1)
 
-    is_active: IsActiveFlag = True
+    is_active: bool = True
     tracks_batches: bool = Field(default=True, description="Si False, el producto no maneja lotes con caducidad ni código")
 
     @field_validator("title")
@@ -230,7 +183,7 @@ class ProductUpdate(BaseModel):
 
     product_category_id: Optional[int] = None
 
-    is_active: Optional[IsActiveFlag] = None
+    is_active: Optional[bool] = None
     tracks_batches: Optional[bool] = None
 
     brand_id: Optional[int] = None

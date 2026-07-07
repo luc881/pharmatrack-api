@@ -3,6 +3,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from ..products.schemas import PaginatedResponse, PaginationParams
+from pharmatrack.types.common import FutureOrPresentDate
 
 
 # =========================================================
@@ -10,6 +11,8 @@ from ..products.schemas import PaginatedResponse, PaginationParams
 # =========================================================
 class ProductBatchBase(BaseModel):
     lot_code: Optional[str] = Field(None, max_length=100, description="Código o identificador del lote")
+    # Sin validación de fecha aquí: Response hereda de Base y debe poder
+    # serializar lotes ya vencidos que existen en la BD.
     expiration_date: Optional[date] = Field(None, description="Fecha de caducidad del lote. Null para productos sin trazabilidad de lotes.")
     quantity: int = Field(..., ge=0, description="Cantidad disponible en el lote")
     purchase_price: Optional[float] = Field(None, ge=0, description="Precio de compra por unidad del lote")
@@ -23,19 +26,13 @@ class ProductBatchBase(BaseModel):
             return v.strip().upper()
         return v
 
-    @field_validator("expiration_date", mode="after")
-    @classmethod
-    def check_expiration_date(cls, v):
-        if v is not None and v < date.today():
-            raise ValueError("La fecha de vencimiento no puede ser una fecha pasada")
-        return v
-
 
 # =========================================================
 # 🟢 Create
 # =========================================================
 class ProductBatchCreate(ProductBatchBase):
     product_id: int = Field(..., gt=0, description="ID del producto asociado")
+    expiration_date: Optional[FutureOrPresentDate] = None
 
     model_config = ConfigDict(
         extra="forbid",
@@ -56,7 +53,7 @@ class ProductBatchCreate(ProductBatchBase):
 # =========================================================
 class ProductBatchUpdate(BaseModel):
     lot_code: Optional[str] = Field(None, max_length=100)
-    expiration_date: Optional[date] = None
+    expiration_date: Optional[FutureOrPresentDate] = None
     quantity: Optional[int] = Field(None, ge=0)
     purchase_price: Optional[float] = Field(None, ge=0)
 

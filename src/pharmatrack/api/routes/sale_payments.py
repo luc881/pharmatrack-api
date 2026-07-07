@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, APIRouter
 from typing import Annotated, Optional
 from sqlalchemy.orm import Session
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from starlette import status
 from datetime import datetime, timezone
 from ...models.sale_payments.schemas import SalePaymentCreate, SalePaymentResponse, SalePaymentUpdate
@@ -10,7 +10,6 @@ from ...utils.permissions import CAN_READ_SALE_PAYMENTS, CAN_CREATE_SALE_PAYMENT
 from ...models.sales.orm import Sale
 
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(
     prefix="/salepayments",

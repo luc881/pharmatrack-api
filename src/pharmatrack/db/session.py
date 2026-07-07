@@ -1,3 +1,6 @@
+from typing import Annotated
+
+from fastapi import Depends
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 import os
@@ -32,3 +35,7 @@ def get_db() -> Session:
         yield db
     finally:
         db.close()
+
+
+# Dependencia compartida por todos los routers
+db_dependency = Annotated[Session, Depends(get_db)]

@@ -7,13 +7,12 @@ from pydantic.types import NonNegativeFloat
 from pharmatrack.types.common import (
     DiscountPercentage,
     TaxPercentage,
-    IsActiveFlag,
     DescriptionStr,
     ImageURLStr,
 )
 
 __all__ = [
-    "DiscountPercentage", "TaxPercentage", "IsActiveFlag",
+    "DiscountPercentage", "TaxPercentage",
     "DescriptionStr", "ImageURLStr",
 ]
 
@@ -134,7 +133,6 @@ AllowWithoutStockFlag = Annotated[
     Field(description="Permite venta sin stock")
 ]
 
-# IsActiveFlag importado desde common.py
 
 IsTaxableFlag = Annotated[
     bool,

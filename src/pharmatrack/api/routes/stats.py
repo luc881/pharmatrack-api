@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from starlette import status
 from typing import Annotated
 
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from ...models.sales.orm import Sale
 from ...models.sale_details.orm import SaleDetail
 from ...models.sale_payments.orm import SalePayment
@@ -20,7 +20,6 @@ from ...utils.permissions import CAN_READ_DASHBOARD
 from ...utils.rate_limit import limiter, LIMIT_READ
 from pharmatrack.types.sales import SaleStatusEnum
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(prefix="/stats", tags=["Stats"])
 

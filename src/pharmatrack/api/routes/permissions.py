@@ -11,12 +11,11 @@ from ...models.permissions.schemas import (
     PaginatedResponse,
     PaginationParams,
 )
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from ...utils.permissions import CAN_READ_PERMISSIONS, CAN_CREATE_PERMISSIONS, CAN_UPDATE_PERMISSIONS, CAN_DELETE_PERMISSIONS
 from pharmatrack.utils.pagination import paginate
 from ...utils.rate_limit import limiter, LIMIT_READ
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(
     prefix="/permissions",

@@ -14,13 +14,6 @@ from pharmatrack.seeds.seed_roles import seed_roles
 from pharmatrack.seeds.seed_product_categories import seed_product_categories
 from pharmatrack.seeds.seed_superuser import seed_superuser
 from pharmatrack.seeds.seed_branches import seed_branches
-from pharmatrack.seeds.seed_products_alimentos import seed_golosinas
-from pharmatrack.seeds.seed_products_otros import seed_otros
-from pharmatrack.seeds.seed_products_saludybelleza import seed_salud_belleza
-from pharmatrack.seeds.seed_products_serviciosmedicos import seed_servicios_medicos
-from pharmatrack.seeds.seed_products_material_curacion import seed_material_curacion
-from pharmatrack.seeds.seed_products_suplementos import seed_suplementos
-from pharmatrack.seeds.seed_products_medicamentos import seed_medicamentos
 
 
 def init_db():
@@ -49,26 +42,41 @@ def init_db():
         print("\n📂 Categorías de productos...")
         seed_product_categories(db)
 
-        print("\n💊 Medicamentos...")
-        seed_medicamentos(db)
+        # ponytail: los seeders de productos escanean un catálogo de ~11k líneas
+        # registro por registro; solo tiene sentido en una BD vacía.
+        from pharmatrack.models.products.orm import Product
+        if db.query(Product.id).first() is not None:
+            print("\n📦 Catálogo ya poblado — seeders de productos omitidos")
+        else:
+            # Imports locales: evita parsear los JSON gigantes cuando se omiten
+            from pharmatrack.seeds.seed_products_alimentos import seed_golosinas
+            from pharmatrack.seeds.seed_products_otros import seed_otros
+            from pharmatrack.seeds.seed_products_saludybelleza import seed_salud_belleza
+            from pharmatrack.seeds.seed_products_serviciosmedicos import seed_servicios_medicos
+            from pharmatrack.seeds.seed_products_material_curacion import seed_material_curacion
+            from pharmatrack.seeds.seed_products_suplementos import seed_suplementos
+            from pharmatrack.seeds.seed_products_medicamentos import seed_medicamentos
 
-        print("\n🧴 Suplementos...")
-        seed_suplementos(db)
+            print("\n💊 Medicamentos...")
+            seed_medicamentos(db)
 
-        print("\n🍬 Alimentos y bebidas...")
-        seed_golosinas(db)
+            print("\n🧴 Suplementos...")
+            seed_suplementos(db)
 
-        print("\n🩹 Material de curación...")
-        seed_material_curacion(db)
+            print("\n🍬 Alimentos y bebidas...")
+            seed_golosinas(db)
 
-        print("\n💄 Salud y belleza...")
-        seed_salud_belleza(db)
+            print("\n🩹 Material de curación...")
+            seed_material_curacion(db)
 
-        print("\n🔧 Miscelánea y hogar...")
-        seed_otros(db)
+            print("\n💄 Salud y belleza...")
+            seed_salud_belleza(db)
 
-        print("\n🏥 Servicios farmacéuticos...")
-        seed_servicios_medicos(db)
+            print("\n🔧 Miscelánea y hogar...")
+            seed_otros(db)
+
+            print("\n🏥 Servicios farmacéuticos...")
+            seed_servicios_medicos(db)
 
         print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         print("  ✅ Base de datos inicializada correctamente")

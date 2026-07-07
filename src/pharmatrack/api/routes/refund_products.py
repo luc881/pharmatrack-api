@@ -7,7 +7,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import func
 from pharmatrack.types.sales import SaleStatusEnum
 
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from ...models.refund_products.orm import RefundProduct
 from ...models.refund_products.schemas import RefundProductCreate, RefundProductResponse, RefundProductUpdate
 from ...models.products.orm import Product
@@ -18,7 +18,6 @@ from ...models.sales.orm import Sale
 from ...utils.permissions import CAN_READ_REFUND_PRODUCTS, CAN_CREATE_REFUND_PRODUCTS, CAN_UPDATE_REFUND_PRODUCTS, \
     CAN_DELETE_REFUND_PRODUCTS
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(
     prefix="/refundproducts",

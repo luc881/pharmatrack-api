@@ -3,7 +3,7 @@ from typing import Annotated
 from sqlalchemy.orm import Session
 from starlette import status
 
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from ...models.sensor_readings.orm import SensorReading
 from ...models.sensor_readings.schemas import (
     SensorReadingCreate,
@@ -20,7 +20,6 @@ logger = get_logger(__name__)
 
 LIMIT_SENSOR = "10/minute"
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(
     prefix="/sensor-readings",

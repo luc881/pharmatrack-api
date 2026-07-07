@@ -14,12 +14,11 @@ from ...models.roles.schemas import (
 )
 from pharmatrack.models.products.schemas import BulkDeleteRequest
 from ...models.permissions.orm import Permission
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from ...utils.permissions import CAN_READ_ROLES, CAN_CREATE_ROLES, CAN_UPDATE_ROLES, CAN_DELETE_ROLES
 
 from pharmatrack.utils.pagination import paginate
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(
     prefix="/roles",

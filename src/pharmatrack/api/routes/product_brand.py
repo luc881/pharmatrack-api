@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, APIRouter
 from typing import Annotated
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from starlette import status
 from ...utils.permissions import CAN_READ_PRODUCT_BRANDS, CAN_CREATE_PRODUCT_BRANDS, CAN_UPDATE_PRODUCT_BRANDS, CAN_DELETE_PRODUCT_BRANDS
 from ...models.product_brand.orm import ProductBrand
@@ -18,7 +18,6 @@ from ...models.product_brand.schemas import (
 from ...models.products.orm import Product
 from pharmatrack.utils.pagination import paginate
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(
     prefix="/productsbrand",

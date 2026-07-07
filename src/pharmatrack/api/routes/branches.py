@@ -5,10 +5,9 @@ from typing import Annotated
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from ...models.branches.schemas import BranchResponse, BranchBase, BranchUpdate, BranchWithUsersResponse
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from ...utils.permissions import CAN_READ_BRANCHES, CAN_CREATE_BRANCHES, CAN_UPDATE_BRANCHES, CAN_DELETE_BRANCHES
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(
     prefix="/branches",

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from starlette import status
 from typing import Annotated, Optional
 
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from fastapi import Depends
 from ...models.sales.orm import Sale
 from ...models.users.orm import User
@@ -17,7 +17,6 @@ from ...utils.permissions import CAN_READ_DASHBOARD
 from ...utils.rate_limit import limiter, LIMIT_READ
 from pharmatrack.types.sales import SaleStatusEnum
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 

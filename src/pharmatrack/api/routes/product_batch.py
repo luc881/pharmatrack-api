@@ -3,7 +3,7 @@ from typing import Annotated, Optional
 from sqlalchemy.orm import Session, joinedload
 from starlette import status
 
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from ...utils.permissions import (
     CAN_READ_PRODUCT_BATCHES,
     CAN_CREATE_PRODUCT_BATCHES,
@@ -24,7 +24,6 @@ from pharmatrack.utils.pagination import paginate
 from ...utils.rate_limit import limiter, LIMIT_READ, LIMIT_WRITE
 
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(
     prefix="/productsbatches",

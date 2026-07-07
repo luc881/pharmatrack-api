@@ -3,7 +3,7 @@ from typing import Annotated
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, cast, String
 from datetime import datetime, timezone
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from starlette import status
 from passlib.context import CryptContext
 from ...models.users.orm import User
@@ -29,7 +29,6 @@ from ...utils.logger import get_logger
 logger = get_logger(__name__)
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(
     prefix="/users",

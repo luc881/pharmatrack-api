@@ -3,7 +3,7 @@ from typing import Annotated
 from sqlalchemy.orm import Session
 from starlette import status
 
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from ...models.suppliers.orm import Supplier
 from ...models.suppliers.schemas import (
     SupplierCreate,
@@ -21,7 +21,6 @@ from ...utils.permissions import (
 from pharmatrack.utils.pagination import paginate
 from ...utils.rate_limit import limiter, LIMIT_READ, LIMIT_WRITE
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(prefix="/suppliers", tags=["Suppliers"])
 

@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, APIRouter, Request
 from typing import Annotated
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta, datetime, timezone
 from starlette import status
@@ -25,7 +25,6 @@ from ...models.password_reset_tokens.orm import PasswordResetToken
 
 logger = get_logger(__name__)
 
-db_dependency = Annotated[Session, Depends(get_db)]
 auth_dependency = Annotated[OAuth2PasswordRequestForm, Depends()]
 
 PASSWORD_RESET_EXPIRE_MINUTES = 15

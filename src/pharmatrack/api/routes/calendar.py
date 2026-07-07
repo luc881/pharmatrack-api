@@ -5,13 +5,12 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from starlette import status
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from ...models.product_batch.orm import ProductBatch
 from ...models.products.orm import Product
 from ...utils.permissions import CAN_READ_PRODUCT_BATCHES
 from ...utils.rate_limit import limiter, LIMIT_READ
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(prefix="/calendar", tags=["Calendar"])
 

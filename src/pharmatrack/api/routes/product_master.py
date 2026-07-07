@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, APIRouter
 from typing import Annotated
 from sqlalchemy.orm import Session
-from ...db.session import get_db
+from ...db.session import get_db, db_dependency
 from starlette import status
 from ...utils.permissions import (
     CAN_READ_PRODUCT_MASTERS,
@@ -19,7 +19,6 @@ from ...models.product_master.schemas import (
 )
 from pharmatrack.utils.pagination import paginate
 
-db_dependency = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(
     prefix="/productsmaster",
