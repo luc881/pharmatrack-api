@@ -91,7 +91,11 @@ async def read_all(
         query = query.filter(Product.is_active == is_active)
 
     order_clause = _ORDERING_MAP.get(ordering) if ordering else None
-    query = query.order_by(order_clause if order_clause is not None else Product.created_at.desc())
+    if order_clause is None:
+        order_clause = Product.created_at.desc()
+    # id como desempate: created_at se repite en importaciones masivas y sin un orden
+    # total la paginacion devuelve paginas traslapadas (productos duplicados y faltantes)
+    query = query.order_by(order_clause, Product.id.desc())
 
     return paginate(query, pagination)
 
@@ -123,6 +127,9 @@ async def search_products(
         query = query.filter(Product.brand_id == params.brand_id)
     if params.product_master_id is not None:
         query = query.filter(Product.product_master_id == params.product_master_id)
+
+    # orden estable con id como desempate — sin esto la paginacion se traslapa
+    query = query.order_by(Product.created_at.desc(), Product.id.desc())
 
     return paginate(query, pagination)
 
