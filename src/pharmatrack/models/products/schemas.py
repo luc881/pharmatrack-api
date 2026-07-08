@@ -307,52 +307,6 @@ class ProductDetailsResponse(ProductResponse):
 
 
 # =========================================================
-# 🔍 Search params
-# =========================================================
-class ProductSearchParams(BaseModel):
-    title: Optional[str] = Field(
-        None,
-        min_length=1,
-        max_length=100,
-        description="Texto parcial para buscar en el título (ILIKE)"
-    )
-
-    is_unit_sale: Optional[bool] = Field(
-        None,
-        description="Filtrar productos de venta suelta o presentación"
-    )
-
-    is_active: Optional[bool] = Field(
-        None,
-        description="Filtrar productos activos/inactivos"
-    )
-
-    brand_id: Optional[int] = Field(
-        None,
-        ge=1,
-        description="ID de la marca"
-    )
-
-    product_master_id: Optional[int] = Field(
-        None,
-        ge=1,
-        description="ID del master"
-    )
-
-    model_config = ConfigDict(
-        extra="forbid",
-        json_schema_extra={
-            "example": {
-                "title": "ibu",
-                "is_active": True,
-                "brand_id": 1,
-                "product_master_id": 5
-            }
-        }
-    )
-
-
-# =========================================================
 # 🔁 Forward references
 # =========================================================
 from ..product_brand.schemas import ProductBrandResponse

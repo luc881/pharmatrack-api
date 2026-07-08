@@ -13,7 +13,6 @@ from ...models.sales.schemas import (
     SaleCreate,
     SaleUpdate,
     SaleResponse,
-    SaleSearchParams,
     PaginatedResponse,
     PaginationParams,
 )
@@ -24,7 +23,7 @@ from ...utils.permissions import (
 from pharmatrack.utils.pagination import paginate
 from pharmatrack.utils.sales_stock import allocate_batches_for_sale_detail
 from pharmatrack.utils.sales_calculations import recalc_sale_totals
-from ...utils.rate_limit import limiter, LIMIT_READ, LIMIT_WRITE, LIMIT_SEARCH
+from ...utils.rate_limit import limiter, LIMIT_READ, LIMIT_WRITE
 from ...utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -84,39 +83,6 @@ async def read_all(
     query = query.order_by(order_clause if order_clause is not None else Sale.date_sale.desc())
 
     return paginate(query, pagination)
-
-
-# =========================================================
-# GET /search
-# =========================================================
-@router.get(
-    "/search",
-    response_model=PaginatedResponse[SaleResponse],
-    summary="Search and filter sales",
-    status_code=status.HTTP_200_OK,
-    dependencies=CAN_READ_SALES,
-)
-@limiter.limit(LIMIT_SEARCH)
-async def search_sales(
-    request: Request,
-    db: db_dependency,
-    params: SaleSearchParams = Depends(),
-    pagination: PaginationParams = Depends(),
-):
-    query = db.query(Sale)
-
-    if params.user_id:
-        query = query.filter(Sale.user_id == params.user_id)
-    if params.branch_id:
-        query = query.filter(Sale.branch_id == params.branch_id)
-    if params.status:
-        query = query.filter(Sale.status == params.status)
-    if params.date_from:
-        query = query.filter(Sale.date_sale >= params.date_from)
-    if params.date_to:
-        query = query.filter(Sale.date_sale <= params.date_to)
-
-    return paginate(query.order_by(Sale.date_sale.desc()), pagination)
 
 
 # =========================================================

@@ -177,34 +177,6 @@ class UserDetailsResponse(UserResponse):
 
 
 # =========================================================
-# 🔍 Search params
-# =========================================================
-class UserSearchParams(BaseModel):
-    name: Optional[NameStr] = Field(None, description="Filter by first name")
-    surname: Optional[SurnameStr] = Field(None, description="Filter by surname")
-    email: Optional[EmailStr] = Field(None, description="Filter by email")
-    branch_id: Optional[int] = Field(None, gt=0, description="Filter by branch ID")
-    role_id: Optional[int] = Field(None, gt=0, description="Filter by role ID")
-    state: Optional[bool] = Field(None, description="Filter by active/inactive state")
-    phone: Optional[str] = Field(None, description="Filter by phone number")
-    gender: Optional[str] = Field(None, pattern=r"^(M|F)$", description="Filter by gender")
-    type_document: Optional[str] = Field(None, description="Filter by document type")
-    n_document: Optional[str] = Field(None, description="Filter by document number")
-
-    @field_validator("name", "surname", "email", "type_document", "n_document", "phone", mode="before")
-    def normalize_text(cls, v):
-        if isinstance(v, str):
-            return v.strip().lower()
-        return v
-
-    @field_validator("gender", mode="before")
-    def normalize_gender(cls, v):
-        if isinstance(v, str):
-            return v.strip().upper()
-        return v
-
-
-# =========================================================
 # 🔐 Change password
 # =========================================================
 class ChangePasswordRequest(BaseModel):
@@ -240,7 +212,6 @@ __all__ = [
     "UserUpdate",
     "UserResponse",
     "UserDetailsResponse",
-    "UserSearchParams",
     "ChangePasswordRequest",
     "PaginatedResponse",
     "PaginationParams",

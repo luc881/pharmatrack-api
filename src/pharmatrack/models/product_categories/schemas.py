@@ -116,17 +116,6 @@ class ProductCategoryDetailsResponse(ProductCategoryResponse):
 
 
 # =========================================================
-# 🔍 Search params
-# =========================================================
-class ProductCategorySearchParams(BaseModel):
-    name: Optional[str] = Field(None, max_length=250)
-    is_active: Optional[bool] = None
-    parent_id: Optional[int] = None
-
-    model_config = ConfigDict(extra="forbid")
-
-
-# =========================================================
 # 🔁 Forward references
 # =========================================================
 if TYPE_CHECKING:
@@ -148,7 +137,6 @@ __all__ = [
     "ProductCategoryResponse",
     "ProductCategoryTreeResponse",
     "ProductCategoryDetailsResponse",
-    "ProductCategorySearchParams",
     "PaginatedResponse",
     "PaginationParams",
 ]

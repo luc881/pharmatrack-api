@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, APIRouter, Request
 from typing import Annotated
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, cast, String
+from sqlalchemy import or_
 from datetime import datetime, timezone
 from ...db.session import get_db, db_dependency
 from starlette import status
@@ -14,7 +14,6 @@ from ...models.users.schemas import (
     UserResponse,
     UserUpdate,
     UserDetailsResponse,
-    UserSearchParams,
     ChangePasswordRequest,
     PaginatedResponse,
     PaginationParams,
@@ -23,7 +22,7 @@ from pharmatrack.models.products.schemas import BulkDeleteRequest
 from ...utils.permissions import CAN_READ_USERS, CAN_CREATE_USERS, CAN_UPDATE_USERS, CAN_DELETE_USERS
 from ...utils.security import user_dependency
 from pharmatrack.utils.pagination import paginate
-from ...utils.rate_limit import limiter, LIMIT_READ, LIMIT_WRITE, LIMIT_SEARCH
+from ...utils.rate_limit import limiter, LIMIT_READ, LIMIT_WRITE
 from ...utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -96,50 +95,6 @@ async def read_all(
 
     return paginate(query, pagination)
 
-
-# =========================================================
-# GET /search
-# =========================================================
-@router.get("/search",
-            response_model=PaginatedResponse[UserResponse],
-            summary="Search users",
-            status_code=status.HTTP_200_OK,
-            dependencies=CAN_READ_USERS)
-@limiter.limit(LIMIT_SEARCH)
-async def search_users(
-    request: Request,
-    db: db_dependency,
-    filters: UserSearchParams = Depends(),
-    pagination: PaginationParams = Depends()
-):
-    if not any(getattr(filters, f) for f in type(filters).model_fields):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Debe especificar al menos un filtro para la búsqueda"
-        )
-
-    query = db.query(User).filter(User.deleted_at.is_(None))
-
-    if filters.name:
-        query = query.filter(User.name.ilike(f"%{filters.name}%"))
-    if filters.surname:
-        query = query.filter(User.surname.ilike(f"%{filters.surname}%"))
-    if filters.email:
-        query = query.filter(User.email.ilike(f"%{filters.email}%"))
-    if filters.branch_id:
-        query = query.filter(User.branch_id == filters.branch_id)
-    if filters.role_id:
-        query = query.filter(User.role_id == filters.role_id)
-    if filters.phone:
-        query = query.filter(User.phone.ilike(f"%{filters.phone}%"))
-    if filters.gender:
-        query = query.filter(User.gender == filters.gender)
-    if filters.type_document:
-        query = query.filter(cast(User.type_document, String).ilike(f"%{filters.type_document}%"))
-    if filters.n_document:
-        query = query.filter(User.n_document.ilike(f"%{filters.n_document}%"))
-
-    return paginate(query, pagination)
 
 
 # =========================================================

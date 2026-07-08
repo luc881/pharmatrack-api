@@ -131,13 +131,6 @@ class RefundProductWithRelations(RefundProductResponse):
 # -----------------------
 # Search params
 # -----------------------
-class RefundProductSearchParams(BaseModel):
-    product_id: Optional[int] = None
-    sale_detail_id: Optional[int] = None
-    user_id: Optional[int] = None
-    is_reintegrable: Optional[bool] = None
-
-
 # -----------------------
 # Forward references
 # -----------------------

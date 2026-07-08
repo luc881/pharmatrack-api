@@ -86,14 +86,4 @@ class SupplierResponse(SupplierBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-# =========================================================
-# 🔍 Search params
-# =========================================================
-class SupplierSearchParams(BaseModel):
-    name: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    rfc: Optional[str] = None
-    is_active: Optional[bool] = None
-
     model_config = ConfigDict(extra="forbid")

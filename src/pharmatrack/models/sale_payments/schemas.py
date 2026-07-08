@@ -129,20 +129,6 @@ class SalePaymentDetailResponse(SalePaymentResponse):
 # -----------------------
 # Search params
 # -----------------------
-class SalePaymentSearchParams(BaseModel):
-    sale_id: Optional[int] = Field(None, gt=0, description="Filtrar por ID de venta")
-    method_payment: Optional[PaymentMethodEnum] = Field(
-        None,
-        description="Filtrar por método de pago"
-    )
-    bank: Optional[MexicanBankEnum] = Field(
-        None,
-        description="Filtrar por banco"
-    )
-    date_from: Optional[datetime] = Field(None, description="Fecha inicio")
-    date_to: Optional[datetime] = Field(None, description="Fecha fin")
-
-
 # -----------------------
 # Forward references
 # -----------------------

@@ -129,14 +129,6 @@ class SaleDetailWithRelations(SaleDetailResponse):
 
 
 # =========================================================
-# 🔍 Search params
-# =========================================================
-class SaleDetailSearchParams(BaseModel):
-    sale_id: Optional[int] = Field(None, gt=0, description="Filtrar por ID de venta")
-    product_id: Optional[int] = Field(None, gt=0, description="Filtrar por ID de producto")
-
-
-# =========================================================
 # 🔁 Forward references
 # =========================================================
 if TYPE_CHECKING:
@@ -153,7 +145,6 @@ __all__ = [
     "SaleDetailUpdate",
     "SaleDetailResponse",
     "SaleDetailWithRelations",
-    "SaleDetailSearchParams",
     "PaginatedResponse",
     "PaginationParams",
 ]

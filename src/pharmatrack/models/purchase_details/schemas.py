@@ -71,12 +71,4 @@ class PurchaseDetailResponse(PurchaseDetailBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-# =========================================================
-# 🔍 Search params
-# =========================================================
-class PurchaseDetailSearchParams(BaseModel):
-    purchase_id: Optional[int] = Field(None, ge=1)
-    product_id: Optional[int] = Field(None, ge=1)
-    lot_code: Optional[str] = None
-
     model_config = ConfigDict(extra="forbid")

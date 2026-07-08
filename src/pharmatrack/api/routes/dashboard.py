@@ -15,6 +15,7 @@ from ...models.products.orm import Product
 from ...models.product_batch.orm import ProductBatch
 from ...utils.permissions import CAN_READ_DASHBOARD
 from ...utils.rate_limit import limiter, LIMIT_READ
+from ...utils.batch_stats import expiring_soon_count, expired_count
 from pharmatrack.types.sales import SaleStatusEnum
 
 
@@ -84,27 +85,9 @@ async def get_dashboard_summary(request: Request, db: db_dependency):
         or 0
     )
 
-    # ── Lotes por vencer (hoy → +30 días, quantity > 0) ──────────────────────
-    expiring_count: int = (
-        db.query(func.count(ProductBatch.id))
-        .filter(
-            ProductBatch.expiration_date.between(today, in_30_days),
-            ProductBatch.quantity > 0,
-        )
-        .scalar()
-        or 0
-    )
-
-    # ── Lotes vencidos (quantity > 0) ────────────────────────────────────────
-    expired_count: int = (
-        db.query(func.count(ProductBatch.id))
-        .filter(
-            ProductBatch.expiration_date < today,
-            ProductBatch.quantity > 0,
-        )
-        .scalar()
-        or 0
-    )
+    # ── Lotes por vencer y vencidos (helpers compartidos) ────────────────────
+    n_expiring = expiring_soon_count(db, today)
+    n_expired = expired_count(db, today)
 
     # ── Últimas 10 ventas con nombre del usuario ──────────────────────────────
     recent_rows = (
@@ -153,8 +136,8 @@ async def get_dashboard_summary(request: Request, db: db_dependency):
         monthly_sales_count=monthly.count,
         monthly_revenue=float(monthly.revenue),
         total_products=total_products,
-        expiring_batches_count=expiring_count,
-        expired_batches_count=expired_count,
+        expiring_batches_count=n_expiring,
+        expired_batches_count=n_expired,
         recent_sales=recent_sales,
         expiring_batches=expiring_batches,
     )

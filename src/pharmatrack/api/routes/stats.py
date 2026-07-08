@@ -18,6 +18,7 @@ from ...models.product_categories.orm import ProductCategory
 from ...models.branches.orm import Branch
 from ...utils.permissions import CAN_READ_DASHBOARD
 from ...utils.rate_limit import limiter, LIMIT_READ
+from ...utils.batch_stats import expiring_soon_count, expired_count
 from pharmatrack.types.sales import SaleStatusEnum
 
 
@@ -251,17 +252,7 @@ async def get_dashboard_stats(request: Request, db: db_dependency):
     )
 
     # ── expiring_soon ─────────────────────────────────────────────────────────
-    in_30_days = today + timedelta(days=30)
-
-    expiring_soon: int = (
-        db.query(func.count(ProductBatch.id))
-        .filter(
-            ProductBatch.expiration_date.between(today, in_30_days),
-            ProductBatch.quantity > 0,
-        )
-        .scalar()
-        or 0
-    )
+    expiring_soon = expiring_soon_count(db, today)
 
     # ── low_stock_batches ─────────────────────────────────────────────────────
     low_stock_batches: int = (
@@ -275,16 +266,7 @@ async def get_dashboard_stats(request: Request, db: db_dependency):
     )
 
     # ── expired_batches ───────────────────────────────────────────────────────
-    expired_batches: int = (
-        db.query(func.count(ProductBatch.id))
-        .filter(
-            ProductBatch.expiration_date < today,
-            ProductBatch.expiration_date.isnot(None),
-            ProductBatch.quantity > 0,
-        )
-        .scalar()
-        or 0
-    )
+    expired_batches = expired_count(db, today)
 
     # ── sales_by_category ─────────────────────────────────────────────────────
     sales_by_category_rows = (

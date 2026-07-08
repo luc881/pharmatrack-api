@@ -65,11 +65,4 @@ class PurchaseResponse(PurchaseBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-# =========================================================
-# 🔍 Search params
-# =========================================================
-class PurchaseSearchParams(BaseModel):
-    supplier_id: Optional[int] = None
-    user_id: Optional[int] = None
-
     model_config = ConfigDict(extra="forbid")

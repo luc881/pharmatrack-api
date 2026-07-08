@@ -10,7 +10,6 @@ from ...models.product_brand.schemas import (
     ProductBrandCreate,
     ProductBrandResponse,
     ProductBrandUpdate,
-    ProductBrandSearchParams,
     ProductBrandDetailsResponse,
     PaginatedResponse,
     PaginationParams,
@@ -34,49 +33,6 @@ router = APIRouter(
 async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
     query = db.query(ProductBrand).order_by(ProductBrand.name.asc())
     return paginate(query, pagination)
-
-
-@router.get("/search",
-            response_model=PaginatedResponse[ProductBrandDetailsResponse],
-            summary="Search product brands with filters",
-            description="Advanced filtering of product brands, including product attributes.",
-            status_code=status.HTTP_200_OK,
-            dependencies=CAN_READ_PRODUCT_BRANDS)
-async def search_brands(
-    db: db_dependency,
-    params: ProductBrandSearchParams = Depends(),
-    pagination: PaginationParams = Depends()
-):
-    query = db.query(ProductBrand)
-
-    if params.name:
-        query = query.filter(ProductBrand.name.ilike(f"%{params.name}%"))
-
-    if params.has_logo is not None:
-        if params.has_logo:
-            query = query.filter(ProductBrand.logo.isnot(None))
-        else:
-            query = query.filter(ProductBrand.logo.is_(None))
-
-    if params.is_active is not None:
-        query = query.join(ProductBrand.products).filter(
-            Product.is_active == params.is_active
-        )
-
-    if params.product_title:
-        query = query.join(ProductBrand.products).filter(
-            Product.title.ilike(f"%{params.product_title}%")
-        )
-
-    if params.min_products is not None:
-        query = (
-            query.join(ProductBrand.products)
-                 .group_by(ProductBrand.id)
-                 .having(func.count(Product.id) >= params.min_products)
-        )
-
-    # distinct() para evitar duplicados por los joins
-    return paginate(query.distinct(), pagination)
 
 
 @router.get("/{brand_id}",

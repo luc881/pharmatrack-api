@@ -132,17 +132,6 @@ class SaleDetailResponse(SaleResponse):
 
 
 # =========================================================
-# 🔍 Search params
-# =========================================================
-class SaleSearchParams(BaseModel):
-    user_id: Optional[int] = Field(None, gt=0, description="Filtrar por usuario")
-    branch_id: Optional[int] = Field(None, gt=0, description="Filtrar por sucursal")
-    status: Optional[SaleStatusEnum] = Field(None, description="Estado de la venta")
-    date_from: Optional[datetime] = Field(None, description="Fecha inicio")
-    date_to: Optional[datetime] = Field(None, description="Fecha fin")
-
-
-# =========================================================
 # 🔁 Forward references
 # =========================================================
 if TYPE_CHECKING:
@@ -159,7 +148,6 @@ __all__ = [
     "SaleUpdate",
     "SaleResponse",
     "SaleDetailResponse",
-    "SaleSearchParams",
     "PaginatedResponse",
     "PaginationParams",
 ]

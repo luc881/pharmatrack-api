@@ -12,7 +12,6 @@ from ...models.products.schemas import (
     ProductCreate,
     ProductResponse,
     ProductUpdate,
-    ProductSearchParams,
     ProductDetailsResponse,
     PaginationParams,
     PaginatedResponse,
@@ -29,7 +28,7 @@ from pharmatrack.utils.validators import (
     validate_unit_name_for_sale,
 )
 from pharmatrack.utils.pagination import paginate
-from ...utils.rate_limit import limiter, LIMIT_READ, LIMIT_WRITE, LIMIT_SEARCH
+from ...utils.rate_limit import limiter, LIMIT_READ, LIMIT_WRITE
 from ...utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -95,40 +94,6 @@ async def read_all(
     # id como desempate: created_at se repite en importaciones masivas y sin un orden
     # total la paginacion devuelve paginas traslapadas (productos duplicados y faltantes)
     query = query.order_by(order_clause, Product.id.desc())
-
-    return paginate(query, pagination)
-
-
-# =========================================================
-# GET /search
-# =========================================================
-@router.get("/search",
-            response_model=PaginatedResponse[ProductResponse],
-            summary="Search and filter products",
-            status_code=status.HTTP_200_OK,
-            dependencies=CAN_READ_PRODUCTS)
-@limiter.limit(LIMIT_SEARCH)
-async def search_products(
-    request: Request,
-    db: db_dependency,
-    params: ProductSearchParams = Depends(),
-    pagination: PaginationParams = Depends()
-):
-    query = db.query(Product).filter(Product.deleted_at.is_(None))
-
-    if params.title:
-        query = query.filter(Product.title.ilike(f"%{params.title}%"))
-    if params.is_active is not None:
-        query = query.filter(Product.is_active == params.is_active)
-    if params.is_unit_sale is not None:
-        query = query.filter(Product.is_unit_sale == params.is_unit_sale)
-    if params.brand_id is not None:
-        query = query.filter(Product.brand_id == params.brand_id)
-    if params.product_master_id is not None:
-        query = query.filter(Product.product_master_id == params.product_master_id)
-
-    # orden estable con id como desempate — sin esto la paginacion se traslapa
-    query = query.order_by(Product.created_at.desc(), Product.id.desc())
 
     return paginate(query, pagination)
 

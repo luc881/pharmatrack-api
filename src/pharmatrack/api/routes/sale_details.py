@@ -10,7 +10,6 @@ from ...models.sale_details.schemas import (
     SaleDetailCreate,
     SaleDetailResponse,
     SaleDetailUpdate,
-    SaleDetailSearchParams,
     PaginatedResponse,
     PaginationParams,
 )
@@ -47,32 +46,6 @@ def read_all(db: db_dependency, pagination: PaginationParams = Depends(), sale_i
     query = db.query(SaleDetail)
     if sale_id is not None:
         query = query.filter(SaleDetail.sale_id == sale_id)
-    return paginate(query.order_by(SaleDetail.id.desc()), pagination)
-
-
-# =========================================================
-# GET /search
-# =========================================================
-@router.get(
-    "/search",
-    response_model=PaginatedResponse[SaleDetailResponse],
-    summary="Search sale details by sale or product",
-    description="Filter sale details by sale_id or product_id.",
-    status_code=status.HTTP_200_OK,
-    dependencies=CAN_READ_SALE_DETAILS,
-)
-def search_sale_details(
-    db: db_dependency,
-    params: SaleDetailSearchParams = Depends(),
-    pagination: PaginationParams = Depends(),
-):
-    query = db.query(SaleDetail)
-
-    if params.sale_id:
-        query = query.filter(SaleDetail.sale_id == params.sale_id)
-    if params.product_id:
-        query = query.filter(SaleDetail.product_id == params.product_id)
-
     return paginate(query.order_by(SaleDetail.id.desc()), pagination)
 
 
