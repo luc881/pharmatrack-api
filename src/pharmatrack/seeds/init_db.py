@@ -14,6 +14,7 @@ from pharmatrack.seeds.seed_roles import seed_roles
 from pharmatrack.seeds.seed_product_categories import seed_product_categories
 from pharmatrack.seeds.seed_superuser import seed_superuser
 from pharmatrack.seeds.seed_branches import seed_branches
+from pharmatrack.seeds.seed_animal_groups import seed_animal_groups
 
 
 def init_db():
@@ -41,6 +42,9 @@ def init_db():
         # ── Catálogo ──────────────────────────────
         print("\n📂 Categorías de productos...")
         seed_product_categories(db)
+
+        print("\n🕷️ Grupos de animales...")
+        seed_animal_groups(db)
 
         # ponytail: los seeders de productos escanean un catálogo de ~11k líneas
         # registro por registro; solo tiene sentido en una BD vacía.
