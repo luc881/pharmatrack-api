@@ -10,6 +10,7 @@ from starlette import status
 from ...db.session import db_dependency
 from ...models.animals.orm import Genus, Species, Morph, Animal
 from ...models.animals.schemas import AnimalCreate, AnimalUpdate, AnimalResponse
+from .animal_taxonomy import descendant_group_ids
 from ...models.products.orm import Product
 from ...models.product_batch.orm import ProductBatch
 from ...models.product_categories.orm import ProductCategory
@@ -61,7 +62,7 @@ def _animal_title(species: Species, code: str) -> str:
 
 def _query_with_relations(db: Session):
     return db.query(Animal).options(
-        joinedload(Animal.species).joinedload(Species.genus),
+        joinedload(Animal.species).joinedload(Species.genus).joinedload(Genus.group),
         selectinload(Animal.morphs),
     )
 
@@ -74,12 +75,21 @@ def _query_with_relations(db: Session):
 async def list_animals(
     db: db_dependency,
     species_id: Optional[int] = None,
+    group_id: Optional[int] = None,
     animal_status: Optional[AnimalStatusEnum] = Query(None, alias="status"),
     pagination: PaginationParams = Depends(),
 ):
     query = _query_with_relations(db)
     if species_id is not None:
         query = query.filter(Animal.species_id == species_id)
+    if group_id is not None:
+        # Incluye animales de subgrupos (Arácnidos trae Tarántulas, Escorpiones…)
+        genus_ids = db.query(Genus.id).filter(
+            Genus.group_id.in_(descendant_group_ids(db, group_id))
+        )
+        query = query.filter(
+            Animal.species_id.in_(db.query(Species.id).filter(Species.genus_id.in_(genus_ids)))
+        )
     if animal_status is not None:
         query = query.filter(Animal.status == animal_status.value)
     return paginate(query.order_by(Animal.id.desc()), pagination)

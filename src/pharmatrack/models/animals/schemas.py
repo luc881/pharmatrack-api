@@ -8,10 +8,57 @@ from pharmatrack.utils.normalize import norm_title
 
 
 # =========================================================
+# 🔹 AnimalGroup (jerárquico, como product_categories)
+# =========================================================
+class AnimalGroupBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    parent_id: Optional[int] = Field(None, ge=1, description="Grupo padre (NULL si es raíz)")
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, v: str) -> str:
+        return norm_title(v)
+
+
+class AnimalGroupCreate(AnimalGroupBase):
+    model_config = ConfigDict(extra="forbid")
+
+
+class AnimalGroupUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    parent_id: Optional[int] = Field(None, ge=1)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def normalize_name(cls, v):
+        return norm_title(v) if v is not None else v
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class AnimalGroupResponse(AnimalGroupBase):
+    id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AnimalGroupTreeResponse(AnimalGroupResponse):
+    children: List["AnimalGroupTreeResponse"] = Field(default_factory=list)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+AnimalGroupTreeResponse.model_rebuild()
+
+
+# =========================================================
 # 🔹 Genus
 # =========================================================
 class GenusBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
+    group_id: Optional[int] = Field(None, ge=1)
 
     @field_validator("name")
     @classmethod
@@ -25,6 +72,7 @@ class GenusCreate(GenusBase):
 
 class GenusUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
+    group_id: Optional[int] = Field(None, ge=1)
 
     @field_validator("name", mode="before")
     @classmethod
@@ -36,6 +84,7 @@ class GenusUpdate(BaseModel):
 
 class GenusResponse(GenusBase):
     id: int
+    group: Optional[AnimalGroupResponse] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

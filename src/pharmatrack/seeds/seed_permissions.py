@@ -93,6 +93,7 @@ PERMISSIONS = [
     "dashboard.read",
 
     # Animal taxonomy
+    "animalgroups.read", "animalgroups.create", "animalgroups.update", "animalgroups.delete",
     "genera.read", "genera.create", "genera.update", "genera.delete",
     "species.read", "species.create", "species.update", "species.delete",
     "morphs.read", "morphs.create", "morphs.update", "morphs.delete",

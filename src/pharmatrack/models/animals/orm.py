@@ -11,17 +11,41 @@ from typing import Optional
 from ...db.session import Base
 
 
-class Genus(Base):
-    __tablename__ = "genera"
+class AnimalGroup(Base):
+    """Agrupación jerárquica libre (Arácnidos → Tarántulas, etc.)."""
+    __tablename__ = "animal_groups"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey("animal_groups.id", ondelete="RESTRICT"), nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=False), server_default=func.now(), onupdate=func.now()
     )
 
+    parent = relationship("AnimalGroup", remote_side=[id], back_populates="children")
+    children = relationship("AnimalGroup", back_populates="parent")
+    genera = relationship("Genus", back_populates="group")
+
+
+class Genus(Base):
+    __tablename__ = "genera"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    group_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey("animal_groups.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=False), server_default=func.now(), onupdate=func.now()
+    )
+
+    group = relationship("AnimalGroup", back_populates="genera")
     species = relationship("Species", back_populates="genus")
 
 

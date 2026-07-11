@@ -82,7 +82,7 @@ Stock is tracked via `ProductBatch` records (FIFO). `sale_batch_usage` records t
 
 ### Animals
 
-Taxonomy: `genera → species → morphs` (morphs belong to a species; an animal can have several morphs via `animal_has_morphs`). Each `Animal` is a unique individual with a **twin Product** (category "Animales", `is_unit_sale=True`) plus one `ProductBatch` of `quantity=1` and no expiration, so animals sell through the normal POS/sale flow with no changes to it. `POST /sales/{id}/complete` marks sold animals as `status="sold"`; a reintegrable refund sets them back to `available`. `status="sold"` cannot be set manually. All in `models/animals/` and `api/routes/{animals,animal_taxonomy}.py`.
+Taxonomy: `animal_groups (recursive parent_id tree, e.g. Arácnidos → Tarántulas) → genera → species → morphs` (morphs belong to a species; an animal can have several morphs via `animal_has_morphs`). `genera.group_id` is nullable; `GET /animals?group_id=` and `GET /genera?group_id=` include descendant groups. Each `Animal` is a unique individual with a **twin Product** (category "Animales", `is_unit_sale=True`) plus one `ProductBatch` of `quantity=1` and no expiration, so animals sell through the normal POS/sale flow with no changes to it. `POST /sales/{id}/complete` marks sold animals as `status="sold"`; a reintegrable refund sets them back to `available`. `status="sold"` cannot be set manually. All in `models/animals/` and `api/routes/{animals,animal_taxonomy}.py`.
 
 ### Seeds (run at startup)
 
