@@ -80,6 +80,10 @@ Validation is enforced in `utils/validators.py` (`validate_units_schema`, `valid
 
 Stock is tracked via `ProductBatch` records (FIFO). `sale_batch_usage` records the per-batch deductions for traceability.
 
+### Animals
+
+Taxonomy: `genera → species → morphs` (morphs belong to a species; an animal can have several morphs via `animal_has_morphs`). Each `Animal` is a unique individual with a **twin Product** (category "Animales", `is_unit_sale=True`) plus one `ProductBatch` of `quantity=1` and no expiration, so animals sell through the normal POS/sale flow with no changes to it. `POST /sales/{id}/complete` marks sold animals as `status="sold"`; a reintegrable refund sets them back to `available`. `status="sold"` cannot be set manually. All in `models/animals/` and `api/routes/{animals,animal_taxonomy}.py`.
+
 ### Seeds (run at startup)
 
 `main.py` lifespan calls `seeds/init_db.py` on every startup. Seeders are idempotent (they skip records that already exist). They populate permissions, roles, a superuser, branches, and a full product catalog.

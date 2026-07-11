@@ -213,6 +213,14 @@ async def create(refund_product: RefundProductCreate, db: db_dependency):
                 detail=f"Cannot reintegrate {refund_product.quantity} units. Only {refund_product.quantity - remaining_qty} available from sale."
             )
 
+    # Si el refund reintegró stock de un animal, vuelve a estar disponible
+    if reintegrated_batches:
+        from ...models.animals.orm import Animal
+        from pharmatrack.types.animals import AnimalStatusEnum
+        db.query(Animal).filter(Animal.product_id == refund_product.product_id).update(
+            {Animal.status: AnimalStatusEnum.AVAILABLE.value}, synchronize_session=False
+        )
+
     # Guardamos los lotes reintegrados en el refund
     new_refund.reintegrated_batches = reintegrated_batches
 

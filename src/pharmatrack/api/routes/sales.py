@@ -168,6 +168,13 @@ def complete_sale(sale_id: int, db: db_dependency):
     recalc_sale_totals(db, sale)
     sale.status = SaleStatusEnum.COMPLETED
 
+    # Los animales vendidos (productos gemelos) pasan a status "sold"
+    from ...models.animals.orm import Animal
+    from pharmatrack.types.animals import AnimalStatusEnum
+    db.query(Animal).filter(
+        Animal.product_id.in_([d.product_id for d in sale.sale_details])
+    ).update({Animal.status: AnimalStatusEnum.SOLD.value}, synchronize_session=False)
+
     db.commit()
     db.refresh(sale)
 
