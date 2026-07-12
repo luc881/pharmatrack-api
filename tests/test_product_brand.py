@@ -106,45 +106,6 @@ def test_read_brand_by_id_no_auth(test_product_brand):
 
 
 # =========================================================
-# 🔹 GET /search/
-# Devuelve PaginatedResponse — acceder con data["data"]
-# =========================================================
-
-def test_search_brands_by_name(auth_headers, test_product_brand):
-    response = prodBrand_get("search?name=Bayer", headers=auth_headers)
-    assert response.status_code == status.HTTP_200_OK
-    data = response.json()
-    assert "data" in data
-    ids = [b["id"] for b in data["data"]]
-    assert test_product_brand.id in ids
-
-
-def test_search_brands_by_name_no_results(auth_headers):
-    response = prodBrand_get("search?name=ZZZ_NOT_EXIST", headers=auth_headers)
-    assert response.status_code == status.HTTP_200_OK
-    assert response.json()["total"] == 0
-
-
-def test_search_brands_has_logo_true(auth_headers, test_product_brand):
-    response = prodBrand_get("search?has_logo=true", headers=auth_headers)
-    assert response.status_code == status.HTTP_200_OK
-    data = response.json()
-    assert all(b["logo"] is not None for b in data["data"])
-
-
-def test_search_brands_has_logo_false(auth_headers, brand_no_logo):
-    response = prodBrand_get("search?has_logo=false", headers=auth_headers)
-    assert response.status_code == status.HTTP_200_OK
-    ids = [b["id"] for b in response.json()["data"]]
-    assert brand_no_logo.id in ids
-
-
-def test_search_brands_no_auth():
-    response = prodBrand_get("search?name=test")
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
-
-
-# =========================================================
 # 🔹 POST /
 # =========================================================
 

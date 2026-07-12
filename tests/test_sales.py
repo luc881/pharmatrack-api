@@ -270,7 +270,7 @@ def test_complete_sale_insufficient_stock(
         headers=auth_headers,
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert "Insufficient stock" in response.json()["detail"]
+    assert "Stock insuficiente" in response.json()["detail"]
 
     # La venta NO debe cambiar de estado
     db_session.refresh(test_sale)

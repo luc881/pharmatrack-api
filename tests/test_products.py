@@ -251,44 +251,21 @@ def test_read_product_no_ingredients(auth_headers, test_product):
 
 
 # =========================================================
-# 🔹 GET /search  — PaginatedResponse
+# 🔹 GET /?search=  — filtro del listado base (el /search fue eliminado)
 # =========================================================
 
-def test_search_by_title(auth_headers, test_product):
-    response = product_get(f"search?title={test_product.title}", headers=auth_headers)
+def test_list_search_by_title(auth_headers, test_product):
+    response = product_get("", params={"search": test_product.title}, headers=auth_headers)
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["total"] >= 1
     assert any(test_product.title.lower() in p["title"].lower() for p in data["data"])
 
 
-def test_search_by_active_status(auth_headers, test_product):
-    response = product_get(f"search?is_active=true", headers=auth_headers)
+def test_list_search_no_match(auth_headers):
+    response = product_get("", params={"search": "NoExiste12345XYZ"}, headers=auth_headers)
     assert response.status_code == status.HTTP_200_OK
-    data = response.json()
-    assert all(p["is_active"] for p in data["data"])
-
-
-def test_search_combined_filters(auth_headers, test_product):
-    response = product_get(
-        f"search?title={test_product.title}&is_active=true",
-        headers=auth_headers
-    )
-    data = response.json()
-    assert all(test_product.title.lower() in p["title"].lower() for p in data["data"])
-    assert all(p["is_active"] for p in data["data"])
-
-
-def test_search_no_match(auth_headers):
-    response = product_get("search?title=NoExiste12345XYZ", headers=auth_headers)
-    assert response.status_code == status.HTTP_200_OK
-    data = response.json()
-    assert data["total"] == 0
-
-
-def test_search_no_auth():
-    response = product_get("search?title=test")
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.json()["total"] == 0
 
 
 # =========================================================
