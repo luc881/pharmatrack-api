@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, selectinload, joinedload
 from starlette import status
 
 from ...db.session import db_dependency
-from ...models.animals.orm import Genus, Species, Morph, Animal
+from ...models.animals.orm import Genus, Species, Morph, Animal, AnimalPhoto
 from ...models.animals.schemas import AnimalCreate, AnimalUpdate, AnimalResponse
 from .animal_taxonomy import descendant_group_ids
 from ...models.products.orm import Product
@@ -64,6 +64,7 @@ def _query_with_relations(db: Session):
     return db.query(Animal).options(
         joinedload(Animal.species).joinedload(Species.genus).joinedload(Genus.group),
         selectinload(Animal.morphs),
+        selectinload(Animal.photos),
     )
 
 
@@ -124,6 +125,9 @@ async def create_animal(payload: AnimalCreate, db: db_dependency):
     if db.query(Animal.id).filter(Animal.code == code).first():
         raise HTTPException(status_code=400, detail="An animal with this code already exists.")
 
+    # Sin image explícita, la primera foto es la principal
+    main_image = payload.image or (payload.photos[0] if payload.photos else None)
+
     title = _animal_title(species, code)
     product = Product(
         title=title,
@@ -135,7 +139,7 @@ async def create_animal(payload: AnimalCreate, db: db_dependency):
         is_unit_sale=True,
         unit_name="pieza",
         tracks_batches=True,
-        image=payload.image,
+        image=main_image,
         description=payload.description,
     )
     db.add(product)
@@ -158,9 +162,13 @@ async def create_animal(payload: AnimalCreate, db: db_dependency):
         price=payload.price,
         price_cost=payload.price_cost,
         description=payload.description,
-        image=payload.image,
+        image=main_image,
+        requires_legal_doc=payload.requires_legal_doc,
+        legal_doc=payload.legal_doc,
+        legal_doc_url=payload.legal_doc_url,
     )
     animal.morphs = morphs
+    animal.photos = [AnimalPhoto(url=u) for u in payload.photos]
     db.add(animal)
     db.commit()
 
@@ -196,7 +204,10 @@ async def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency
         if db.query(Animal.id).filter(Animal.code == payload.code, Animal.id != animal_id).first():
             raise HTTPException(status_code=400, detail="An animal with this code already exists.")
 
-    update_data = payload.model_dump(exclude_unset=True, exclude={"morph_ids"})
+    if payload.photos is not None:
+        animal.photos = [AnimalPhoto(url=u) for u in payload.photos]
+
+    update_data = payload.model_dump(exclude_unset=True, exclude={"morph_ids", "photos"})
     for key, value in update_data.items():
         setattr(animal, key, value.value if hasattr(value, "value") else value)
 

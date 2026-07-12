@@ -1,6 +1,6 @@
 from sqlalchemy import (
     String, BigInteger, Numeric, Text, TIMESTAMP, Date, ForeignKey,
-    Table, Column, UniqueConstraint,
+    Table, Column, UniqueConstraint, Boolean,
 )
 from sqlalchemy.sql import func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -97,6 +97,18 @@ animal_has_morphs = Table(
 )
 
 
+class AnimalPhoto(Base):
+    __tablename__ = "animal_photos"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    animal_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("animals.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
+
+
 class Animal(Base):
     __tablename__ = "animals"
 
@@ -120,6 +132,11 @@ class Animal(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     image: Mapped[Optional[str]] = mapped_column(String(250), nullable=True)
 
+    # Documentación legal (SEMARNAT/UMA); opcional — no todos los animales la requieren
+    requires_legal_doc: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")
+    legal_doc: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    legal_doc_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=False), server_default=func.now(), onupdate=func.now()
@@ -128,3 +145,6 @@ class Animal(Base):
     species = relationship("Species", back_populates="animals")
     product = relationship("Product")
     morphs: Mapped[list["Morph"]] = relationship("Morph", secondary=animal_has_morphs)
+    photos: Mapped[list["AnimalPhoto"]] = relationship(
+        "AnimalPhoto", cascade="all, delete-orphan", order_by="AnimalPhoto.id"
+    )

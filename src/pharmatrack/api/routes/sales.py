@@ -162,6 +162,23 @@ def complete_sale(sale_id: int, db: db_dependency):
     if not sale.sale_details:
         raise HTTPException(status_code=400, detail="Cannot complete an empty sale")
 
+    from ...models.animals.orm import Animal
+    from pharmatrack.types.animals import AnimalStatusEnum
+
+    product_ids = [d.product_id for d in sale.sale_details]
+
+    # Un animal reservado no puede venderse: hay que liberar la reserva primero
+    reserved = db.query(Animal.code).filter(
+        Animal.product_id.in_(product_ids),
+        Animal.status == AnimalStatusEnum.RESERVED.value,
+    ).all()
+    if reserved:
+        codes = ", ".join(r.code for r in reserved)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Animal(es) reservado(s): {codes}. Libera la reserva antes de completar la venta.",
+        )
+
     for detail in sale.sale_details:
         allocate_batches_for_sale_detail(db, detail)
 
@@ -169,10 +186,8 @@ def complete_sale(sale_id: int, db: db_dependency):
     sale.status = SaleStatusEnum.COMPLETED
 
     # Los animales vendidos (productos gemelos) pasan a status "sold"
-    from ...models.animals.orm import Animal
-    from pharmatrack.types.animals import AnimalStatusEnum
     db.query(Animal).filter(
-        Animal.product_id.in_([d.product_id for d in sale.sale_details])
+        Animal.product_id.in_(product_ids)
     ).update({Animal.status: AnimalStatusEnum.SOLD.value}, synchronize_session=False)
 
     db.commit()

@@ -216,6 +216,65 @@ def test_refund_restores_animal_availability(auth_headers, db_session,
     assert refreshed["status"] == "available"
 
 
+def test_reserved_animal_cannot_be_sold(auth_headers, db_session,
+                                        test_user_with_role_permissions_branch_auth, test_branch):
+    _, _, _, sp, _ = _make_taxonomy(auth_headers)
+    animal = _create_animal(auth_headers, sp["id"])
+
+    response = animals_put(str(animal["id"]), json={"status": "reserved"}, headers=auth_headers)
+    assert response.status_code == status.HTTP_200_OK
+
+    sale, _ = _draft_sale_for_animal(
+        db_session, test_user_with_role_permissions_branch_auth, test_branch, animal
+    )
+    response = client.post(f"/api/v1/sales/{sale.id}/complete", headers=auth_headers)
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert animal["code"] in response.json()["detail"]
+
+    # Liberar la reserva → ahora sí se vende
+    animals_put(str(animal["id"]), json={"status": "available"}, headers=auth_headers)
+    response = client.post(f"/api/v1/sales/{sale.id}/complete", headers=auth_headers)
+    assert response.status_code == status.HTTP_200_OK
+
+
+# =========================================================
+# Fotos y documentación legal
+# =========================================================
+def test_animal_photos_and_legal_doc(auth_headers):
+    _, _, _, sp, _ = _make_taxonomy(auth_headers)
+    animal = _create_animal(
+        auth_headers, sp["id"],
+        photos=["http://example.com/1.jpg", "http://example.com/2.jpg"],
+        requires_legal_doc=True,
+        legal_doc="SEMARNAT-UMA-12345",
+        legal_doc_url="http://example.com/doc.pdf",
+    )
+
+    assert animal["photos"] == ["http://example.com/1.jpg", "http://example.com/2.jpg"]
+    # Sin image explícita, la primera foto es la principal
+    assert animal["image"] == "http://example.com/1.jpg"
+    assert animal["requires_legal_doc"] is True
+    assert animal["legal_doc"] == "SEMARNAT-UMA-12345"
+
+    # PUT photos reemplaza todas
+    response = animals_put(str(animal["id"]),
+                           json={"photos": ["http://example.com/3.jpg"]}, headers=auth_headers)
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["photos"] == ["http://example.com/3.jpg"]
+
+    # PUT sin photos no las toca
+    response = animals_put(str(animal["id"]), json={"price": 999.0}, headers=auth_headers)
+    assert response.json()["photos"] == ["http://example.com/3.jpg"]
+
+
+def test_animal_legal_doc_optional(auth_headers):
+    _, _, _, sp, _ = _make_taxonomy(auth_headers)
+    animal = _create_animal(auth_headers, sp["id"])
+    assert animal["requires_legal_doc"] is False
+    assert animal["legal_doc"] is None
+    assert animal["photos"] == []
+
+
 def test_delete_available_animal_removes_twin_product(auth_headers, db_session):
     _, _, _, sp, _ = _make_taxonomy(auth_headers)
     animal = _create_animal(auth_headers, sp["id"])
