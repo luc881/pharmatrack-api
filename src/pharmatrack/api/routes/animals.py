@@ -76,6 +76,7 @@ def _query_with_relations(db: Session):
 async def list_animals(
     db: db_dependency,
     species_id: Optional[int] = None,
+    genus_id: Optional[int] = None,
     group_id: Optional[int] = None,
     animal_status: Optional[AnimalStatusEnum] = Query(None, alias="status"),
     pagination: PaginationParams = Depends(),
@@ -83,6 +84,10 @@ async def list_animals(
     query = _query_with_relations(db)
     if species_id is not None:
         query = query.filter(Animal.species_id == species_id)
+    if genus_id is not None:
+        query = query.filter(
+            Animal.species_id.in_(db.query(Species.id).filter(Species.genus_id == genus_id))
+        )
     if group_id is not None:
         # Incluye animales de subgrupos (Arácnidos trae Tarántulas, Escorpiones…)
         genus_ids = db.query(Genus.id).filter(

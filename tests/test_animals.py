@@ -155,6 +155,21 @@ def test_manual_sold_status_forbidden(auth_headers):
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
+def test_animals_genus_filter(auth_headers):
+    _, _, genus, sp, _ = _make_taxonomy(auth_headers)
+    _, _, other_genus, other_sp, _ = _make_taxonomy(
+        auth_headers, group_name="Serpientes", subgroup_name="Pitones",
+        genus_name="Python", species_name="Regius", morph_name="Banana",
+    )
+    animal = _create_animal(auth_headers, sp["id"])
+    other_animal = _create_animal(auth_headers, other_sp["id"])
+
+    data = animals_get("", params={"genus_id": genus["id"]}, headers=auth_headers).json()
+    ids = [a["id"] for a in data["data"]]
+    assert animal["id"] in ids
+    assert other_animal["id"] not in ids
+
+
 def test_animals_group_filter_includes_descendants(auth_headers):
     root, _, _, sp, _ = _make_taxonomy(auth_headers)
     animal = _create_animal(auth_headers, sp["id"])
