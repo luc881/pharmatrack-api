@@ -26,7 +26,11 @@ class Settings(BaseSettings):
     # En producción, setear ALLOWED_ORIGINS en Railway como JSON:
     # ["https://app.farmaciaselene.com"]
     # No usar "*" con allow_credentials=True — los browsers lo rechazan.
-    allowed_origins: list[str] = ["https://app.farmaciaselene.com"]
+    allowed_origins: list[str] = [
+        "https://app.farmaciaselene.com",
+        "https://www.farmaciaselene.com",
+        "https://farmaciaselene.com",
+    ]
 
     # =========================================================
     # 📧 Email (Resend)

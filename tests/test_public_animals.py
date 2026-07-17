@@ -1,0 +1,52 @@
+"""El catálogo público responde sin token y oculta los campos internos."""
+from fastapi import status
+
+from .utils import client, route_client_factory
+from .test_animals import _make_taxonomy, _create_animal
+
+_, _, animals_put, _, _ = route_client_factory(client, "animals")
+
+
+def test_public_list_no_auth_and_hides_private_fields(auth_headers):
+    _, _, _, sp, _ = _make_taxonomy(auth_headers)
+    animal = _create_animal(auth_headers, sp["id"])
+
+    res = client.get("/api/v1/public/animals")
+    assert res.status_code == status.HTTP_200_OK
+    row = next(a for a in res.json()["data"] if a["id"] == animal["id"])
+    for private in ("price_cost", "product_id", "legal_doc", "legal_doc_url", "requires_legal_doc"):
+        assert private not in row
+    assert row["species"]["genus"]["name"] == "Brachypelma"
+
+    detail = client.get(f"/api/v1/public/animals/{animal['id']}")
+    assert detail.status_code == status.HTTP_200_OK
+    assert "price_cost" not in detail.json()
+
+
+def test_public_list_only_available_but_detail_keeps_shared_links(auth_headers):
+    _, _, _, sp, _ = _make_taxonomy(auth_headers)
+    animal = _create_animal(auth_headers, sp["id"])
+    animals_put(f"/{animal['id']}", json={"status": "reserved"}, headers=auth_headers)
+
+    data = client.get("/api/v1/public/animals").json()["data"]
+    assert all(a["id"] != animal["id"] for a in data)
+
+    detail = client.get(f"/api/v1/public/animals/{animal['id']}")
+    assert detail.status_code == status.HTTP_200_OK
+    assert detail.json()["status"] == "reserved"
+
+
+def test_public_list_genus_filter(auth_headers):
+    _, _, genus, sp, _ = _make_taxonomy(auth_headers)
+    _, _, _, other_sp, _ = _make_taxonomy(
+        auth_headers, group_name="Serpientes", subgroup_name="Pitones",
+        genus_name="Python", species_name="Regius", morph_name="Banana",
+    )
+    animal = _create_animal(auth_headers, sp["id"])
+    other_animal = _create_animal(auth_headers, other_sp["id"])
+
+    ids = [a["id"] for a in client.get(
+        "/api/v1/public/animals", params={"genus_id": genus["id"]}
+    ).json()["data"]]
+    assert animal["id"] in ids
+    assert other_animal["id"] not in ids

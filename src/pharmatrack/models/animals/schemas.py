@@ -240,6 +240,28 @@ class AnimalUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class PublicAnimalResponse(BaseModel):
+    """Vista pública del catálogo: sin costos, producto gemelo ni documentación legal."""
+    id: int
+    code: str
+    status: AnimalStatusEnum
+    sex: AnimalSexEnum
+    birth_date: Optional[date] = None
+    price: float
+    description: Optional[str] = None
+    image: Optional[str] = None
+    species: Optional[SpeciesResponse] = None
+    morphs: List[MorphResponse] = Field(default_factory=list)
+    photos: List[str] = Field(default_factory=list)
+
+    @field_validator("photos", mode="before")
+    @classmethod
+    def photos_to_urls(cls, v):
+        return [p.url if hasattr(p, "url") else p for p in v]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class AnimalResponse(AnimalBase):
     id: int
     code: str
