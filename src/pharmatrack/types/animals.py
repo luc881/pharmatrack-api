@@ -12,3 +12,9 @@ class AnimalStatusEnum(str, Enum):
     AVAILABLE = "available"
     RESERVED = "reserved"
     SOLD = "sold"
+
+
+class SaleFormatEnum(str, Enum):
+    INDIVIDUAL = "individual"   # ejemplar único con folio
+    PACKAGE = "package"         # paquete de N (p. ej. isópodos x6)
+    COLONY = "colony"           # cepa/colonia sin cantidad definida

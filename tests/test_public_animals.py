@@ -17,6 +17,7 @@ def test_public_list_no_auth_and_hides_private_fields(auth_headers):
     for private in ("price_cost", "product_id", "legal_doc", "legal_doc_url", "requires_legal_doc"):
         assert private not in row
     assert row["species"]["genus"]["name"] == "Brachypelma"
+    assert row["species"]["sale_format"] == "individual"
 
     detail = client.get(f"/api/v1/public/animals/{animal['id']}")
     assert detail.status_code == status.HTTP_200_OK

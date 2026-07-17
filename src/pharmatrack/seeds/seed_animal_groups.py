@@ -10,7 +10,7 @@ GROUPS: dict[str, list[str]] = {
     "Arácnidos": ["Tarántulas", "Arañas", "Escorpiones"],
     "Miriápodos": ["Ciempiés", "Milpiés"],
     "Crustáceos": ["Cangrejos Ermitaños", "Isópodos"],
-    "Insectos": ["Mantis", "Insectos Palo", "Escarabajos"],
+    "Insectos": ["Mantis", "Insectos Palo", "Escarabajos", "Colémbolos"],
     "Reptiles": ["Serpientes", "Geckos", "Lagartos", "Tortugas"],
     "Anfibios": ["Ranas", "Salamandras Y Ajolotes"],
 }

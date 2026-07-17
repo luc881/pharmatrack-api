@@ -59,6 +59,9 @@ class Species(Base):
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     common_name: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    # Cómo se vende la especie: individual (folio único), package (de N) o colony (cepa)
+    sale_format: Mapped[str] = mapped_column(String(20), nullable=False, server_default="individual")
+    package_size: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

@@ -1,8 +1,8 @@
 from typing import Optional, List
 from datetime import datetime, date
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
-from pharmatrack.types.animals import AnimalSexEnum, AnimalStatusEnum
+from pharmatrack.types.animals import AnimalSexEnum, AnimalStatusEnum, SaleFormatEnum
 from pharmatrack.types.common import DescriptionStr, ImageURLStr
 from pharmatrack.utils.normalize import norm_title
 
@@ -98,11 +98,21 @@ class SpeciesBase(BaseModel):
     genus_id: int = Field(..., ge=1)
     name: str = Field(..., min_length=1, max_length=100)
     common_name: Optional[str] = Field(None, min_length=1, max_length=150)
+    sale_format: SaleFormatEnum = SaleFormatEnum.INDIVIDUAL
+    package_size: Optional[int] = Field(None, ge=2, description="Solo para formato package")
 
     @field_validator("name", "common_name", mode="before")
     @classmethod
     def normalize_names(cls, v):
         return norm_title(v) if v is not None else v
+
+    @model_validator(mode="after")
+    def check_package_size(self):
+        if self.sale_format == SaleFormatEnum.PACKAGE and self.package_size is None:
+            raise ValueError("package_size es obligatorio cuando sale_format es package")
+        if self.sale_format != SaleFormatEnum.PACKAGE:
+            self.package_size = None
+        return self
 
 
 class SpeciesCreate(SpeciesBase):
@@ -113,6 +123,8 @@ class SpeciesUpdate(BaseModel):
     genus_id: Optional[int] = Field(None, ge=1)
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     common_name: Optional[str] = Field(None, min_length=1, max_length=150)
+    sale_format: Optional[SaleFormatEnum] = None
+    package_size: Optional[int] = Field(None, ge=2)
 
     @field_validator("name", "common_name", mode="before")
     @classmethod

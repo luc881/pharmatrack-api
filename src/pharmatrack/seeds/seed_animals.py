@@ -183,7 +183,7 @@ CATALOG = [
         "morphs": ["Leucístico", "Wild", "Golden"],
         "animals": _gen("AM", 5, 500, legal=True, morphs=["Leucístico", "Wild", "Golden"]),
     },
-    # ── Insectos (5 + 4 + 3 + 3 = 15) ───────────────────────────────────
+    # ── Insectos (5 + 4 + 3 + 3 + 3 cepas = 18) ─────────────────────────
     {
         "group": "Mantis",
         "genus": "Hierodula",
@@ -212,6 +212,14 @@ CATALOG = [
         "morphs": [],
         "animals": _gen("DH", 3, 550),
     },
+    {
+        "group": "Colémbolos",
+        "genus": "Folsomia",
+        "species": ("Candida", "Colémbolos"),
+        "morphs": [],
+        "sale_format": "colony",
+        "animals": _gen("FC", 3, 150),
+    },
     # ── Crustáceos (8 + 4 + 3 = 15) ─────────────────────────────────────
     {
         "group": "Cangrejos Ermitaños",
@@ -225,6 +233,8 @@ CATALOG = [
         "genus": "Porcellio",
         "species": ("Laevis", "Isópodo Dairy Cow"),
         "morphs": [],
+        "sale_format": "package",
+        "package_size": 6,
         "animals": _gen("PL", 4, 150),
     },
     {
@@ -232,6 +242,8 @@ CATALOG = [
         "genus": "Armadillidium",
         "species": ("Klugii", "Isópodo Payaso"),
         "morphs": [],
+        "sale_format": "package",
+        "package_size": 6,
         "animals": _gen("AK", 3, 450),
     },
     # ── Miriápodos (8 + 7 = 15) ─────────────────────────────────────────
@@ -284,10 +296,20 @@ def seed_animals(db: Session):
             defaults={"group_id": group.id if group else None},
         )
         sp_name, sp_common = entry["species"]
+        sale_format = entry.get("sale_format", "individual")
         species = _get_or_create(
             db, Species, genus_id=genus.id, name=sp_name,
-            defaults={"common_name": sp_common},
+            defaults={
+                "common_name": sp_common,
+                "sale_format": sale_format,
+                "package_size": entry.get("package_size"),
+            },
         )
+        # migra una sola vez las especies que ya existían con el default,
+        # sin pisar cambios manuales hechos desde el dashboard
+        if sale_format != "individual" and species.sale_format == "individual":
+            species.sale_format = sale_format
+            species.package_size = entry.get("package_size")
         morph_map = {
             name: _get_or_create(db, Morph, species_id=species.id, name=name)
             for name in entry["morphs"]
