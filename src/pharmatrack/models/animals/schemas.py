@@ -100,6 +100,14 @@ class SpeciesBase(BaseModel):
     common_name: Optional[str] = Field(None, min_length=1, max_length=150)
     sale_format: SaleFormatEnum = SaleFormatEnum.INDIVIDUAL
     package_size: Optional[int] = Field(None, ge=2, description="Solo para formato package")
+    # Ficha de cuidados (sitio público)
+    description: Optional[DescriptionStr] = None
+    origin: Optional[str] = Field(None, max_length=150)
+    temperature: Optional[str] = Field(None, max_length=50)
+    humidity: Optional[str] = Field(None, max_length=50)
+    adult_size: Optional[str] = Field(None, max_length=50)
+    difficulty: Optional[str] = Field(None, max_length=50)
+    rarity: Optional[str] = Field(None, max_length=50)
 
     @field_validator("name", "common_name", mode="before")
     @classmethod
@@ -125,6 +133,13 @@ class SpeciesUpdate(BaseModel):
     common_name: Optional[str] = Field(None, min_length=1, max_length=150)
     sale_format: Optional[SaleFormatEnum] = None
     package_size: Optional[int] = Field(None, ge=2)
+    description: Optional[DescriptionStr] = None
+    origin: Optional[str] = Field(None, max_length=150)
+    temperature: Optional[str] = Field(None, max_length=50)
+    humidity: Optional[str] = Field(None, max_length=50)
+    adult_size: Optional[str] = Field(None, max_length=50)
+    difficulty: Optional[str] = Field(None, max_length=50)
+    rarity: Optional[str] = Field(None, max_length=50)
 
     @field_validator("name", "common_name", mode="before")
     @classmethod

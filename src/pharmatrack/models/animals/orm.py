@@ -62,6 +62,14 @@ class Species(Base):
     # Cómo se vende la especie: individual (folio único), package (de N) o colony (cepa)
     sale_format: Mapped[str] = mapped_column(String(20), nullable=False, server_default="individual")
     package_size: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    # Ficha de cuidados para el sitio público (texto libre, todo opcional)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    origin: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    temperature: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    humidity: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    adult_size: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    difficulty: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    rarity: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

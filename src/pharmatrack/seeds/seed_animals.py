@@ -57,6 +57,16 @@ CATALOG = [
         "genus": "Brachypelma",
         "species": ("Hamorii", "Tarántula Rodillas Rojas"),
         "morphs": [],
+        "care": dict(
+            origin="México (cría en cautiverio)", temperature="24-28 °C", humidity="60-70 %",
+            adult_size="14 cm", difficulty="Principiante", rarity="Común",
+            description=(
+                "Tarántula terrestre mexicana, icónica por sus rodillas rojas. Muy dócil y "
+                "longeva: las hembras superan los 20 años.\n\n"
+                "Requiere sustrato seco con un bebedero y un refugio. Come grillos una o dos "
+                "veces por semana."
+            ),
+        ),
         "animals": [
             dict(code="BH-001", sex="female", price=1800, price_cost=500,
                  requires_legal_doc=True, legal_doc="SEMARNAT-UMA-MOR-0421",
@@ -109,6 +119,16 @@ CATALOG = [
         "genus": "Python",
         "species": ("Regius", "Ball Python"),
         "morphs": ["Normal", "Banana", "Pastel", "Albino"],
+        "care": dict(
+            origin="África occidental (cría en cautiverio)", temperature="26-32 °C",
+            humidity="55-65 %", adult_size="1.5 m", difficulty="Principiante", rarity="Común",
+            description=(
+                "La serpiente más popular como mascota: tranquila, de tamaño manejable y con "
+                "una enorme variedad de morphs.\n\n"
+                "Necesita un gradiente de temperatura, un escondite en cada zona y comer un "
+                "roedor cada 1-2 semanas."
+            ),
+        ),
         "animals": [
             dict(code="BP-001", sex="female", price=3500, price_cost=1200,
                  morphs=["Banana", "Pastel"],
@@ -133,6 +153,15 @@ CATALOG = [
         "genus": "Correlophus",
         "species": ("Ciliatus", "Gecko Crestado"),
         "morphs": ["Flame", "Harlequin"],
+        "care": dict(
+            origin="Nueva Caledonia (cría en cautiverio)", temperature="22-26 °C",
+            humidity="60-80 %", adult_size="20 cm", difficulty="Principiante", rarity="Común",
+            description=(
+                "Gecko arborícola nocturno, ideal para empezar: no necesita calor extra ni "
+                "insectos vivos si se alimenta con papilla comercial.\n\n"
+                "Terrario vertical con ramas y plantas, rociado diario."
+            ),
+        ),
         "animals": [
             dict(code="CC-001", sex="female", price=1500, price_cost=600,
                  morphs=["Flame"],
@@ -218,6 +247,15 @@ CATALOG = [
         "species": ("Candida", "Colémbolos"),
         "morphs": [],
         "sale_format": "colony",
+        "care": dict(
+            origin="Cosmopolita (cría en cautiverio)", temperature="18-24 °C", humidity="80-90 %",
+            adult_size="2 mm", difficulty="Principiante", rarity="Común",
+            description=(
+                "Microfauna indispensable: consume moho y restos orgánicos, manteniendo limpio "
+                "el terrario de cualquier invertebrado o reptil.\n\n"
+                "Se vende como cepa establecida en su sustrato, lista para sembrar."
+            ),
+        ),
         "animals": _gen("FC", 3, 150),
     },
     # ── Crustáceos (8 + 4 + 3 = 15) ─────────────────────────────────────
@@ -235,6 +273,15 @@ CATALOG = [
         "morphs": [],
         "sale_format": "package",
         "package_size": 6,
+        "care": dict(
+            origin="Europa (cría en cautiverio)", temperature="20-26 °C", humidity="70-80 %",
+            adult_size="18 mm", difficulty="Principiante", rarity="Común",
+            description=(
+                "Isópodo muy prolífico con patrón blanco y negro. Excelente equipo de limpieza "
+                "para terrarios y fácil de reproducir.\n\n"
+                "Se vende en paquetes de 6 ejemplares surtidos."
+            ),
+        ),
         "animals": _gen("PL", 4, 150),
     },
     {
@@ -297,12 +344,14 @@ def seed_animals(db: Session):
         )
         sp_name, sp_common = entry["species"]
         sale_format = entry.get("sale_format", "individual")
+        care = entry.get("care", {})
         species = _get_or_create(
             db, Species, genus_id=genus.id, name=sp_name,
             defaults={
                 "common_name": sp_common,
                 "sale_format": sale_format,
                 "package_size": entry.get("package_size"),
+                **care,
             },
         )
         # migra una sola vez las especies que ya existían con el default,
@@ -310,6 +359,9 @@ def seed_animals(db: Session):
         if sale_format != "individual" and species.sale_format == "individual":
             species.sale_format = sale_format
             species.package_size = entry.get("package_size")
+        if care and species.description is None:
+            for field, value in care.items():
+                setattr(species, field, value)
         morph_map = {
             name: _get_or_create(db, Morph, species_id=species.id, name=name)
             for name in entry["morphs"]

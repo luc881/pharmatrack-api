@@ -5,6 +5,7 @@ from .utils import client, route_client_factory
 from .test_animals import _make_taxonomy, _create_animal
 
 _, _, animals_put, _, _ = route_client_factory(client, "animals")
+_, _, species_put, _, _ = route_client_factory(client, "species")
 
 
 def test_public_list_no_auth_and_hides_private_fields(auth_headers):
@@ -18,6 +19,8 @@ def test_public_list_no_auth_and_hides_private_fields(auth_headers):
         assert private not in row
     assert row["species"]["genus"]["name"] == "Brachypelma"
     assert row["species"]["sale_format"] == "individual"
+    # la ficha de cuidados viaja al sitio público
+    assert "origin" in row["species"] and "difficulty" in row["species"]
 
     detail = client.get(f"/api/v1/public/animals/{animal['id']}")
     assert detail.status_code == status.HTTP_200_OK
@@ -35,6 +38,21 @@ def test_public_list_only_available_but_detail_keeps_shared_links(auth_headers):
     detail = client.get(f"/api/v1/public/animals/{animal['id']}")
     assert detail.status_code == status.HTTP_200_OK
     assert detail.json()["status"] == "reserved"
+
+
+def test_public_species_care_info_roundtrip(auth_headers):
+    _, _, _, sp, _ = _make_taxonomy(auth_headers)
+    animal = _create_animal(auth_headers, sp["id"])
+
+    care = {"origin": "Vietnam", "temperature": "22-26 °C", "humidity": "70-80 %",
+            "adult_size": "15 mm", "difficulty": "Medio", "rarity": "Muy raro",
+            "description": "Especie activa y rápida."}
+    assert species_put(f"/{sp['id']}", json=care, headers=auth_headers).status_code == status.HTTP_200_OK
+
+    detail = client.get(f"/api/v1/public/animals/{animal['id']}").json()
+    assert detail["species"]["origin"] == "Vietnam"
+    assert detail["species"]["difficulty"] == "Medio"
+    assert detail["species"]["description"] == "Especie activa y rápida."
 
 
 def test_public_groups_no_auth_returns_hierarchy(auth_headers):
