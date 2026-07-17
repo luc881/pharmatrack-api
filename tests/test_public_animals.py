@@ -55,6 +55,20 @@ def test_public_species_care_info_roundtrip(auth_headers):
     assert detail["species"]["description"] == "Especie activa y rápida."
 
 
+def test_public_species_price_tiers_sorted(auth_headers):
+    _, _, _, sp, _ = _make_taxonomy(auth_headers)
+    animal = _create_animal(auth_headers, sp["id"])
+
+    res = species_put(f"/{sp['id']}", json={
+        "price_tiers": [{"quantity": 12, "price": 270}, {"quantity": 6, "price": 150}],
+    }, headers=auth_headers)
+    assert res.status_code == status.HTTP_200_OK
+
+    tiers = client.get(f"/api/v1/public/animals/{animal['id']}").json()["species"]["price_tiers"]
+    assert [t["quantity"] for t in tiers] == [6, 12]
+    assert tiers[0]["price"] == 150
+
+
 def test_public_groups_no_auth_returns_hierarchy(auth_headers):
     group, subgroup, _, _, _ = _make_taxonomy(auth_headers)
 

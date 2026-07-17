@@ -94,12 +94,21 @@ class GenusResponse(GenusBase):
 # =========================================================
 # 🔹 Species
 # =========================================================
+class PriceTier(BaseModel):
+    """Escala de precio por cantidad (p. ej. isópodos: 6, 12 o 18 por paquete)."""
+    quantity: int = Field(..., ge=1)
+    price: float = Field(..., gt=0)
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class SpeciesBase(BaseModel):
     genus_id: int = Field(..., ge=1)
     name: str = Field(..., min_length=1, max_length=100)
     common_name: Optional[str] = Field(None, min_length=1, max_length=150)
     sale_format: SaleFormatEnum = SaleFormatEnum.INDIVIDUAL
     package_size: Optional[int] = Field(None, ge=2, description="Solo para formato package")
+    price_tiers: Optional[List[PriceTier]] = None
     # Ficha de cuidados (sitio público)
     description: Optional[DescriptionStr] = None
     origin: Optional[str] = Field(None, max_length=150)
@@ -113,6 +122,13 @@ class SpeciesBase(BaseModel):
     @classmethod
     def normalize_names(cls, v):
         return norm_title(v) if v is not None else v
+
+    @field_validator("price_tiers")
+    @classmethod
+    def sort_tiers(cls, v):
+        if not v:
+            return None
+        return sorted(v, key=lambda t: t.quantity)
 
     @model_validator(mode="after")
     def check_package_size(self):
@@ -133,6 +149,7 @@ class SpeciesUpdate(BaseModel):
     common_name: Optional[str] = Field(None, min_length=1, max_length=150)
     sale_format: Optional[SaleFormatEnum] = None
     package_size: Optional[int] = Field(None, ge=2)
+    price_tiers: Optional[List[PriceTier]] = None
     description: Optional[DescriptionStr] = None
     origin: Optional[str] = Field(None, max_length=150)
     temperature: Optional[str] = Field(None, max_length=50)

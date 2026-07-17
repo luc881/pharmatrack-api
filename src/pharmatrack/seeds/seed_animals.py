@@ -273,6 +273,11 @@ CATALOG = [
         "morphs": [],
         "sale_format": "package",
         "package_size": 6,
+        "price_tiers": [
+            {"quantity": 6, "price": 150},
+            {"quantity": 12, "price": 270},
+            {"quantity": 18, "price": 380},
+        ],
         "care": dict(
             origin="Europa (cría en cautiverio)", temperature="20-26 °C", humidity="70-80 %",
             adult_size="18 mm", difficulty="Principiante", rarity="Común",
@@ -291,6 +296,11 @@ CATALOG = [
         "morphs": [],
         "sale_format": "package",
         "package_size": 6,
+        "price_tiers": [
+            {"quantity": 6, "price": 450},
+            {"quantity": 12, "price": 820},
+            {"quantity": 18, "price": 1150},
+        ],
         "animals": _gen("AK", 3, 450),
     },
     # ── Miriápodos (8 + 7 = 15) ─────────────────────────────────────────
@@ -351,6 +361,7 @@ def seed_animals(db: Session):
                 "common_name": sp_common,
                 "sale_format": sale_format,
                 "package_size": entry.get("package_size"),
+                "price_tiers": entry.get("price_tiers"),
                 **care,
             },
         )
@@ -362,6 +373,8 @@ def seed_animals(db: Session):
         if care and species.description is None:
             for field, value in care.items():
                 setattr(species, field, value)
+        if entry.get("price_tiers") and species.price_tiers is None:
+            species.price_tiers = entry["price_tiers"]
         morph_map = {
             name: _get_or_create(db, Morph, species_id=species.id, name=name)
             for name in entry["morphs"]
