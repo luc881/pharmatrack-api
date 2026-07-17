@@ -11,14 +11,22 @@ from typing import Optional
 from fastapi import Depends, HTTPException, APIRouter
 
 from ...db.session import db_dependency
-from ...models.animals.orm import Animal
-from ...models.animals.schemas import PublicAnimalResponse
+from ...models.animals.orm import Animal, AnimalGroup
+from ...models.animals.schemas import PublicAnimalResponse, AnimalGroupResponse
 from .animals import list_animals, _query_with_relations
 from pharmatrack.types.animals import AnimalStatusEnum
 from pharmatrack.utils.pagination import PaginationParams, PaginatedResponse
 
 
 router = APIRouter(prefix="/public/animals", tags=["Public"])
+
+
+# Declarado antes de /{animal_id} para que "groups" no intente parsearse como int
+@router.get("/groups", response_model=list[AnimalGroupResponse],
+            summary="Public: animal group hierarchy")
+async def public_list_groups(db: db_dependency):
+    """Grupos con parent_id para que el sitio arme las categorías raíz."""
+    return db.query(AnimalGroup).order_by(AnimalGroup.name).all()
 
 
 @router.get("", response_model=PaginatedResponse[PublicAnimalResponse],

@@ -36,6 +36,16 @@ def test_public_list_only_available_but_detail_keeps_shared_links(auth_headers):
     assert detail.json()["status"] == "reserved"
 
 
+def test_public_groups_no_auth_returns_hierarchy(auth_headers):
+    group, subgroup, _, _, _ = _make_taxonomy(auth_headers)
+
+    res = client.get("/api/v1/public/animals/groups")
+    assert res.status_code == status.HTTP_200_OK
+    by_id = {g["id"]: g for g in res.json()}
+    assert by_id[group["id"]]["parent_id"] is None
+    assert by_id[subgroup["id"]]["parent_id"] == group["id"]
+
+
 def test_public_list_genus_filter(auth_headers):
     _, _, genus, sp, _ = _make_taxonomy(auth_headers)
     _, _, _, other_sp, _ = _make_taxonomy(
