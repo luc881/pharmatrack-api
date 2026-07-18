@@ -74,3 +74,7 @@ Thumbs.db
 # 🚀 Deploy
 # =========================================================
 *.pid
+# Modo offline / convencion
+backups/
+image_cache/
+scripts/.env.sync

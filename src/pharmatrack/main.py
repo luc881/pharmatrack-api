@@ -71,6 +71,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Modo offline: reescribe URLs de Cloudinary hacia la caché local de
+# imágenes. No-op cuando IMAGE_CACHE_DIR no está definido (producción).
+from .api.routes.image_cache import ImageCacheRewriteMiddleware  # noqa: E402
+
+app.add_middleware(ImageCacheRewriteMiddleware)
+
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):

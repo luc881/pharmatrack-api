@@ -35,10 +35,18 @@ DescriptionStr = Annotated[
     Field(description="Descripción larga (máx. 2000 caracteres)")
 ]
 
-# URL de imagen
+# URL de imagen — valida como URL pero el valor final es str: el objeto
+# HttpUrl de pydantic no lo sabe insertar psycopg2 ("can't adapt type")
+def _url_as_str(v) -> str:
+    url = str(v)
+    if len(url) > 500:
+        raise ValueError("URL de imagen demasiado larga (máx. 500)")
+    return url
+
+
 ImageURLStr = Annotated[
     HttpUrl,
-    StringConstraints(max_length=500),
+    AfterValidator(_url_as_str),
     Field(description="URL de imagen")
 ]
 

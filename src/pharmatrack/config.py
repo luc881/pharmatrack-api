@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     environment: str = "development"
 
     # =========================================================
+    # 🖼️ Caché local de imágenes (modo offline / convención)
+    # =========================================================
+    # Carpeta con las imágenes de Cloudinary descargadas por
+    # scripts/cache_images.py. Vacío (producción) = feature apagada.
+    image_cache_dir: str = ""
+
+    # =========================================================
     # 🔒 CORS
     # =========================================================
     # En producción, setear ALLOWED_ORIGINS en Railway como JSON:
