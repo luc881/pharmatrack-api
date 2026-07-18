@@ -2,6 +2,9 @@
 # Correr ANTES de salir a la convencion, con internet.
 # El dump queda en backups\ y sirve tambien como respaldo de produccion.
 
+# Si el comun no carga (error de sintaxis, archivo faltante) hay que
+# abortar aqui - sin esto el script sigue y miente con "LISTO"
+$ErrorActionPreference = "Stop"
 . "$PSScriptRoot\sync-common.ps1"
 
 $Dump = Join-Path $BackupDir "prod-$Stamp.dump"

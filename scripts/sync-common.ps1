@@ -17,7 +17,7 @@ if (-not $PgBin) { Write-Host "No se encontro PostgreSQL en Program Files" -Fore
 # Leer PROD_DATABASE_URL de scripts\.env.sync (gitignoreado)
 $EnvSync = Join-Path $PSScriptRoot ".env.sync"
 if (-not (Test-Path $EnvSync)) {
-  Write-Host "Falta scripts\.env.sync — copia .env.sync.example y pega la URL publica de Railway" -ForegroundColor Red
+  Write-Host "Falta scripts\.env.sync - copia .env.sync.example y pega la URL publica de Railway" -ForegroundColor Red
   exit 1
 }
 $ProdUrl = (Get-Content $EnvSync | Where-Object { $_ -match "^PROD_DATABASE_URL=" }) -replace "^PROD_DATABASE_URL=", ""
@@ -38,5 +38,15 @@ function Invoke-Restore($url, $file, $label) {
   & "$PgBin\psql" --dbname=$url -q -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
   if ($LASTEXITCODE -ne 0) { Write-Host "No se pudo limpiar el esquema de $label" -ForegroundColor Red; exit 1 }
   & "$PgBin\pg_restore" --dbname=$url --no-owner --no-acl $file
-  if ($LASTEXITCODE -ne 0) { Write-Host "pg_restore en $label fallo" -ForegroundColor Red; exit 1 }
+  if ($LASTEXITCODE -ne 0) {
+    # pg_restore devuelve 1 tambien por errores benignos ignorados (p. ej.
+    # "SET transaction_timeout" de un dump PG17 restaurado en un server PG16).
+    # No confiar en el exit code: verificar que la BD de verdad quedo poblada.
+    $tables = (& "$PgBin\psql" --dbname=$url -t -A -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'")
+    if (-not $tables -or [int]$tables -lt 10) {
+      Write-Host "pg_restore en $label fallo (tablas restauradas: $tables)" -ForegroundColor Red
+      exit 1
+    }
+    Write-Host "pg_restore reporto errores ignorados, pero $label quedo con $tables tablas (OK)" -ForegroundColor Yellow
+  }
 }
