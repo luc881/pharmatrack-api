@@ -117,6 +117,9 @@ class SpeciesBase(BaseModel):
     adult_size: Optional[str] = Field(None, max_length=50)
     difficulty: Optional[str] = Field(None, max_length=50)
     rarity: Optional[str] = Field(None, max_length=50)
+    habitat: Optional[DescriptionStr] = None
+    diet: Optional[DescriptionStr] = None
+    notes: Optional[DescriptionStr] = None
 
     @field_validator("name", "common_name", mode="before")
     @classmethod
@@ -157,6 +160,9 @@ class SpeciesUpdate(BaseModel):
     adult_size: Optional[str] = Field(None, max_length=50)
     difficulty: Optional[str] = Field(None, max_length=50)
     rarity: Optional[str] = Field(None, max_length=50)
+    habitat: Optional[DescriptionStr] = None
+    diet: Optional[DescriptionStr] = None
+    notes: Optional[DescriptionStr] = None
 
     @field_validator("name", "common_name", mode="before")
     @classmethod

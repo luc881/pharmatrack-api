@@ -72,6 +72,10 @@ class Species(Base):
     adult_size: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     difficulty: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     rarity: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    # Ficha descriptiva extendida (secciones largas del detalle público)
+    habitat: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    diet: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

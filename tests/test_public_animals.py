@@ -46,13 +46,19 @@ def test_public_species_care_info_roundtrip(auth_headers):
 
     care = {"origin": "Vietnam", "temperature": "22-26 °C", "humidity": "70-80 %",
             "adult_size": "15 mm", "difficulty": "Medio", "rarity": "Muy raro",
-            "description": "Especie activa y rápida."}
+            "description": "Especie activa y rápida.",
+            "habitat": "Hojarasca húmeda de bosque tropical.",
+            "diet": "Detritívoro: hojas secas y madera en descomposición.",
+            "notes": "Colonia establecida desde 2024."}
     assert species_put(f"/{sp['id']}", json=care, headers=auth_headers).status_code == status.HTTP_200_OK
 
     detail = client.get(f"/api/v1/public/animals/{animal['id']}").json()
     assert detail["species"]["origin"] == "Vietnam"
     assert detail["species"]["difficulty"] == "Medio"
     assert detail["species"]["description"] == "Especie activa y rápida."
+    assert detail["species"]["habitat"] == "Hojarasca húmeda de bosque tropical."
+    assert detail["species"]["diet"] == "Detritívoro: hojas secas y madera en descomposición."
+    assert detail["species"]["notes"] == "Colonia establecida desde 2024."
 
 
 def test_public_species_price_tiers_sorted(auth_headers):
