@@ -65,7 +65,19 @@ def _query_with_relations(db: Session):
         joinedload(Animal.species).joinedload(Species.genus).joinedload(Genus.group),
         selectinload(Animal.morphs),
         selectinload(Animal.photos),
+        # la propiedad stock suma los lotes del producto gemelo
+        selectinload(Animal.product).selectinload(Product.batches),
     )
+
+
+def _validate_stock(species: Species, stock: int):
+    # Los individuales tienen folio único: su stock siempre es 1.
+    # Cantidades mayores son solo para especies en cepa/paquete.
+    if stock != 1 and species.sale_format == "individual":
+        raise HTTPException(
+            status_code=400,
+            detail="Solo las especies en cepa o paquete aceptan stock mayor a 1.",
+        )
 
 
 # =========================================================
@@ -125,6 +137,7 @@ async def create_animal(payload: AnimalCreate, db: db_dependency):
         raise HTTPException(status_code=400, detail="Species not found.")
 
     morphs = _validate_morphs(db, payload.morph_ids, species.id)
+    _validate_stock(species, payload.stock)
 
     code = payload.code or f"AN-{uuid.uuid4().hex[:8].upper()}"
     if db.query(Animal.id).filter(Animal.code == code).first():
@@ -150,11 +163,12 @@ async def create_animal(payload: AnimalCreate, db: db_dependency):
     db.add(product)
     db.flush()
 
-    # Lote único de 1 unidad sin caducidad: el FIFO existente impide vender
-    # el mismo animal dos veces
+    # Lote único sin caducidad: el FIFO existente descuenta cada venta.
+    # Individuales: 1 (imposible vender el mismo folio dos veces);
+    # cepas/paquetes: N unidades idénticas bajo un solo registro.
     db.add(ProductBatch(
         product_id=product.id,
-        quantity=1,
+        quantity=payload.stock,
         purchase_price=payload.price_cost,
     ))
 
@@ -212,9 +226,32 @@ async def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency
     if payload.photos is not None:
         animal.photos = [AnimalPhoto(url=u) for u in payload.photos]
 
-    update_data = payload.model_dump(exclude_unset=True, exclude={"morph_ids", "photos"})
+    update_data = payload.model_dump(exclude_unset=True, exclude={"morph_ids", "photos", "stock"})
     for key, value in update_data.items():
         setattr(animal, key, value.value if hasattr(value, "value") else value)
+
+    # Ajustar stock = reescribir el lote del producto gemelo (resurtir cepa)
+    if payload.stock is not None:
+        _validate_stock(species, payload.stock)
+        batches = (
+            db.query(ProductBatch)
+            .filter(ProductBatch.product_id == animal.product_id)
+            .order_by(ProductBatch.id)
+            .all()
+        )
+        if batches:
+            batches[0].quantity = payload.stock
+            for extra in batches[1:]:
+                extra.quantity = 0
+        else:
+            db.add(ProductBatch(
+                product_id=animal.product_id,
+                quantity=payload.stock,
+                purchase_price=animal.price_cost,
+            ))
+        # Resurtir una cepa agotada la regresa a la venta
+        if animal.status == AnimalStatusEnum.SOLD.value:
+            animal.status = AnimalStatusEnum.AVAILABLE.value
 
     # Sincronizar el producto gemelo
     product = db.get(Product, animal.product_id)

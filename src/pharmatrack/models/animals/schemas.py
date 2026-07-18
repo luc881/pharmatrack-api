@@ -245,6 +245,10 @@ class AnimalCreate(AnimalBase):
     )
     morph_ids: List[int] = Field(default_factory=list)
     photos: List[str] = Field(default_factory=list, description="URLs de fotos (la primera es la principal si no se envía image)")
+    stock: int = Field(
+        1, ge=1,
+        description="Unidades idénticas en venta (cepas/paquetes); individual siempre 1",
+    )
 
     model_config = ConfigDict(
         extra="forbid",
@@ -278,6 +282,7 @@ class AnimalUpdate(BaseModel):
     requires_legal_doc: Optional[bool] = None
     legal_doc: Optional[str] = Field(None, max_length=150)
     legal_doc_url: Optional[str] = Field(None, max_length=500)
+    stock: Optional[int] = Field(None, ge=1, description="Ajusta las unidades disponibles (resurtir cepa)")
 
     @field_validator("status")
     @classmethod
@@ -317,6 +322,8 @@ class AnimalResponse(AnimalBase):
     code: str
     status: AnimalStatusEnum
     product_id: int
+    # Unidades disponibles (lotes del producto gemelo); individuales: 1
+    stock: Optional[int] = None
     species: Optional[SpeciesResponse] = None
     morphs: List[MorphResponse] = Field(default_factory=list)
     photos: List[str] = Field(default_factory=list)

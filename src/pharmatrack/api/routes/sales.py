@@ -185,10 +185,27 @@ def complete_sale(sale_id: int, db: db_dependency):
     recalc_sale_totals(db, sale)
     sale.status = SaleStatusEnum.COMPLETED
 
-    # Los animales vendidos (productos gemelos) pasan a status "sold"
-    db.query(Animal).filter(
-        Animal.product_id.in_(product_ids)
-    ).update({Animal.status: AnimalStatusEnum.SOLD.value}, synchronize_session=False)
+    # Los animales pasan a "sold" solo cuando su stock llega a 0.
+    # Individuales (lote de 1): igual que siempre. Cepas/paquetes con
+    # unidades restantes siguen disponibles.
+    from sqlalchemy import func
+    from ...models.product_batch.orm import ProductBatch
+
+    # La sesión corre con autoflush=False: sin esto la suma leería las
+    # cantidades de ANTES del descuento de lotes
+    db.flush()
+
+    remaining = dict(
+        db.query(ProductBatch.product_id, func.coalesce(func.sum(ProductBatch.quantity), 0))
+        .filter(ProductBatch.product_id.in_(product_ids))
+        .group_by(ProductBatch.product_id)
+        .all()
+    )
+    sold_out = [pid for pid in product_ids if remaining.get(pid, 0) <= 0]
+    if sold_out:
+        db.query(Animal).filter(
+            Animal.product_id.in_(sold_out)
+        ).update({Animal.status: AnimalStatusEnum.SOLD.value}, synchronize_session=False)
 
     db.commit()
     db.refresh(sale)

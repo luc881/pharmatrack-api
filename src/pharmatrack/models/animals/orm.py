@@ -162,6 +162,17 @@ class Animal(Base):
     species = relationship("Species", back_populates="animals")
     product = relationship("Product")
     morphs: Mapped[list["Morph"]] = relationship("Morph", secondary=animal_has_morphs)
+
+    @property
+    def stock(self) -> Optional[int]:
+        """Unidades disponibles = stock del producto gemelo (individuales: 1).
+
+        Las especies en cepa/paquete usan un solo registro con lote de N;
+        la venta descuenta el lote y el animal pasa a sold al llegar a 0.
+        """
+        if self.product is None:
+            return None
+        return int(sum(b.quantity for b in self.product.batches))
     photos: Mapped[list["AnimalPhoto"]] = relationship(
         "AnimalPhoto", cascade="all, delete-orphan", order_by="AnimalPhoto.id"
     )
