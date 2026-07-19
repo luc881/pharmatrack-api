@@ -100,6 +100,9 @@ PERMISSIONS = [
 
     # Animals
     "animals.read", "animals.create", "animals.update", "animals.delete",
+
+    # Articles (divulgacion del sitio publico)
+    "articles.read", "articles.create", "articles.update", "articles.delete",
 ]
 
 
