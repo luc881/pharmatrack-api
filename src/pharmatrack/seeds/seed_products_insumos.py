@@ -45,7 +45,15 @@ def seed_insumos(db: Session):
             unit_name="g",
             is_unit_sale=False,
             tracks_batches=False,
+            show_online=True,
         )
         created += int(was_created)
+
+    # Filas sembradas antes de que existiera el flag: encenderlo también
+    from pharmatrack.models.products.orm import Product
+    skus = [item[0] for item in GRANEL]
+    db.query(Product).filter(Product.sku.in_(skus), Product.show_online.is_(False)).update(
+        {Product.show_online: True}, synchronize_session=False
+    )
     db.commit()
     print(f"   Insumos a granel: {created} creados, {len(GRANEL) - created} ya existían")

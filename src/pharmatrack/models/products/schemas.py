@@ -93,6 +93,7 @@ class ProductBase(BaseModel):
 
     is_active: bool = True
     tracks_batches: bool = Field(default=True, description="Si False, el producto no maneja lotes con caducidad ni código")
+    show_online: bool = Field(default=False, description="Visible en el catálogo del sitio público")
 
     @field_validator("title")
     @classmethod
@@ -185,6 +186,7 @@ class ProductUpdate(BaseModel):
 
     is_active: Optional[bool] = None
     tracks_batches: Optional[bool] = None
+    show_online: Optional[bool] = None
 
     brand_id: Optional[int] = None
     product_master_id: Optional[int] = None

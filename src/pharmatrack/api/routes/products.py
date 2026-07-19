@@ -71,8 +71,15 @@ async def read_all(
     category_id: int | None = None,
     is_active: bool | None = None,
     ordering: str | None = None,
+    exclude_animal_twins: bool = False,
 ):
     query = db.query(Product).filter(Product.deleted_at.is_(None))
+
+    # Los gemelos de animales viven en la sección Animales; la relación
+    # animals.product_id es la fuente de verdad (no hay flag que desincronizar)
+    if exclude_animal_twins:
+        from ...models.animals.orm import Animal
+        query = query.filter(~Product.id.in_(db.query(Animal.product_id)))
 
     if sku:
         query = query.filter(Product.sku == sku)

@@ -92,6 +92,11 @@ def init_db():
         print("\n🪨 Insumos para terrario...")
         seed_insumos(db)
 
+        # Artículos de ejemplo (idempotentes por título)
+        from pharmatrack.seeds.seed_articles import seed_articles
+        print("\n📝 Artículos...")
+        seed_articles(db)
+
         print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         print("  ✅ Base de datos inicializada correctamente")
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")

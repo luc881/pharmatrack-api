@@ -54,6 +54,8 @@ class Product(Base):
 
     # --- Trazabilidad de lotes ---
     tracks_batches: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
+    # Visible en el catálogo del sitio público (insumos de terrario, etc.)
+    show_online: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")
 
     # --- Unidades / fraccionamiento ---
     is_unit_sale: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")
