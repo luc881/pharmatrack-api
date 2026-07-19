@@ -153,6 +153,7 @@ def get_or_create_product(
     is_unit_sale: bool = True,
     tax_percentage: float | None = None,
     ingredients: list[dict] | None = None,
+    tracks_batches: bool = True,
 ) -> tuple[Product | None, bool]:
     """
     Creates a product if the SKU does not already exist.
@@ -188,6 +189,7 @@ def get_or_create_product(
         is_unit_sale=is_unit_sale,
         description=description,
         tax_percentage=tax_percentage,
+        tracks_batches=tracks_batches,
     )
 
     db.add(product)

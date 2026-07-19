@@ -86,6 +86,12 @@ def init_db():
             print("\n🏥 Servicios farmacéuticos...")
             seed_servicios_medicos(db)
 
+        # Insumos a granel (venta libre): idempotente por SKU, corre siempre
+        # aunque el catálogo ya esté poblado
+        from pharmatrack.seeds.seed_products_insumos import seed_insumos
+        print("\n🪨 Insumos para terrario...")
+        seed_insumos(db)
+
         print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         print("  ✅ Base de datos inicializada correctamente")
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")

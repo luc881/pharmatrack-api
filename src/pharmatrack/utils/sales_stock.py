@@ -2,6 +2,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
+from ..models.products.orm import Product
 from ..models.product_batch.orm import ProductBatch
 from ..models.sale_batch_usage.orm import SaleBatchUsage
 from ..models.sale_details.orm import SaleDetail
@@ -19,6 +20,13 @@ def allocate_batches_for_sale_detail(
     If records exist → validate and deduct from those specific batches.
     If none exist → automatic FEFO allocation.
     """
+    # Venta libre: productos sin control de lotes (granel por peso, servicios)
+    # se cobran sin validar ni descontar stock — la caja de corteza no lleva
+    # inventario, solo se pesa y se cobra por gramo
+    product = db.get(Product, sale_detail.product_id)
+    if product is not None and not product.tracks_batches:
+        return
+
     preassigned = (
         db.query(SaleBatchUsage)
         .filter(SaleBatchUsage.sale_detail_id == sale_detail.id)
