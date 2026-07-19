@@ -39,8 +39,17 @@ def test_public_products_only_show_online_and_no_costs(auth_headers, test_produc
 
     row = next(r for r in rows if r["id"] == visible["id"])
     assert "price_cost" not in row
+    # la categoria viaja como nombre plano para el menu lateral del sitio
+    assert isinstance(row["category"], str) and row["category"]
     # venta libre: sin stock que reportar
     assert row["tracks_batches"] is False and row["stock"] is None
+
+    # detalle publico: visible responde, interno da 404
+    detail = client.get(f"/api/v1/public/products/{visible['id']}")
+    assert detail.status_code == 200 and detail.json()["title"] == visible["title"]
+    hidden_id = next(p["id"] for p in
+                     products_get("", headers=auth_headers, params={"sku": "INTERNO-1"}).json()["data"])
+    assert client.get(f"/api/v1/public/products/{hidden_id}").status_code == 404
 
 
 def test_products_list_can_exclude_animal_twins(auth_headers):
