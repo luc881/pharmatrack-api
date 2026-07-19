@@ -5,7 +5,7 @@ Importar desde aquí en lugar de redefinir en cada módulo.
 from datetime import date
 from typing import Annotated, Optional
 from pydantic import StringConstraints, Field, HttpUrl
-from pydantic.functional_validators import AfterValidator
+from pydantic.functional_validators import AfterValidator, BeforeValidator
 from pydantic.types import NonNegativeFloat
 
 
@@ -35,18 +35,22 @@ DescriptionStr = Annotated[
     Field(description="Descripción larga (máx. 2000 caracteres)")
 ]
 
-# URL de imagen — valida como URL pero el valor final es str: el objeto
-# HttpUrl de pydantic no lo sabe insertar psycopg2 ("can't adapt type")
-def _url_as_str(v) -> str:
-    url = str(v)
+# URL de imagen — el tipo base es str (psycopg2 no inserta HttpUrl y el
+# serializador de respuestas tampoco lo espera); HttpUrl solo VALIDA el
+# formato dentro del validador.
+def _validate_image_url(v) -> str:
+    try:
+        url = str(HttpUrl(v))
+    except Exception:
+        raise ValueError("URL de imagen inválida") from None
     if len(url) > 500:
         raise ValueError("URL de imagen demasiado larga (máx. 500)")
     return url
 
 
 ImageURLStr = Annotated[
-    HttpUrl,
-    AfterValidator(_url_as_str),
+    str,
+    BeforeValidator(_validate_image_url),
     Field(description="URL de imagen")
 ]
 
