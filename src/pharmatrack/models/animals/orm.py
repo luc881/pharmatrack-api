@@ -23,6 +23,8 @@ class AnimalGroup(Base):
     # Visible en el sitio publico (nav, explorar por grupo, resultados).
     # Se controla por grupo raiz; ocultar un raiz oculta sus descendientes.
     show_public: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
+    # Destacado en la home como mini-catalogo de sus especies (solo grupo raiz)
+    feature_home: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")
 
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
