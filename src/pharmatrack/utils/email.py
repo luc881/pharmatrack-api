@@ -57,7 +57,8 @@ PAYMENT_LABELS = {"cash": "Efectivo", "card": "Tarjeta", "transfer": "Transferen
 
 
 def send_ticket_email(to_email: str, sale_id: int, date_str: str, items: list[dict],
-                      payments: list[dict], total: float, change: float) -> None:
+                      payments: list[dict], total: float, change: float,
+                      template: dict | None = None) -> None:
     """Ticket de venta por correo. items: [{title, quantity, unit_price, discount, subtotal}]."""
     rows = "".join(
         f"""<tr>
@@ -78,18 +79,27 @@ def send_ticket_email(to_email: str, sale_id: int, date_str: str, items: list[di
         if change > 0.009 else ""
     )
 
+    tpl = template or {}
+    business = tpl.get("business_name") or "Farmacia Selene"
+    intro = tpl.get("intro_message") or ""
+    footer = tpl.get("footer_message") or "Gracias por su compra."
+    intro_html = (
+        f'<p style="margin:0 0 16px;">{intro}</p>' if intro.strip() else ""
+    )
+
     resend.api_key = settings.resend_api_key
     response = resend.Emails.send({
         "from": FROM_ADDRESS,
         "to": [to_email],
-        "subject": f"Ticket de venta #{sale_id} - Farmacia Selene",
+        "subject": f"Ticket de venta #{sale_id} - {business}",
         "html": f"""
 <!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8"></head>
 <body style="font-family: sans-serif; color: #1a1a1a; max-width: 480px; margin: 0 auto; padding: 24px;">
-  <h2 style="margin-bottom:4px;">Farmacia Selene</h2>
+  <h2 style="margin-bottom:4px;">{business}</h2>
   <p style="color:#6b7280;margin:0 0 16px;">Ticket de venta #{sale_id} &middot; {date_str}</p>
+  {intro_html}
   <table style="width:100%;border-collapse:collapse;font-size:14px;">{rows}</table>
   <table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:8px;">
     <tr><td style="padding:6px 8px;font-weight:bold;">TOTAL</td>
@@ -97,7 +107,7 @@ def send_ticket_email(to_email: str, sale_id: int, date_str: str, items: list[di
     {pay_rows}
     {change_row}
   </table>
-  <p style="color:#9ca3af;font-size:12px;margin-top:24px;">Gracias por su compra.</p>
+  <p style="color:#9ca3af;font-size:12px;margin-top:24px;">{footer}</p>
 </body>
 </html>
 """,

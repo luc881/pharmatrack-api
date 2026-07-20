@@ -179,6 +179,7 @@ def email_ticket(sale_id: int, body: EmailTicketRequest, db: db_dependency):
     from ...models.sale_details.orm import SaleDetail
     from ...models.sale_payments.orm import SalePayment
     from ...utils.email import send_ticket_email
+    from .settings import get_email_ticket_template
     from ...config import settings
 
     if not settings.resend_api_key:
@@ -217,7 +218,8 @@ def email_ticket(sale_id: int, body: EmailTicketRequest, db: db_dependency):
     date_str = (sale.date_sale or sale.created_at).strftime("%d/%m/%Y %H:%M")
 
     try:
-        send_ticket_email(body.email, sale_id, date_str, items, payments, total, change)
+        send_ticket_email(body.email, sale_id, date_str, items, payments, total, change,
+                          template=get_email_ticket_template(db))
     except Exception:
         logger.exception("Fallo el envio del ticket sale_id=%s", sale_id)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,

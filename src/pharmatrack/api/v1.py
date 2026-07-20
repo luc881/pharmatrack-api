@@ -5,12 +5,14 @@ from .routes import (
     sale_details, refund_products, suppliers, purchases,
     purchase_details, product_batch, sale_batch_usage,
     product_master, product_brand, ingredients, stats, sensor_readings, dashboard, calendar,
-    animal_taxonomy, animals, public_animals, public_products, image_cache, articles
+    animal_taxonomy, animals, public_animals, public_products, image_cache, articles,
+    settings,
 )
 
 api_v1_router = APIRouter(prefix="/api/v1")
 
 api_v1_router.include_router(auth.router)
+api_v1_router.include_router(settings.router)
 api_v1_router.include_router(permissions.router)
 api_v1_router.include_router(roles.router)
 api_v1_router.include_router(users.router)

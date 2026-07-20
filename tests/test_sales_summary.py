@@ -33,3 +33,19 @@ def test_email_ticket_sin_api_key(auth_headers, db_session,
                       json={"email": "cliente@example.com"}, headers=auth_headers)
     # sin RESEND_API_KEY configurada el endpoint responde 503, no 500
     assert res.status_code == 503, res.text
+
+
+def test_email_ticket_template_roundtrip(auth_headers):
+    res = client.get("/api/v1/settings/email-ticket", headers=auth_headers)
+    assert res.status_code == 200, res.text
+    assert res.json()["business_name"]
+
+    res = client.put("/api/v1/settings/email-ticket", headers=auth_headers, json={
+        "business_name": "Selene Exotics",
+        "intro_message": "Sigue los cuidados de tu animal en nuestra web.",
+        "footer_message": "Gracias, vuelve pronto!",
+    })
+    assert res.status_code == 200, res.text
+    data = client.get("/api/v1/settings/email-ticket", headers=auth_headers).json()
+    assert data["business_name"] == "Selene Exotics"
+    assert data["footer_message"] == "Gracias, vuelve pronto!"
