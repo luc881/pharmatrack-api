@@ -1,5 +1,6 @@
 from sqlalchemy import (
-    String, BigInteger, Double, Numeric, Text, TIMESTAMP, Boolean, ForeignKey
+    String, BigInteger, Double, Numeric, Text, TIMESTAMP, Boolean, ForeignKey,
+    Integer, UniqueConstraint
 )
 from sqlalchemy.sql import func
 from ...db.session import Base
@@ -43,6 +44,10 @@ class Product(Base):
     description: Mapped[str] = mapped_column(Text, nullable=True)
     sku: Mapped[str] = mapped_column(String(100), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
+
+    # Precio anterior (tachado) para ofertas en la tienda; lo que se cobra
+    # sigue siendo price_retail
+    compare_at_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=True)
 
     # --- Descuentos / impuestos ---
     max_discount: Mapped[float] = mapped_column(Double, nullable=True)
@@ -88,6 +93,11 @@ class Product(Base):
 
     master = relationship("ProductMaster", back_populates="products")
     brand = relationship("ProductBrand", back_populates="products")
+    bundle_items = relationship(
+        "BundleItem",
+        foreign_keys="BundleItem.bundle_product_id",
+        cascade="all, delete-orphan",
+    )
     category: Mapped["ProductCategory"] = relationship(
         "ProductCategory",
         back_populates="products"
@@ -98,3 +108,27 @@ class Product(Base):
         back_populates="product",
         cascade="all, delete-orphan"
     )
+
+class BundleItem(Base):
+    """Componente de un paquete: vender el paquete descuenta cada componente.
+
+    El paquete es un Product normal (tracks_batches=False: no tiene stock
+    propio, su disponibilidad se deriva de los componentes). Los componentes
+    pueden ser cualquier producto, incluidos los gemelos POS de animales.
+    """
+
+    __tablename__ = "bundle_items"
+    __table_args__ = (
+        UniqueConstraint("bundle_product_id", "component_product_id", name="uq_bundle_component"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    bundle_product_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    component_product_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("products.id", ondelete="RESTRICT"), nullable=False
+    )
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
+
+    component = relationship("Product", foreign_keys=[component_product_id])

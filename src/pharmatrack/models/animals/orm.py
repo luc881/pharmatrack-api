@@ -145,6 +145,8 @@ class Animal(Base):
 
     birth_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    # Precio anterior (tachado) para mostrar oferta en la tienda
+    compare_at_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
     price_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, server_default="0")
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     image: Mapped[Optional[str]] = mapped_column(String(250), nullable=True)

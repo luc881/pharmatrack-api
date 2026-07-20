@@ -70,6 +70,15 @@ def _query_with_relations(db: Session):
     )
 
 
+def _validate_compare_at(price, compare_at):
+    # La oferta solo tiene sentido si el precio anterior es mayor al actual
+    if compare_at is not None and float(compare_at) <= float(price):
+        raise HTTPException(
+            status_code=400,
+            detail="El precio anterior (tachado) debe ser mayor al precio actual.",
+        )
+
+
 def _validate_stock(species: Species, stock: int):
     # Los individuales tienen folio único: su stock siempre es 1.
     # Cantidades mayores son solo para especies en cepa/paquete.
@@ -138,6 +147,7 @@ async def create_animal(payload: AnimalCreate, db: db_dependency):
 
     morphs = _validate_morphs(db, payload.morph_ids, species.id)
     _validate_stock(species, payload.stock)
+    _validate_compare_at(payload.price, payload.compare_at_price)
 
     code = payload.code or f"AN-{uuid.uuid4().hex[:8].upper()}"
     if db.query(Animal.id).filter(Animal.code == code).first():
@@ -153,6 +163,7 @@ async def create_animal(payload: AnimalCreate, db: db_dependency):
         sku=code,
         price_retail=payload.price,
         price_cost=payload.price_cost,
+        compare_at_price=payload.compare_at_price,
         product_category_id=_animals_category_id(db),
         is_unit_sale=True,
         unit_name="pieza",
@@ -179,6 +190,7 @@ async def create_animal(payload: AnimalCreate, db: db_dependency):
         sex=payload.sex.value,
         birth_date=payload.birth_date,
         price=payload.price,
+        compare_at_price=payload.compare_at_price,
         price_cost=payload.price_cost,
         description=payload.description,
         image=main_image,
@@ -253,10 +265,13 @@ async def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency
         if animal.status == AnimalStatusEnum.SOLD.value:
             animal.status = AnimalStatusEnum.AVAILABLE.value
 
+    _validate_compare_at(animal.price, animal.compare_at_price)
+
     # Sincronizar el producto gemelo
     product = db.get(Product, animal.product_id)
     if product:
         product.price_retail = animal.price
+        product.compare_at_price = animal.compare_at_price
         product.price_cost = animal.price_cost
         product.sku = animal.code
         product.description = animal.description

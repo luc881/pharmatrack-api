@@ -34,6 +34,7 @@ from pharmatrack.models.purchases.orm import Purchase
 from pharmatrack.models.purchase_details.orm import PurchaseDetail
 from pharmatrack.models.animals.orm import AnimalGroup, Genus, Species, Morph, Animal, AnimalPhoto, animal_has_morphs
 from pharmatrack.models.articles.orm import Article
+from pharmatrack.models.products.orm import BundleItem
 
 # =========================================================
 # 🔹 Config de Alembic

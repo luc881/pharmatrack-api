@@ -166,10 +166,14 @@ def complete_sale(sale_id: int, db: db_dependency):
     from pharmatrack.types.animals import AnimalStatusEnum
 
     product_ids = [d.product_id for d in sale.sale_details]
+    # Los paquetes se sustituyen por sus componentes: un animal dentro de un
+    # paquete cuenta igual que uno vendido directo
+    from ...utils.sales_stock import expand_bundle_product_ids
+    effective_ids = expand_bundle_product_ids(db, product_ids)
 
     # Un animal reservado no puede venderse: hay que liberar la reserva primero
     reserved = db.query(Animal.code).filter(
-        Animal.product_id.in_(product_ids),
+        Animal.product_id.in_(effective_ids),
         Animal.status == AnimalStatusEnum.RESERVED.value,
     ).all()
     if reserved:
@@ -197,11 +201,11 @@ def complete_sale(sale_id: int, db: db_dependency):
 
     remaining = dict(
         db.query(ProductBatch.product_id, func.coalesce(func.sum(ProductBatch.quantity), 0))
-        .filter(ProductBatch.product_id.in_(product_ids))
+        .filter(ProductBatch.product_id.in_(effective_ids))
         .group_by(ProductBatch.product_id)
         .all()
     )
-    sold_out = [pid for pid in product_ids if remaining.get(pid, 0) <= 0]
+    sold_out = [pid for pid in effective_ids if remaining.get(pid, 0) <= 0]
     if sold_out:
         db.query(Animal).filter(
             Animal.product_id.in_(sold_out)

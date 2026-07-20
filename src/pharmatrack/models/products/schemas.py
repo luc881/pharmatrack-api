@@ -94,6 +94,8 @@ class ProductBase(BaseModel):
     is_active: bool = True
     tracks_batches: bool = Field(default=True, description="Si False, el producto no maneja lotes con caducidad ni código")
     show_online: bool = Field(default=False, description="Visible en el catálogo del sitio público")
+    compare_at_price: Optional[float] = Field(None, gt=0, description="Precio anterior (tachado) para ofertas")
+    max_discount: Optional[float] = Field(None, ge=0, le=100, description="Tope de descuento por línea en el POS (%)")
 
     @field_validator("title")
     @classmethod
@@ -187,6 +189,8 @@ class ProductUpdate(BaseModel):
     is_active: Optional[bool] = None
     tracks_batches: Optional[bool] = None
     show_online: Optional[bool] = None
+    compare_at_price: Optional[float] = Field(None, gt=0)
+    max_discount: Optional[float] = Field(None, ge=0, le=100)
 
     brand_id: Optional[int] = None
     product_master_id: Optional[int] = None
@@ -318,3 +322,31 @@ from ..product_batch.schemas import ProductBatchResponse
 from ..ingredients.schemas import IngredientResponse
 
 ProductDetailsResponse.model_rebuild()
+
+# =========================================================
+# 🔹 Paquetes (bundles)
+# =========================================================
+class BundleItemIn(BaseModel):
+    component_product_id: int = Field(..., ge=1)
+    quantity: int = Field(1, ge=1)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class BundleComponentInfo(BaseModel):
+    id: int
+    title: str
+    sku: Optional[str] = None
+    price_retail: float
+    image: Optional[str] = None
+    tracks_batches: bool = True
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BundleItemOut(BaseModel):
+    component_product_id: int
+    quantity: int
+    component: Optional[BundleComponentInfo] = None
+
+    model_config = ConfigDict(from_attributes=True)

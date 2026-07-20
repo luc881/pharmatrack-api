@@ -7,7 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from ...db.session import get_db, db_dependency
 from starlette import status
 
-from ...models.products.orm import Product
+from ...models.products.orm import Product, BundleItem
 from ...models.products.schemas import (
     ProductCreate,
     ProductResponse,
@@ -72,6 +72,7 @@ async def read_all(
     is_active: bool | None = None,
     ordering: str | None = None,
     exclude_animal_twins: bool = False,
+    only_bundles: bool = False,
 ):
     query = db.query(Product).filter(Product.deleted_at.is_(None))
 
@@ -80,6 +81,10 @@ async def read_all(
     if exclude_animal_twins:
         from ...models.animals.orm import Animal
         query = query.filter(~Product.id.in_(db.query(Animal.product_id)))
+
+    # Paquetes = productos con componentes (bundle_items)
+    if only_bundles:
+        query = query.filter(Product.id.in_(db.query(BundleItem.bundle_product_id)))
 
     if sku:
         query = query.filter(Product.sku == sku)
@@ -354,3 +359,80 @@ async def restore_product(product_id: int, db: db_dependency):
     db.refresh(product)
     logger.info("Product restored id=%s", product_id)
     return product
+
+# =========================================================
+# Paquetes (bundles): componentes de un producto
+# =========================================================
+from ...models.products.schemas import BundleItemIn, BundleItemOut  # noqa: E402
+
+
+@router.get("/{product_id}/bundle-items",
+            response_model=list[BundleItemOut],
+            summary="Componentes del paquete",
+            dependencies=CAN_READ_PRODUCTS)
+async def list_bundle_items(product_id: int, db: db_dependency):
+    if not db.get(Product, product_id):
+        raise HTTPException(status_code=404, detail="Product not found")
+    from sqlalchemy.orm import selectinload
+    return (
+        db.query(BundleItem)
+        .options(selectinload(BundleItem.component))
+        .filter(BundleItem.bundle_product_id == product_id)
+        .all()
+    )
+
+
+@router.put("/{product_id}/bundle-items",
+            response_model=list[BundleItemOut],
+            summary="Reemplaza los componentes del paquete (replace-all)",
+            dependencies=CAN_UPDATE_PRODUCTS)
+async def set_bundle_items(product_id: int, items: list[BundleItemIn], db: db_dependency):
+    bundle = db.get(Product, product_id)
+    if not bundle:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    component_ids = [item.component_product_id for item in items]
+    if len(component_ids) != len(set(component_ids)):
+        raise HTTPException(status_code=400, detail="Componentes duplicados en el paquete.")
+    if product_id in component_ids:
+        raise HTTPException(status_code=400, detail="Un paquete no puede contenerse a sí mismo.")
+
+    if component_ids:
+        found = db.query(Product).filter(
+            Product.id.in_(component_ids), Product.deleted_at.is_(None)
+        ).all()
+        if len(found) != len(component_ids):
+            raise HTTPException(status_code=404, detail="Uno o más componentes no existen.")
+        # Sin paquetes anidados: mantiene la expansión de venta en un nivel
+        nested = db.query(BundleItem.bundle_product_id).filter(
+            BundleItem.bundle_product_id.in_(component_ids)
+        ).first()
+        if nested:
+            raise HTTPException(status_code=400, detail="Un paquete no puede contener otro paquete.")
+
+    # Tampoco al revés: si este producto ya es componente de otro paquete,
+    # volverlo paquete crearía anidamiento en la venta
+    if items and db.query(BundleItem.id).filter(
+        BundleItem.component_product_id == product_id
+    ).first():
+        raise HTTPException(
+            status_code=400,
+            detail="Este producto es componente de otro paquete; no puede ser paquete a la vez.",
+        )
+
+    db.query(BundleItem).filter(BundleItem.bundle_product_id == product_id).delete()
+    for item in items:
+        db.add(BundleItem(
+            bundle_product_id=product_id,
+            component_product_id=item.component_product_id,
+            quantity=item.quantity,
+        ))
+    db.commit()
+
+    from sqlalchemy.orm import selectinload
+    return (
+        db.query(BundleItem)
+        .options(selectinload(BundleItem.component))
+        .filter(BundleItem.bundle_product_id == product_id)
+        .all()
+    )

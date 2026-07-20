@@ -233,6 +233,8 @@ class AnimalBase(BaseModel):
     image: Optional[ImageURLStr] = None
 
     # Documentación legal (SEMARNAT/UMA) — opcional
+    # Precio anterior (tachado) para ofertas en la tienda
+    compare_at_price: Optional[float] = Field(None, gt=0)
     requires_legal_doc: bool = False
     legal_doc: Optional[str] = Field(None, max_length=150, description="Folio/referencia del documento de procedencia legal")
     legal_doc_url: Optional[str] = Field(None, max_length=500, description="URL del documento escaneado")
@@ -283,6 +285,7 @@ class AnimalUpdate(BaseModel):
     legal_doc: Optional[str] = Field(None, max_length=150)
     legal_doc_url: Optional[str] = Field(None, max_length=500)
     stock: Optional[int] = Field(None, ge=1, description="Ajusta las unidades disponibles (resurtir cepa)")
+    compare_at_price: Optional[float] = Field(None, gt=0, description="Precio anterior (tachado); null quita la oferta")
 
     @field_validator("status")
     @classmethod
@@ -303,6 +306,7 @@ class PublicAnimalResponse(BaseModel):
     sex: AnimalSexEnum
     birth_date: Optional[date] = None
     price: float
+    compare_at_price: Optional[float] = None
     description: Optional[str] = None
     image: Optional[str] = None
     species: Optional[SpeciesResponse] = None

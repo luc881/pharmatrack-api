@@ -15,6 +15,22 @@ from ...models.sale_details.schemas import (
 )
 from ...models.sale_details.orm import SaleDetail
 from ...models.sales.orm import Sale
+
+
+def _check_max_discount(product, quantity, discount) -> None:
+    """El descuento de línea no puede superar el tope del producto (%)."""
+    if product.max_discount is None or not discount:
+        return
+    max_abs = (Decimal(product.price_retail) * Decimal(quantity)
+               * Decimal(str(product.max_discount)) / Decimal(100))
+    if Decimal(discount) > max_abs:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"El descuento máximo para {product.title} es "
+                f"{product.max_discount:g}% (${max_abs:.2f} en esta línea)"
+            ),
+        )
 from ...models.products.orm import Product
 from ...utils.permissions import (
     CAN_READ_SALE_DETAILS,
@@ -72,6 +88,8 @@ def create(sale_detail: SaleDetailCreate, db: db_dependency):
     product = db.query(Product).filter(Product.id == sale_detail.product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Associated product not found")
+
+    _check_max_discount(product, sale_detail.quantity, sale_detail.discount or 0)
 
     price_unit = Decimal(product.price_retail)
     line_subtotal = (price_unit * Decimal(sale_detail.quantity)) - Decimal(
@@ -139,6 +157,8 @@ def update(sale_detail_id: int, sale_detail: SaleDetailUpdate, db: db_dependency
         detail.discount = data["discount"]
     if "description" in data:
         detail.description = data["description"]
+
+    _check_max_discount(product, detail.quantity, detail.discount)
 
     line_subtotal = (detail.price_unit * detail.quantity) - detail.discount
 
