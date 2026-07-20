@@ -13,6 +13,7 @@ from pharmatrack.utils.normalize import norm_title
 class AnimalGroupBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     parent_id: Optional[int] = Field(None, ge=1, description="Grupo padre (NULL si es raíz)")
+    show_public: bool = Field(True, description="Visible en el sitio publico")
 
     @field_validator("name")
     @classmethod
@@ -27,6 +28,7 @@ class AnimalGroupCreate(AnimalGroupBase):
 class AnimalGroupUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     parent_id: Optional[int] = Field(None, ge=1)
+    show_public: Optional[bool] = None
 
     @field_validator("name", mode="before")
     @classmethod

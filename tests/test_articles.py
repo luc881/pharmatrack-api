@@ -12,7 +12,7 @@ def _payload(**overrides):
         "category": "Cuidados",
         "excerpt": "Todo lo que necesitas antes de traerla a casa.",
         "body": "Intro del artículo.\n\n## El terrario\n\nPárrafo del terrario.\n\n> Una cita destacada.",
-        "author_name": "Selene",
+        "author_name": "Opuntia Den",
         "author_role": "Criadora",
         "tags": ["tarántulas", "principiantes"],
         "published": False,

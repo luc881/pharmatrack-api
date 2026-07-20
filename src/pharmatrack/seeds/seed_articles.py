@@ -17,7 +17,7 @@ ARTICLES = [
         "category": "Cuidados",
         "excerpt": "Terrario, sustrato, humedad y alimentación: todo lo que necesitas resolver antes de traer a casa tu primer ejemplar.",
         "cover_image": "https://picsum.photos/seed/art-tarantula/1200/675",
-        "author_name": "Selene",
+        "author_name": "Opuntia Den",
         "author_role": "Criadora",
         "tags": ["tarántulas", "principiantes", "terrario"],
         "body": """Las tarántulas son de las mascotas exóticas más nobles para empezar: ocupan poco espacio, comen una vez por semana y sus cuidados son sencillos si entiendes tres variables — espacio, sustrato y humedad.
@@ -43,7 +43,7 @@ Un grillo o cucaracha del tamaño de su abdomen una vez por semana. Si no lo tom
         "category": "Bioactivo",
         "excerpt": "Cómo funcionan los detritívoros en un montaje bioactivo y por qué son la mejor inversión para cualquier terrario húmedo.",
         "cover_image": "https://picsum.photos/seed/art-bioactivo/1200/675",
-        "author_name": "Selene",
+        "author_name": "Opuntia Den",
         "author_role": "Criadora",
         "tags": ["isópodos", "colémbolos", "bioactivo"],
         "body": """Un terrario bioactivo es un pequeño ecosistema que se limpia solo. El secreto son los detritívoros: isópodos y colémbolos que procesan restos de comida, heces y materia vegetal antes de que aparezcan hongos o ácaros.
@@ -67,7 +67,7 @@ Prácticamente ninguno: mantén una zona húmeda y agrega hojarasca cada mes. Si
         "category": "Especies",
         "excerpt": "Crestado, leopardo o gargoyle: las diferencias reales de cuidado entre los tres geckos más recomendados para empezar.",
         "cover_image": "https://picsum.photos/seed/art-gecko/1200/675",
-        "author_name": "Selene",
+        "author_name": "Opuntia Den",
         "author_role": "Criadora",
         "tags": ["geckos", "reptiles", "principiantes"],
         "body": """Los tres geckos que más recomendamos para empezar comparten algo: no necesitan luz UVB obligatoria si su dieta está bien suplementada, y toleran los errores típicos del primer año. Pero sus cuidados no son intercambiables.

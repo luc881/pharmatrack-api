@@ -80,7 +80,7 @@ def send_ticket_email(to_email: str, sale_id: int, date_str: str, items: list[di
     )
 
     tpl = template or {}
-    business = tpl.get("business_name") or "Farmacia Selene"
+    business = tpl.get("business_name") or "Opuntia Den"
     intro = tpl.get("intro_message") or ""
     footer = tpl.get("footer_message") or "Gracias por su compra."
     intro_html = (

@@ -12,7 +12,7 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 
 # Defaults de la plantilla del correo de ticket; lo guardado los sobreescribe
 EMAIL_TICKET_DEFAULTS = {
-    "business_name": "Farmacia Selene",
+    "business_name": "Opuntia Den",
     "intro_message": "",
     "footer_message": "Gracias por su compra.",
 }

@@ -71,6 +71,26 @@ def descendant_group_ids(db, root_id: int) -> set[int]:
     return ids
 
 
+def hidden_group_ids(db) -> set[int]:
+    """IDs de grupos ocultos al publico: los que tienen show_public=False y
+    todos sus descendientes (ocultar un raiz oculta su subarbol)."""
+    rows = db.query(AnimalGroup.id, AnimalGroup.parent_id, AnimalGroup.show_public).all()
+    children: dict = {}
+    hidden_roots = []
+    for gid, pid, show in rows:
+        children.setdefault(pid, []).append(gid)
+        if not show:
+            hidden_roots.append(gid)
+    ids, stack = set(), list(hidden_roots)
+    while stack:
+        current = stack.pop()
+        if current in ids:
+            continue
+        ids.add(current)
+        stack.extend(children.get(current, []))
+    return ids
+
+
 @groups_router.get("", response_model=PaginatedResponse[AnimalGroupResponse],
                    summary="List animal groups", dependencies=CAN_READ_ANIMAL_GROUPS)
 async def list_groups(db: db_dependency, parent_id: Optional[int] = None,

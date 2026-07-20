@@ -10,7 +10,7 @@ from starlette import status
 from ...db.session import db_dependency
 from ...models.animals.orm import Genus, Species, Morph, Animal, AnimalPhoto
 from ...models.animals.schemas import AnimalCreate, AnimalUpdate, AnimalResponse
-from .animal_taxonomy import descendant_group_ids
+from .animal_taxonomy import descendant_group_ids, hidden_group_ids
 from ...models.products.orm import Product
 from ...models.product_batch.orm import ProductBatch
 from ...models.product_categories.orm import ProductCategory
@@ -97,16 +97,8 @@ def _validate_stock(species: Species, stock: int):
 # =========================================================
 # GET /
 # =========================================================
-@router.get("", response_model=PaginatedResponse[AnimalResponse],
-            summary="List animals", dependencies=CAN_READ_ANIMALS)
-async def list_animals(
-    db: db_dependency,
-    species_id: Optional[int] = None,
-    genus_id: Optional[int] = None,
-    group_id: Optional[int] = None,
-    animal_status: Optional[AnimalStatusEnum] = Query(None, alias="status"),
-    pagination: PaginationParams = Depends(),
-):
+def _animals_query(db, species_id=None, genus_id=None, group_id=None,
+                   animal_status=None, exclude_group_ids=None):
     query = _query_with_relations(db)
     if species_id is not None:
         query = query.filter(Animal.species_id == species_id)
@@ -122,9 +114,28 @@ async def list_animals(
         query = query.filter(
             Animal.species_id.in_(db.query(Species.id).filter(Species.genus_id.in_(genus_ids)))
         )
+    if exclude_group_ids:
+        hidden_genus_ids = db.query(Genus.id).filter(Genus.group_id.in_(exclude_group_ids))
+        hidden_species_ids = db.query(Species.id).filter(Species.genus_id.in_(hidden_genus_ids))
+        query = query.filter(~Animal.species_id.in_(hidden_species_ids))
     if animal_status is not None:
         query = query.filter(Animal.status == animal_status.value)
-    return paginate(query.order_by(Animal.id.desc()), pagination)
+    return query.order_by(Animal.id.desc())
+
+
+@router.get("", response_model=PaginatedResponse[AnimalResponse],
+            summary="List animals", dependencies=CAN_READ_ANIMALS)
+async def list_animals(
+    db: db_dependency,
+    species_id: Optional[int] = None,
+    genus_id: Optional[int] = None,
+    group_id: Optional[int] = None,
+    animal_status: Optional[AnimalStatusEnum] = Query(None, alias="status"),
+    pagination: PaginationParams = Depends(),
+):
+    return paginate(
+        _animals_query(db, species_id, genus_id, group_id, animal_status), pagination
+    )
 
 
 # =========================================================

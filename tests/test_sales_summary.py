@@ -41,11 +41,11 @@ def test_email_ticket_template_roundtrip(auth_headers):
     assert res.json()["business_name"]
 
     res = client.put("/api/v1/settings/email-ticket", headers=auth_headers, json={
-        "business_name": "Selene Exotics",
+        "business_name": "Opuntia Den",
         "intro_message": "Sigue los cuidados de tu animal en nuestra web.",
         "footer_message": "Gracias, vuelve pronto!",
     })
     assert res.status_code == 200, res.text
     data = client.get("/api/v1/settings/email-ticket", headers=auth_headers).json()
-    assert data["business_name"] == "Selene Exotics"
+    assert data["business_name"] == "Opuntia Den"
     assert data["footer_message"] == "Gracias, vuelve pronto!"
