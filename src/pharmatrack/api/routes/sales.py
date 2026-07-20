@@ -86,6 +86,81 @@ async def read_all(
 
 
 # =========================================================
+# GET /summary — corte de caja
+# =========================================================
+@router.get(
+    "/summary",
+    summary="Resumen de ventas completadas (corte de caja)",
+    status_code=status.HTTP_200_OK,
+    dependencies=CAN_READ_SALES,
+)
+def sales_summary(
+    db: db_dependency,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+):
+    from ...models.products.orm import Product
+    from ...models.sale_details.orm import SaleDetail
+    from ...models.sale_payments.orm import SalePayment
+
+    sales_q = db.query(Sale).filter(Sale.status == SaleStatusEnum.COMPLETED)
+    if date_from is not None:
+        sales_q = sales_q.filter(Sale.date_sale >= date_from)
+    if date_to is not None:
+        sales_q = sales_q.filter(Sale.date_sale <= date_to)
+
+    totals = sales_q.with_entities(
+        func.count(Sale.id),
+        func.coalesce(func.sum(Sale.total), 0),
+        func.coalesce(func.sum(Sale.subtotal), 0),
+        func.coalesce(func.sum(Sale.tax), 0),
+    ).first()
+
+    sale_ids = sales_q.with_entities(Sale.id).subquery()
+
+    discounts = (
+        db.query(func.coalesce(func.sum(SaleDetail.discount), 0))
+        .filter(SaleDetail.sale_id.in_(sale_ids))
+        .scalar()
+    )
+
+    top_products = (
+        db.query(
+            Product.title,
+            func.coalesce(func.sum(SaleDetail.quantity), 0),
+            func.coalesce(func.sum(SaleDetail.total), 0),
+        )
+        .join(SaleDetail, SaleDetail.product_id == Product.id)
+        .filter(SaleDetail.sale_id.in_(sale_ids))
+        .group_by(Product.title)
+        .order_by(func.sum(SaleDetail.total).desc())
+        .limit(10)
+        .all()
+    )
+
+    payments = (
+        db.query(SalePayment.method_payment, func.coalesce(func.sum(SalePayment.amount), 0))
+        .filter(SalePayment.sale_id.in_(sale_ids))
+        .group_by(SalePayment.method_payment)
+        .all()
+    )
+
+    return {
+        "count": totals[0],
+        "total": totals[1],
+        "subtotal": totals[2],
+        "tax": totals[3],
+        "discounts": discounts,
+        "top_products": [
+            {"title": t, "quantity": float(q), "total": float(tot)} for t, q, tot in top_products
+        ],
+        "payments": [
+            {"method": (m.value if hasattr(m, "value") else m), "amount": float(a)} for m, a in payments
+        ],
+    }
+
+
+# =========================================================
 # GET /{sale_id}
 # =========================================================
 @router.get(
