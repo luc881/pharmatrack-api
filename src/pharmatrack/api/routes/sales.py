@@ -5,6 +5,7 @@ from sqlalchemy import func
 from datetime import datetime
 from ...db.session import get_db, db_dependency
 from starlette import status
+from pydantic import BaseModel, EmailStr
 
 from ...models.sales.orm import Sale
 from ...models.users.orm import User
@@ -28,6 +29,10 @@ from ...utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+
+
+class EmailTicketRequest(BaseModel):
+    email: EmailStr
 
 
 router = APIRouter(
@@ -158,6 +163,66 @@ def sales_summary(
             {"method": (m.value if hasattr(m, "value") else m), "amount": float(a)} for m, a in payments
         ],
     }
+
+
+# =========================================================
+# POST /{sale_id}/email-ticket
+# =========================================================
+@router.post(
+    "/{sale_id}/email-ticket",
+    summary="Enviar el ticket de la venta por correo",
+    status_code=status.HTTP_200_OK,
+    dependencies=CAN_READ_SALES,
+)
+def email_ticket(sale_id: int, body: EmailTicketRequest, db: db_dependency):
+    from ...models.products.orm import Product
+    from ...models.sale_details.orm import SaleDetail
+    from ...models.sale_payments.orm import SalePayment
+    from ...utils.email import send_ticket_email
+    from ...config import settings
+
+    if not settings.resend_api_key:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            detail="Envio de correo no configurado (RESEND_API_KEY).")
+
+    sale = db.query(Sale).filter(Sale.id == sale_id).first()
+    if not sale:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sale not found.")
+
+    details = (
+        db.query(SaleDetail, Product.title)
+        .join(Product, Product.id == SaleDetail.product_id)
+        .filter(SaleDetail.sale_id == sale_id)
+        .all()
+    )
+    items = [
+        {
+            "title": title,
+            "quantity": float(d.quantity),
+            "unit_price": float(d.unit_price or 0),
+            "discount": float(d.discount or 0),
+            "subtotal": float(d.total if d.total is not None
+                              else d.quantity * (d.unit_price or 0) - (d.discount or 0)),
+        }
+        for d, title in details
+    ]
+    pays = db.query(SalePayment).filter(SalePayment.sale_id == sale_id).all()
+    payments = [
+        {"method": (p.method_payment.value if hasattr(p.method_payment, "value") else p.method_payment),
+         "amount": float(p.amount)}
+        for p in pays
+    ]
+    total = float(sale.total or sum(i["subtotal"] for i in items))
+    change = sum(p["amount"] for p in payments) - total
+    date_str = (sale.date_sale or sale.created_at).strftime("%d/%m/%Y %H:%M")
+
+    try:
+        send_ticket_email(body.email, sale_id, date_str, items, payments, total, change)
+    except Exception:
+        logger.exception("Fallo el envio del ticket sale_id=%s", sale_id)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
+                            detail="No se pudo enviar el correo.")
+    return {"sent": True}
 
 
 # =========================================================

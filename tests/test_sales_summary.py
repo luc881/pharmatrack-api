@@ -18,3 +18,18 @@ def test_sales_summary(auth_headers, db_session,
     assert data["count"] >= 1
     assert float(data["total"]) > 0
     assert any(animal["code"] in p["title"] for p in data["top_products"])
+
+
+def test_email_ticket_sin_api_key(auth_headers, db_session,
+                                  test_user_with_role_permissions_branch_auth, test_branch):
+    _, _, _, sp, _ = _make_taxonomy(auth_headers)
+    animal = _create_animal(auth_headers, sp["id"])
+    sale, _ = _draft_sale_for_animal(
+        db_session, test_user_with_role_permissions_branch_auth, test_branch, animal
+    )
+    client.post(f"/api/v1/sales/{sale.id}/complete", headers=auth_headers)
+
+    res = client.post(f"/api/v1/sales/{sale.id}/email-ticket",
+                      json={"email": "cliente@example.com"}, headers=auth_headers)
+    # sin RESEND_API_KEY configurada el endpoint responde 503, no 500
+    assert res.status_code == 503, res.text
