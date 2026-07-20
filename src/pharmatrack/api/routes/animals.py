@@ -56,8 +56,13 @@ def _validate_morphs(db: Session, morph_ids: list[int], species_id: int) -> list
     return morphs
 
 
-def _animal_title(species: Species, code: str) -> str:
-    return f"{species.common_name or species.name} {code}"
+def _animal_title(species: Species, code: str, morphs: list[Morph] | None = None) -> str:
+    # El morph en el título distingue gemelos de la misma especie en el POS
+    # y en el buscador de paquetes ("Murina Glacier AN-X" vs "Murina Papaya AN-Y")
+    parts = [species.common_name or species.name]
+    parts.extend(m.name for m in (morphs or []))
+    parts.append(code)
+    return " ".join(parts)
 
 
 def _query_with_relations(db: Session):
@@ -156,7 +161,7 @@ async def create_animal(payload: AnimalCreate, db: db_dependency):
     # Sin image explícita, la primera foto es la principal
     main_image = payload.image or (payload.photos[0] if payload.photos else None)
 
-    title = _animal_title(species, code)
+    title = _animal_title(species, code, morphs)
     product = Product(
         title=title,
         slug=slugify(title),
@@ -276,7 +281,7 @@ async def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency
         product.sku = animal.code
         product.description = animal.description
         product.image = animal.image
-        title = _animal_title(species, animal.code)
+        title = _animal_title(species, animal.code, animal.morphs)
         if title != product.title:
             product.title = title
             product.slug = slugify(title)
