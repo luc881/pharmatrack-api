@@ -103,6 +103,9 @@ PERMISSIONS = [
 
     # Articles (divulgacion del sitio publico)
     "articles.read", "articles.create", "articles.update", "articles.delete",
+
+    # Pedidos del sitio publico
+    "orders.read", "orders.create", "orders.update", "orders.delete",
 ]
 
 

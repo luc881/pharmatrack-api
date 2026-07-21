@@ -44,6 +44,17 @@ class Settings(BaseSettings):
     # =========================================================
     resend_api_key: str = ""
     frontend_url: str = "https://pharmatrack-frontend.vercel.app"
+    # A donde llega el aviso de pedido nuevo. Vacio = no se manda.
+    order_notify_email: str = ""
+
+    # =========================================================
+    # 👤 Login de clientes con Google (sitio publico)
+    # =========================================================
+    # Mismo client id que usa Auth.js en pharmatrack-web; el token que manda
+    # el sitio solo se acepta si fue emitido para esta aplicacion.
+    google_client_id: str = ""
+    # URL del sitio publico (links de "ver mi pedido" en los correos)
+    site_url: str = "https://www.farmaciaselene.com"
 
     # =========================================================
     # 📋 Logging

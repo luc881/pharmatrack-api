@@ -6,7 +6,12 @@ from typing import Annotated
 from sqlalchemy.orm import Session, selectinload
 from ..db.session import get_db, db_dependency
 from passlib.context import CryptContext
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from fastapi.security import (
+    HTTPBearer,
+    HTTPAuthorizationCredentials,
+    OAuth2PasswordRequestForm,
+    OAuth2PasswordBearer,
+)
 from datetime import timedelta, datetime, timezone
 from jose import jwt, JWTError
 import secrets
@@ -67,6 +72,10 @@ async def decode_jwt_token(token: oauth2_dependency):
     )
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        # Un token de cliente de la tienda NO sirve para el dashboard: su "id"
+        # es de la tabla customers y podría chocar con el id de un usuario real.
+        if payload.get("scope") == CUSTOMER_SCOPE:
+            raise credentials_exception
         username: str = payload.get("sub")
         user_id: int = payload.get("id")
         user_role: str = payload.get("role")
@@ -78,6 +87,51 @@ async def decode_jwt_token(token: oauth2_dependency):
 
 
 user_dependency = Annotated[dict, Depends(decode_jwt_token)]
+
+
+# =========================================================
+# 🔹 Clientes de la tienda (sitio público)
+# =========================================================
+# Token aparte del staff: mismo secreto, pero marcado con scope y rechazado
+# explícitamente por decode_jwt_token. Un cliente nunca toca el dashboard.
+CUSTOMER_SCOPE = "customer"
+CUSTOMER_TOKEN_EXPIRE_DAYS = 30
+
+customer_scheme = HTTPBearer(auto_error=False)
+
+
+def create_customer_token(customer_id: int, email: str) -> str:
+    encode = {
+        "sub": email,
+        "id": customer_id,
+        "scope": CUSTOMER_SCOPE,
+        "exp": datetime.now(timezone.utc) + timedelta(days=CUSTOMER_TOKEN_EXPIRE_DAYS),
+    }
+    return jwt.encode(encode, settings.secret_key, algorithm=settings.algorithm)
+
+
+async def decode_customer_token(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(customer_scheme)],
+):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid authentication",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    if credentials is None:
+        raise credentials_exception
+    try:
+        payload = jwt.decode(credentials.credentials, settings.secret_key,
+                             algorithms=[settings.algorithm])
+    except JWTError:
+        raise credentials_exception
+    # Al revés que arriba: aquí solo entran tokens de cliente, nunca de staff
+    if payload.get("scope") != CUSTOMER_SCOPE or payload.get("id") is None:
+        raise credentials_exception
+    return {"id": payload["id"], "email": payload.get("sub")}
+
+
+customer_dependency = Annotated[dict, Depends(decode_customer_token)]
 
 
 # =========================================================
