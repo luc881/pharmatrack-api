@@ -8,6 +8,7 @@ Un pedido es una SOLICITUD, no una venta: no toca stock, lotes ni corte de
 caja. Cuando lo confirmas, registras la venta en el POS como siempre.
 """
 import re
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
 
@@ -221,10 +222,29 @@ async def list_my_orders(db: db_dependency, token_data: customer_dependency):
 #    seguir metiendo más (y el mensaje le explica qué hacer)
 #  - pedido idéntico a uno pendiente = duplicado por confusión, se rechaza
 #    diciéndole el folio que ya tiene
+#  - tope diario de creación (cuenta también los cancelados): sin esto, el
+#    bucle crear→cancelar→crear brincaría el tope de pendientes y cada
+#    creación te manda un correo
 MAX_PENDING_ORDERS = 3
+MAX_ORDERS_PER_DAY = 10
 
 
 def _reject_order_flood(db, customer_id: int, items) -> None:
+    created_today = (
+        db.query(Order)
+        .filter(Order.customer_id == customer_id,
+                # created_at es naive-UTC en la BD (Postgres corre en UTC)
+                Order.created_at >= datetime.now(timezone.utc).replace(tzinfo=None)
+                - timedelta(hours=24))
+        .count()
+    )
+    if created_today >= MAX_ORDERS_PER_DAY:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Has hecho demasiados pedidos en las últimas 24 horas. "
+                   "Escríbenos por WhatsApp y te ayudamos directo.",
+        )
+
     pending = (
         db.query(Order)
         .options(selectinload(Order.items))
@@ -289,6 +309,29 @@ async def create_order(request: Request, body: OrderCreate, db: db_dependency,
     except Exception as exc:  # noqa: BLE001
         logger.error("Order %s saved but email failed: %s", order.id, exc)
 
+    return order
+
+
+@router.delete("/orders/{order_id}", response_model=OrderResponse,
+               summary="Public: cancelar mi pedido pendiente")
+@limiter.limit("10/minute")
+async def cancel_my_order(request: Request, order_id: int, db: db_dependency,
+                          token_data: customer_dependency):
+    # Sólo el dueño y sólo pendientes: un pedido confirmado ya se está
+    # preparando — eso se habla por WhatsApp, no con un botón.
+    order = db.query(Order).filter(
+        Order.id == order_id, Order.customer_id == token_data["id"]
+    ).first()
+    if order is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found.")
+    if order.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Este pedido ya fue confirmado; escríbenos por WhatsApp para cambiarlo.",
+        )
+    order.status = "cancelled"
+    db.commit()
+    db.refresh(order)
     return order
 
 

@@ -218,6 +218,65 @@ def test_pending_orders_are_capped(fake_google, auth_headers):
     assert res.status_code == 201, res.text
 
 
+def test_customer_cancels_own_pending_order(fake_google, auth_headers):
+    _group, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], price=500.0)
+    headers = _sign_in()
+    order = client.post("/api/v1/shop/orders", headers=headers,
+                        json={"items": [{"key": f"s{sp['id']}-u", "qty": 1}]}).json()
+
+    res = client.delete(f"/api/v1/shop/orders/{order['id']}", headers=headers)
+    assert res.status_code == 200, res.text
+    assert res.json()["status"] == "cancelled"
+
+    # cancelar libera el candado de duplicado: puede volver a pedir lo mismo
+    again = client.post("/api/v1/shop/orders", headers=headers,
+                        json={"items": [{"key": f"s{sp['id']}-u", "qty": 1}]})
+    assert again.status_code == 201, again.text
+
+
+def test_customer_cannot_cancel_foreign_or_confirmed(fake_google, auth_headers, monkeypatch):
+    _group, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], price=500.0)
+    headers = _sign_in()
+    order = client.post("/api/v1/shop/orders", headers=headers,
+                        json={"items": [{"key": f"s{sp['id']}-u", "qty": 1}]}).json()
+
+    # otro cliente no puede cancelarlo (ni saber que existe: 404)
+    monkeypatch.setattr(
+        "pharmatrack.api.routes.shop.verify_google_id_token",
+        lambda _t: {"sub": "google-999", "email": "otro@example.com",
+                    "name": "Otro", "picture": None},
+    )
+    other = _sign_in()
+    assert client.delete(f"/api/v1/shop/orders/{order['id']}", headers=other).status_code == 404
+
+    # confirmado ya no se cancela desde la cuenta
+    client.put(f"/api/v1/orders/{order['id']}", headers=auth_headers,
+               json={"status": "confirmed"})
+    res = client.delete(f"/api/v1/shop/orders/{order['id']}", headers=headers)
+    assert res.status_code == 409
+    assert "WhatsApp" in res.json()["detail"]
+
+
+def test_daily_creation_cap_stops_create_cancel_loop(fake_google, auth_headers):
+    _group, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], price=500.0)
+    headers = _sign_in()
+    payload = {"items": [{"key": f"s{sp['id']}-u", "qty": 1}]}
+
+    # crear→cancelar en bucle: el tope de pendientes no lo frena…
+    for _ in range(10):
+        res = client.post("/api/v1/shop/orders", headers=headers, json=payload)
+        assert res.status_code == 201, res.text
+        client.delete(f"/api/v1/shop/orders/{res.json()['id']}", headers=headers)
+
+    # …pero el tope diario sí
+    res = client.post("/api/v1/shop/orders", headers=headers, json=payload)
+    assert res.status_code == 409
+    assert "24 horas" in res.json()["detail"]
+
+
 # =========================================================
 # Pedidos en el dashboard
 # =========================================================
