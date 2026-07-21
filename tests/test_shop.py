@@ -167,6 +167,57 @@ def test_orders_are_private_to_their_customer(fake_google, auth_headers, monkeyp
     assert client.get("/api/v1/shop/orders", headers=other).json() == []
 
 
+def test_identical_pending_order_is_rejected(fake_google, auth_headers):
+    _group, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], price=500.0)
+    headers = _sign_in()
+    payload = {"items": [{"key": f"s{sp['id']}-u", "qty": 1}]}
+
+    first = client.post("/api/v1/shop/orders", headers=headers, json=payload)
+    assert first.status_code == 201
+
+    dup = client.post("/api/v1/shop/orders", headers=headers, json=payload)
+    assert dup.status_code == 409
+    assert f"#{first.json()['id']}" in dup.json()["detail"]
+
+    # con otra cantidad ya no es duplicado
+    other = client.post("/api/v1/shop/orders", headers=headers,
+                        json={"items": [{"key": f"s{sp['id']}-u", "qty": 2}]})
+    assert other.status_code == 201, other.text
+
+    # y si el pendiente se confirma, el mismo contenido vuelve a ser válido
+    client.put(f"/api/v1/orders/{first.json()['id']}", headers=auth_headers,
+               json={"status": "confirmed"})
+    again = client.post("/api/v1/shop/orders", headers=headers, json=payload)
+    assert again.status_code == 201, again.text
+
+
+def test_pending_orders_are_capped(fake_google, auth_headers):
+    _group, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], price=500.0)
+    headers = _sign_in()
+
+    # 3 pedidos pendientes distintos (cantidades diferentes)
+    for qty in (1, 2, 3):
+        res = client.post("/api/v1/shop/orders", headers=headers,
+                          json={"items": [{"key": f"s{sp['id']}-u", "qty": qty}]})
+        assert res.status_code == 201, res.text
+
+    # el cuarto se rechaza aunque sea distinto
+    res = client.post("/api/v1/shop/orders", headers=headers,
+                      json={"items": [{"key": f"s{sp['id']}-u", "qty": 4}]})
+    assert res.status_code == 409
+    assert "pendientes" in res.json()["detail"]
+
+    # atender uno libera el cupo
+    first_id = client.get("/api/v1/shop/orders", headers=headers).json()[-1]["id"]
+    client.put(f"/api/v1/orders/{first_id}", headers=auth_headers,
+               json={"status": "cancelled"})
+    res = client.post("/api/v1/shop/orders", headers=headers,
+                      json={"items": [{"key": f"s{sp['id']}-u", "qty": 4}]})
+    assert res.status_code == 201, res.text
+
+
 # =========================================================
 # Pedidos en el dashboard
 # =========================================================

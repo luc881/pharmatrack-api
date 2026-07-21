@@ -35,7 +35,7 @@ from ...utils.google_auth import verify_google_id_token
 from ...utils.logger import get_logger
 from ...utils.pagination import paginate, PaginationParams, PaginatedResponse
 from ...utils.permissions import CAN_READ_ORDERS, CAN_UPDATE_ORDERS
-from ...utils.rate_limit import limiter, LIMIT_AUTH, LIMIT_WRITE
+from ...utils.rate_limit import limiter, LIMIT_AUTH
 from ...utils.security import create_customer_token, customer_dependency
 from .animal_taxonomy import hidden_group_ids
 
@@ -216,12 +216,44 @@ async def list_my_orders(db: db_dependency, token_data: customer_dependency):
     )
 
 
+# Anti-spam de pedidos (por cliente, no por IP):
+#  - tope de pedidos pendientes: mientras no atiendas los que tiene, no puede
+#    seguir metiendo más (y el mensaje le explica qué hacer)
+#  - pedido idéntico a uno pendiente = duplicado por confusión, se rechaza
+#    diciéndole el folio que ya tiene
+MAX_PENDING_ORDERS = 3
+
+
+def _reject_order_flood(db, customer_id: int, items) -> None:
+    pending = (
+        db.query(Order)
+        .options(selectinload(Order.items))
+        .filter(Order.customer_id == customer_id, Order.status == "pending")
+        .all()
+    )
+    wanted = sorted((line.key, float(line.qty)) for line in items)
+    for existing in pending:
+        if sorted((i.item_key, float(i.quantity)) for i in existing.items) == wanted:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Este pedido es idéntico a tu pedido #{existing.id}, que sigue "
+                       "pendiente. Puedes verlo en «Mis pedidos».",
+            )
+    if len(pending) >= MAX_PENDING_ORDERS:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Ya tienes {len(pending)} pedidos pendientes. Espera a que los "
+                   "confirmemos (o escríbenos por WhatsApp) antes de hacer otro.",
+        )
+
+
 @router.post("/orders", response_model=OrderResponse, status_code=status.HTTP_201_CREATED,
              summary="Public: hacer un pedido")
-@limiter.limit(LIMIT_WRITE)
+@limiter.limit("5/minute")
 async def create_order(request: Request, body: OrderCreate, db: db_dependency,
                        token_data: customer_dependency):
     customer = _current_customer(db, token_data)
+    _reject_order_flood(db, customer.id, body.items)
 
     order = Order(
         customer_id=customer.id,
