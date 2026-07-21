@@ -4,7 +4,8 @@ from pharmatrack.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-FROM_ADDRESS = "noreply@contact.farmaciaselene.com"
+# Configurable via EMAIL_FROM (migracion de dominio sin tocar codigo)
+FROM_ADDRESS = settings.email_from
 
 
 def send_password_reset_email(to_email: str, token: str) -> None:
