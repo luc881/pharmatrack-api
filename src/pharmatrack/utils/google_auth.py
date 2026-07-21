@@ -18,6 +18,12 @@ TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo"
 _VALID_ISSUERS = {"accounts.google.com", "https://accounts.google.com"}
 
 
+def expected_client_id() -> str:
+    """El client id configurado, limpio de espacios/comillas que se cuelan
+    al pegarlo en el panel de variables (causa real de un aud mismatch)."""
+    return settings.google_client_id.strip().strip("'\"").strip()
+
+
 def verify_google_id_token(id_token: str) -> dict:
     """Devuelve {sub, email, name, picture} o lanza 401. Nunca confía en el
     contenido sin comprobar que el token fue emitido PARA esta aplicación."""
@@ -26,7 +32,7 @@ def verify_google_id_token(id_token: str) -> dict:
         detail="Google sign-in failed.",
     )
 
-    if not settings.google_client_id:
+    if not expected_client_id():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Google sign-in is not configured.",
@@ -46,8 +52,12 @@ def verify_google_id_token(id_token: str) -> dict:
 
     # aud: el token debe haber sido emitido para NUESTRO client id, si no
     # cualquier token de Google de otra app valdría aquí.
-    if data.get("aud") != settings.google_client_id:
-        logger.warning("Google id_token with unexpected aud=%s", data.get("aud"))
+    # expected_client_id() tolera espacios/comillas pegados en la variable;
+    # el client id es público (va en cada URL de login), se puede loggear.
+    expected = expected_client_id()
+    if data.get("aud") != expected:
+        logger.warning("Google id_token aud mismatch: got=%s expected=%s",
+                       data.get("aud"), expected)
         raise invalid
     if data.get("iss") not in _VALID_ISSUERS:
         raise invalid
