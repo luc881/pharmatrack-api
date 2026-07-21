@@ -22,4 +22,4 @@ if ($LASTEXITCODE -ne 0) { Write-Host "La cache de imagenes fallo (la BD local s
 Write-Host ""
 Write-Host "LISTO: BD local actualizada con produccion. Ya puedes trabajar offline." -ForegroundColor Green
 Write-Host "Si el stack local estaba corriendo, reinicialo (PharmaTrack - Iniciar)." -ForegroundColor Cyan
-Write-Host "Regla: mientras trabajes offline NO edites nada en app.farmaciaselene.com." -ForegroundColor Yellow
+Write-Host "Regla: mientras trabajes offline NO edites nada en app.opuntiaden.com." -ForegroundColor Yellow

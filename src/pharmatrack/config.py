@@ -33,26 +33,20 @@ class Settings(BaseSettings):
     # En producción, setear ALLOWED_ORIGINS en Railway como JSON:
     # ["https://app.opuntiaden.com"]
     # No usar "*" con allow_credentials=True — los browsers lo rechazan.
-    # Migración a opuntiaden.com: ambos dominios conviven mientras dura el
-    # cambio; los de farmaciaselene se podrán quitar cuando todo apunte al nuevo.
     allowed_origins: list[str] = [
         "https://app.opuntiaden.com",
         "https://www.opuntiaden.com",
         "https://opuntiaden.com",
-        "https://app.farmaciaselene.com",
-        "https://www.farmaciaselene.com",
-        "https://farmaciaselene.com",
     ]
 
     # =========================================================
     # 📧 Email (Resend)
     # =========================================================
     resend_api_key: str = ""
-    # Remitente de todos los correos. El default sigue en el dominio viejo
-    # porque es el que está verificado en Resend; cuando opuntiaden.com quede
-    # verificado, setear EMAIL_FROM en Railway (no hace falta tocar código).
-    email_from: str = "noreply@contact.farmaciaselene.com"
-    frontend_url: str = "https://pharmatrack-frontend.vercel.app"
+    # Remitente de todos los correos; el dominio debe estar verificado en
+    # Resend o el envío falla (el pedido/venta se guarda igual).
+    email_from: str = "noreply@contact.opuntiaden.com"
+    frontend_url: str = "https://app.opuntiaden.com"
     # A donde llega el aviso de pedido nuevo. Vacio = no se manda.
     order_notify_email: str = ""
 
