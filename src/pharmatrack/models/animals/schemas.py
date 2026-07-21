@@ -2,7 +2,7 @@ from typing import Optional, List
 from datetime import datetime, date
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
-from pharmatrack.types.animals import AnimalSexEnum, AnimalStatusEnum, SaleFormatEnum
+from pharmatrack.types.animals import AnimalSexEnum, AnimalStatusEnum, SaleFormatEnum, HusbandryStatusEnum
 from pharmatrack.types.common import DescriptionStr, ImageURLStr
 from pharmatrack.utils.normalize import norm_title
 
@@ -167,6 +167,10 @@ class SpeciesUpdate(BaseModel):
     habitat: Optional[DescriptionStr] = None
     diet: Optional[DescriptionStr] = None
     notes: Optional[DescriptionStr] = None
+    # Manejo/cria (privado)
+    husbandry_status: Optional[HusbandryStatusEnum] = None
+    low_stock_threshold: Optional[int] = Field(None, ge=1)
+    private_notes: Optional[str] = Field(None, max_length=5000)
 
     @field_validator("name", "common_name", mode="before")
     @classmethod
@@ -181,6 +185,17 @@ class SpeciesResponse(SpeciesBase):
     genus: Optional[GenusResponse] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SpeciesAdminResponse(SpeciesResponse):
+    """Igual que SpeciesResponse pero con los campos privados de manejo/cria.
+    Solo la usan las rutas admin de /species; el catalogo publico usa
+    SpeciesResponse (sin estos campos) para no filtrar datos internos."""
+    husbandry_status: HusbandryStatusEnum = HusbandryStatusEnum.ACTIVE
+    low_stock_threshold: Optional[int] = None
+    private_notes: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -82,6 +82,12 @@ class Species(Base):
     diet: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # === Manejo/cria (PRIVADO — nunca se expone en la API publica) ===
+    # Estado de cria; low_stock_threshold NULL = usa el default global del panel
+    husbandry_status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="active")
+    low_stock_threshold: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    private_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=False), server_default=func.now(), onupdate=func.now()

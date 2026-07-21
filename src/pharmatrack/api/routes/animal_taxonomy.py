@@ -7,6 +7,7 @@ from starlette import status
 from ...db.session import db_dependency
 from ...models.animals.orm import AnimalGroup, Genus, Species, Morph, Animal, animal_has_morphs
 from ...models.animals.schemas import (
+    SpeciesAdminResponse,
     AnimalGroupCreate, AnimalGroupUpdate, AnimalGroupResponse, AnimalGroupTreeResponse,
     GenusCreate, GenusUpdate, GenusResponse,
     SpeciesCreate, SpeciesUpdate, SpeciesResponse,
@@ -252,7 +253,7 @@ async def delete_genus(genus_id: int, db: db_dependency):
 # =========================================================
 # Species
 # =========================================================
-@species_router.get("", response_model=PaginatedResponse[SpeciesResponse],
+@species_router.get("", response_model=PaginatedResponse[SpeciesAdminResponse],
                     summary="List species", dependencies=CAN_READ_SPECIES)
 async def list_species(db: db_dependency, genus_id: Optional[int] = None,
                        pagination: PaginationParams = Depends()):
@@ -262,7 +263,7 @@ async def list_species(db: db_dependency, genus_id: Optional[int] = None,
     return paginate(query.order_by(Species.name.asc()), pagination)
 
 
-@species_router.get("/{species_id}", response_model=SpeciesResponse,
+@species_router.get("/{species_id}", response_model=SpeciesAdminResponse,
                     summary="Get species by ID", dependencies=CAN_READ_SPECIES)
 async def get_species(species_id: int, db: db_dependency):
     species = db.get(Species, species_id)
@@ -271,7 +272,7 @@ async def get_species(species_id: int, db: db_dependency):
     return species
 
 
-@species_router.post("", response_model=SpeciesResponse, status_code=status.HTTP_201_CREATED,
+@species_router.post("", response_model=SpeciesAdminResponse, status_code=status.HTTP_201_CREATED,
                      summary="Create a species", dependencies=CAN_CREATE_SPECIES)
 async def create_species(payload: SpeciesCreate, db: db_dependency):
     if not db.get(Genus, payload.genus_id):
@@ -288,7 +289,7 @@ async def create_species(payload: SpeciesCreate, db: db_dependency):
     return species
 
 
-@species_router.put("/{species_id}", response_model=SpeciesResponse,
+@species_router.put("/{species_id}", response_model=SpeciesAdminResponse,
                     summary="Update a species", dependencies=CAN_UPDATE_SPECIES)
 async def update_species(species_id: int, payload: SpeciesUpdate, db: db_dependency):
     species = db.get(Species, species_id)
