@@ -59,4 +59,9 @@ async def public_get_animal(animal_id: int, db: db_dependency):
     animal = _query_with_relations(db).filter(Animal.id == animal_id).first()
     if not animal:
         raise HTTPException(status_code=404, detail="Animal not found.")
+    # Un grupo oculto también oculta el detalle (el listado ya lo excluye,
+    # pero un link directo no debe seguir mostrando el animal)
+    group_id = animal.species.genus.group_id if animal.species and animal.species.genus else None
+    if group_id is not None and group_id in hidden_group_ids(db):
+        raise HTTPException(status_code=404, detail="Animal not found.")
     return animal

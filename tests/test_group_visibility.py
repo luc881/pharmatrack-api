@@ -26,6 +26,11 @@ def test_hidden_root_group_disappears_from_public(auth_headers, db_session):
     animals = client.get("/api/v1/public/animals").json()["data"]
     assert not any(a["species"]["id"] == sp["id"] for a in animals)
 
+    # el detalle por link directo tampoco debe mostrarlo (404)
+    admin_animals = client.get("/api/v1/animals", headers=auth_headers,
+                               params={"species_id": sp["id"]}).json()["data"]
+    assert client.get(f"/api/v1/public/animals/{admin_animals[0]['id']}").status_code == 404
+
     # el admin sigue viéndolo todo
     admin = client.get("/api/v1/animals", headers=auth_headers).json()["data"]
     assert any(a["species"]["id"] == sp["id"] for a in admin)
