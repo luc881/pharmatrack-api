@@ -132,6 +132,7 @@ def health_check():
             "payments": payments_configured(),
             "webhook_signature": bool(settings.mercadopago_webhook_secret.strip()),
             "email": bool(settings.resend_api_key),
+            "order_notify": bool(settings.order_notify_email.strip()),
         },
     }
 
