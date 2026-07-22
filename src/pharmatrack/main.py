@@ -130,6 +130,7 @@ def health_check():
         "integrations": {
             "google_sign_in": bool(expected_client_id()),
             "payments": payments_configured(),
+            "webhook_signature": bool(settings.mercadopago_webhook_secret.strip()),
             "email": bool(settings.resend_api_key),
         },
     }

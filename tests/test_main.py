@@ -17,5 +17,6 @@ def test_health_check_reports_integrations_without_leaking_secrets():
     body = client.get("/healthcheck").json()
     integrations = body["integrations"]
     # solo banderas booleanas: nunca el valor de las credenciales
-    assert set(integrations) == {"google_sign_in", "payments", "email"}
+    assert set(integrations) == {"google_sign_in", "payments",
+                                 "webhook_signature", "email"}
     assert all(isinstance(value, bool) for value in integrations.values())
