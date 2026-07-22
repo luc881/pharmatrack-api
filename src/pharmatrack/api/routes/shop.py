@@ -35,6 +35,7 @@ from ...models.customers.schemas import (
 from ...models.products.orm import Product
 from ...utils.email import send_order_emails, send_order_paid_email
 from ...utils.google_auth import verify_google_id_token
+from ...utils.mx_address import MX_STATES, format_address
 from ...utils.mercadopago import (
     get_payment,
     valid_signature,
@@ -49,6 +50,10 @@ from ...utils.security import create_customer_token, customer_dependency
 from .animal_taxonomy import hidden_group_ids
 
 logger = get_logger(__name__)
+
+# Partes que componen el texto de `address`
+ADDRESS_PARTS = ("street", "ext_number", "int_number", "neighborhood",
+                 "zip_code", "city", "state", "address_notes")
 
 router = APIRouter(prefix="/shop", tags=["Shop"])
 orders_router = APIRouter(prefix="/orders", tags=["Orders"])
@@ -101,11 +106,25 @@ async def read_me(db: db_dependency, token_data: customer_dependency):
 async def update_me(body: CustomerUpdate, db: db_dependency, token_data: customer_dependency):
     customer = _current_customer(db, token_data)
     # exclude_unset: el sitio manda solo lo que cambio (favoritos, carrito o perfil)
-    for field, value in body.model_dump(exclude_unset=True).items():
+    changes = body.model_dump(exclude_unset=True)
+    for field, value in changes.items():
         setattr(customer, field, value)
+
+    # `address` es derivado: se recompone cuando cambia cualquier parte, para
+    # que pedidos y correos (que copian ese texto) sigan cuadrando
+    if any(field in changes for field in ADDRESS_PARTS):
+        customer.address = format_address(
+            {field: getattr(customer, field) for field in ADDRESS_PARTS}
+        ) or None
     db.commit()
     db.refresh(customer)
     return customer
+
+
+@router.get("/mx-states", summary="Public: catalogo de estados de Mexico")
+async def list_mx_states():
+    """Público y sin auth: el formulario de dirección lo usa para el selector."""
+    return list(MX_STATES)
 
 
 # =========================================================

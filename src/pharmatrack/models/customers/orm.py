@@ -38,7 +38,19 @@ class Customer(Base):
     name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     avatar: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    # Texto ya formateado a partir de los campos de abajo. Se conserva porque
+    # es lo que copian los pedidos y los correos: los campos estructurados se
+    # agregaron debajo sin romper nada de lo que ya consumía `address`.
     address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    street: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    ext_number: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    int_number: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    neighborhood: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    zip_code: Mapped[Optional[str]] = mapped_column(String(5), nullable=True)
+    city: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    state: Mapped[Optional[str]] = mapped_column(String(60), nullable=True)
+    address_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     favorites: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     cart: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)

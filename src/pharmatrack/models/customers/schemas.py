@@ -12,7 +12,31 @@ DeliveryMethod = Literal[DELIVERY_METHODS]  # type: ignore[valid-type]
 # =========================================================
 # Cliente
 # =========================================================
-class CustomerResponse(BaseModel):
+
+# Campos de direccion, compartidos por lectura y escritura. El texto
+# `address` no se manda: lo compone el servidor a partir de estos.
+class AddressFields(BaseModel):
+    street: Optional[str] = Field(None, max_length=200)
+    ext_number: Optional[str] = Field(None, max_length=20)
+    int_number: Optional[str] = Field(None, max_length=20)
+    neighborhood: Optional[str] = Field(None, max_length=150)
+    zip_code: Optional[str] = Field(None, max_length=5)
+    city: Optional[str] = Field(None, max_length=150)
+    state: Optional[str] = Field(None, max_length=60)
+    address_notes: Optional[str] = None
+
+    @field_validator("zip_code")
+    @classmethod
+    def _five_digits(cls, value):
+        if value in (None, ""):
+            return None
+        value = value.strip()
+        if not (value.isdigit() and len(value) == 5):
+            raise ValueError("El código postal son 5 dígitos.")
+        return value
+
+
+class CustomerResponse(AddressFields):
     id: int
     email: str
     name: Optional[str] = None
@@ -32,12 +56,11 @@ class CustomerResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class CustomerUpdate(BaseModel):
+class CustomerUpdate(AddressFields):
     """Todo opcional: el sitio manda solo lo que cambió (perfil, favoritos o carrito)."""
 
     name: Optional[str] = Field(None, max_length=255)
     phone: Optional[str] = Field(None, max_length=50)
-    address: Optional[str] = None
     favorites: Optional[List[str]] = None
     cart: Optional[List[dict]] = None
 
