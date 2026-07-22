@@ -8,6 +8,9 @@ Regla de seguridad: el webhook NUNCA se cree lo que trae en el cuerpo. Solo
 se le toma el id del pago y se consulta a Mercado Pago con nuestro token;
 lo que diga esa consulta es lo único que marca un pedido como pagado.
 """
+import hmac
+import hashlib
+
 import httpx
 from fastapi import HTTPException
 from starlette import status
@@ -22,6 +25,36 @@ API = "https://api.mercadopago.com"
 
 def is_configured() -> bool:
     return bool(settings.mercadopago_access_token.strip())
+
+
+def valid_signature(x_signature: str, x_request_id: str, data_id: str) -> bool:
+    """Firma HMAC del webhook (cabecera x-signature).
+
+    Es una capa previa, no la que da seguridad: aunque alguien falsifique una
+    firma válida, el pago se sigue verificando contra la API de Mercado Pago.
+    Sirve para descartar ruido sin gastar una llamada saliente por petición.
+
+    Sin MERCADOPAGO_WEBHOOK_SECRET configurado devuelve True: el sistema debe
+    seguir funcionando si el secreto aún no se ha puesto.
+    """
+    secret = settings.mercadopago_webhook_secret.strip()
+    if not secret:
+        return True
+    if not x_signature:
+        return False
+
+    # x-signature: "ts=1704908010,v1=618c85345248dd820d5fd4..."
+    parts = dict(
+        piece.split("=", 1) for piece in x_signature.split(",") if "=" in piece
+    )
+    ts, received = parts.get("ts", "").strip(), parts.get("v1", "").strip()
+    if not ts or not received:
+        return False
+
+    manifest = f"id:{data_id};request-id:{x_request_id};ts:{ts};"
+    expected = hmac.new(secret.encode(), manifest.encode(), hashlib.sha256).hexdigest()
+    # compare_digest: comparación en tiempo constante
+    return hmac.compare_digest(expected, received)
 
 
 def _headers() -> dict:

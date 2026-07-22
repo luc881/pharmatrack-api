@@ -67,6 +67,10 @@ class Settings(BaseSettings):
     # credencial es la que decide el ambiente. Vacio = pagos en linea apagados
     # (503) y todo sigue por link de pago manual.
     mercadopago_access_token: str = ""
+    # "Clave secreta" del webhook (panel > Notificaciones > Webhooks). Valida
+    # la firma de los avisos antes de consultarlos. Vacio = no se valida (el
+    # pago igual se verifica contra la API, que es lo que da la seguridad).
+    mercadopago_webhook_secret: str = ""
 
     # =========================================================
     # 📋 Logging

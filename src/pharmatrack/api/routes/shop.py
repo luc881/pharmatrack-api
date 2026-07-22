@@ -35,7 +35,12 @@ from ...models.customers.schemas import (
 from ...models.products.orm import Product
 from ...utils.email import send_order_emails, send_order_paid_email
 from ...utils.google_auth import verify_google_id_token
-from ...utils.mercadopago import get_payment, create_preference, find_approved_payment
+from ...utils.mercadopago import (
+    get_payment,
+    valid_signature,
+    create_preference,
+    find_approved_payment,
+)
 from ...utils.logger import get_logger
 from ...utils.pagination import paginate, PaginationParams, PaginatedResponse
 from ...utils.permissions import CAN_READ_ORDERS, CAN_UPDATE_ORDERS
@@ -411,6 +416,16 @@ async def mercadopago_webhook(request: Request, db: db_dependency):
     )
     # Siempre 200: si respondemos error, Mercado Pago reintenta en bucle
     if not payment_id:
+        return {"received": True}
+
+    # Filtro previo: descarta ruido sin gastar una llamada a Mercado Pago.
+    # No es lo que da la seguridad — eso lo hace la consulta de abajo.
+    if not valid_signature(
+        request.headers.get("x-signature", ""),
+        request.headers.get("x-request-id", ""),
+        payment_id,
+    ):
+        logger.warning("Webhook con firma inválida para el pago %s", payment_id)
         return {"received": True}
 
     payment = get_payment(payment_id)

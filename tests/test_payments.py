@@ -167,3 +167,68 @@ def test_paid_order_cannot_be_cancelled_by_customer(order_with_pickup, monkeypat
 
 def test_webhook_without_payment_id_is_ignored():
     assert client.post("/api/v1/shop/payments/webhook", json={}).status_code == 200
+
+
+# =========================================================
+# Firma del webhook (capa previa, opcional)
+# =========================================================
+SECRET = "clave-de-prueba"
+
+
+def _signature(data_id: str, request_id: str, ts: str = "1700000000") -> str:
+    import hmac, hashlib
+    manifest = f"id:{data_id};request-id:{request_id};ts:{ts};"
+    v1 = hmac.new(SECRET.encode(), manifest.encode(), hashlib.sha256).hexdigest()
+    return f"ts={ts},v1={v1}"
+
+
+@pytest.fixture
+def signed(monkeypatch):
+    from pharmatrack.utils import mercadopago
+    monkeypatch.setattr(mercadopago.settings, "mercadopago_webhook_secret", SECRET)
+
+
+def test_signature_is_optional_when_no_secret(order_with_pickup, monkeypatch):
+    """Sin secreto configurado el webhook sigue funcionando: no se puede
+    romper el cobro por no haber puesto una variable opcional."""
+    headers, order = order_with_pickup
+    monkeypatch.setattr("pharmatrack.api.routes.shop.get_payment",
+                        lambda _id: _approved(order))
+    client.post("/api/v1/shop/payments/webhook", json={"data": {"id": "111"}})
+    assert client.get("/api/v1/shop/orders", headers=headers).json()[0]["status"] == "paid"
+
+
+def test_valid_signature_is_accepted(order_with_pickup, monkeypatch, signed):
+    headers, order = order_with_pickup
+    monkeypatch.setattr("pharmatrack.api.routes.shop.get_payment",
+                        lambda _id: _approved(order))
+
+    res = client.post("/api/v1/shop/payments/webhook", json={"data": {"id": "222"}},
+                      headers={"x-signature": _signature("222", "req-1"),
+                               "x-request-id": "req-1"})
+    assert res.status_code == 200
+    assert client.get("/api/v1/shop/orders", headers=headers).json()[0]["status"] == "paid"
+
+
+def test_bad_signature_is_dropped_before_calling_mercadopago(order_with_pickup,
+                                                             monkeypatch, signed):
+    headers, order = order_with_pickup
+    called = []
+
+    def _spy(payment_id):
+        called.append(payment_id)
+        return _approved(order)
+
+    monkeypatch.setattr("pharmatrack.api.routes.shop.get_payment", _spy)
+
+    # firma inventada
+    res = client.post("/api/v1/shop/payments/webhook", json={"data": {"id": "333"}},
+                      headers={"x-signature": "ts=1700000000,v1=deadbeef",
+                               "x-request-id": "req-2"})
+    assert res.status_code == 200
+    assert called == []  # ni siquiera se consultó a Mercado Pago
+    assert client.get("/api/v1/shop/orders", headers=headers).json()[0]["status"] == "pending"
+
+    # sin cabecera tampoco pasa
+    client.post("/api/v1/shop/payments/webhook", json={"data": {"id": "444"}})
+    assert called == []
