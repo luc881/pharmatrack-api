@@ -124,13 +124,12 @@ def health_check():
     return {
         "status": "ok",
         "message": "API is running",
+        # payments solo dice si hay credencial. NO se puede saber desde aqui
+        # si es de prueba o productiva: Mercado Pago ya no las distingue por
+        # prefijo. Eso se ve en su panel, en la credencial que se copio.
         "integrations": {
             "google_sign_in": bool(expected_client_id()),
             "payments": payments_configured(),
-            "payments_mode": (
-                "test" if settings.mercadopago_access_token.strip().startswith("TEST-")
-                else "live" if payments_configured() else "off"
-            ),
             "email": bool(settings.resend_api_key),
         },
     }

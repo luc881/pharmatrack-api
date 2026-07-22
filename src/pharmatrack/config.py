@@ -62,9 +62,10 @@ class Settings(BaseSettings):
     # =========================================================
     # 💳 Pagos en linea (Mercado Pago Checkout Pro)
     # =========================================================
-    # Access Token de la aplicacion. TEST-... usa el sandbox automaticamente;
-    # vacio = los pagos en linea quedan apagados (503) y todo sigue por link
-    # de pago manual.
+    # Access Token de la aplicacion. Copiar el de PRUEBA para probar sin cobrar
+    # y el PRODUCTIVO para cobrar de verdad: ambos empiezan con APP_USR-, la
+    # credencial es la que decide el ambiente. Vacio = pagos en linea apagados
+    # (503) y todo sigue por link de pago manual.
     mercadopago_access_token: str = ""
 
     # =========================================================

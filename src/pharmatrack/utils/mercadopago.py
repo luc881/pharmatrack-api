@@ -28,8 +28,9 @@ def _headers() -> dict:
     return {"Authorization": f"Bearer {settings.mercadopago_access_token.strip()}"}
 
 
-def _is_test_token() -> bool:
-    return settings.mercadopago_access_token.strip().startswith("TEST-")
+# Mercado Pago ya no marca las credenciales de prueba con un prefijo: tanto
+# las de prueba como las productivas empiezan con APP_USR-. Es la credencial
+# usada la que decide si el cobro es real, no la URL a la que mandemos.
 
 
 def create_preference(order, notification_url: str) -> tuple[str, str]:
@@ -78,8 +79,9 @@ def create_preference(order, notification_url: str) -> tuple[str, str]:
                             detail="No se pudo iniciar el pago.")
 
     data = res.json()
-    # con credenciales de prueba hay que mandar al sandbox
-    url = data.get("sandbox_init_point") if _is_test_token() else data.get("init_point")
+    # init_point sirve para ambos ambientes; sandbox_init_point solo queda de
+    # respaldo para respuestas viejas que no traigan init_point
+    url = data.get("init_point") or data.get("sandbox_init_point")
     if not url:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
                             detail="No se pudo iniciar el pago.")
