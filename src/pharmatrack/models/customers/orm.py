@@ -51,6 +51,9 @@ class Order(Base):
     __tablename__ = "orders"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    # Folio visible (PD-XXXXXXXX, como el code de los animales): no secuencial
+    # para no revelar el volumen de pedidos
+    code: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
     customer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("customers.id"), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="pending")
     total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, server_default="0")

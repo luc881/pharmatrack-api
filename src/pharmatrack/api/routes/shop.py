@@ -8,6 +8,7 @@ Un pedido es una SOLICITUD, no una venta: no toca stock, lotes ni corte de
 caja. Cuando lo confirmas, registras la venta en el POS como siempre.
 """
 import re
+import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
@@ -256,7 +257,7 @@ def _reject_order_flood(db, customer_id: int, items) -> None:
         if sorted((i.item_key, float(i.quantity)) for i in existing.items) == wanted:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Este pedido es idéntico a tu pedido #{existing.id}, que sigue "
+                detail=f"Este pedido es idéntico a tu pedido {existing.code}, que sigue "
                        "pendiente. Puedes verlo en «Mis pedidos».",
             )
     if len(pending) >= MAX_PENDING_ORDERS:
@@ -276,6 +277,8 @@ async def create_order(request: Request, body: OrderCreate, db: db_dependency,
     _reject_order_flood(db, customer.id, body.items)
 
     order = Order(
+        # mismo formato que el code de animales; uuid evita colisiones sin ciclo de reintento
+        code=f"PD-{uuid.uuid4().hex[:8].upper()}",
         customer_id=customer.id,
         status="pending",
         contact_name=body.contact_name or customer.name,

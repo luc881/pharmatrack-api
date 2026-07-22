@@ -157,7 +157,7 @@ def send_order_emails(order, customer, notify_email: str = "") -> None:
 <html lang="es"><head><meta charset="UTF-8"></head>
 <body style="font-family: sans-serif; color:#1a1a1a; max-width:480px; margin:0 auto; padding:24px;">
   <h2 style="margin-bottom:4px;">Opuntia Den</h2>
-  <p style="color:#6b7280;margin:0 0 16px;">Pedido #{order.id}</p>
+  <p style="color:#6b7280;margin:0 0 16px;">Pedido {order.code}</p>
   <p style="margin:0 0 16px;">{intro}</p>
   {body}{contact}
 </body></html>""",
@@ -166,7 +166,7 @@ def send_order_emails(order, customer, notify_email: str = "") -> None:
     try:
         _send(
             customer.email,
-            f"Pedido #{order.id} recibido — Opuntia Den",
+            f"Pedido {order.code} recibido — Opuntia Den",
             "Recibimos tu pedido. Te confirmamos disponibilidad, envío y total en breve; "
             "todavía no se cobra nada.",
         )
@@ -175,6 +175,6 @@ def send_order_emails(order, customer, notify_email: str = "") -> None:
 
     if notify_email:
         try:
-            _send(notify_email, f"Nuevo pedido #{order.id}", "Entró un pedido nuevo desde el sitio.")
+            _send(notify_email, f"Nuevo pedido {order.code}", "Entró un pedido nuevo desde el sitio.")
         except Exception as exc:  # noqa: BLE001
             logger.error("Order %s: notify email failed: %s", order.id, exc)

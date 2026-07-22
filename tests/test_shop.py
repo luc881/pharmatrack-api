@@ -178,7 +178,7 @@ def test_identical_pending_order_is_rejected(fake_google, auth_headers):
 
     dup = client.post("/api/v1/shop/orders", headers=headers, json=payload)
     assert dup.status_code == 409
-    assert f"#{first.json()['id']}" in dup.json()["detail"]
+    assert first.json()["code"] in dup.json()["detail"]
 
     # con otra cantidad ya no es duplicado
     other = client.post("/api/v1/shop/orders", headers=headers,

@@ -90,6 +90,7 @@ class OrderItemResponse(BaseModel):
 
 class OrderResponse(BaseModel):
     id: int
+    code: Optional[str] = None
     status: str
     total: float
     contact_name: Optional[str] = None
