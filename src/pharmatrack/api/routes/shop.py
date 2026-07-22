@@ -283,6 +283,18 @@ async def create_order(request: Request, body: OrderCreate, db: db_dependency,
     customer = _current_customer(db, token_data)
     _reject_order_flood(db, customer.id, body.items)
 
+    # Entrega personal: sin teléfono acabaríamos con un pago acreditado y
+    # ninguna forma de contactar al cliente para entregarle
+    phone = (body.contact_phone or customer.phone or "").strip()
+    if body.delivery_method == "pickup" and len(re.sub(r"\D", "", phone)) < 10:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Necesitamos un teléfono (10 dígitos) para coordinar la entrega personal.",
+        )
+    # De paso se guarda en el perfil si no tenía, para no pedirlo cada vez
+    if body.contact_phone and not customer.phone:
+        customer.phone = body.contact_phone
+
     order = Order(
         # mismo formato que el code de animales; uuid evita colisiones sin ciclo de reintento
         code=f"PD-{uuid.uuid4().hex[:8].upper()}",

@@ -11,11 +11,13 @@ def order_with_pickup(fake_google, auth_headers):  # noqa: F811
     _group, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
     _create_animal(auth_headers, sp["id"], price=250.0)
     headers = _sign_in()
-    order = client.post("/api/v1/shop/orders", headers=headers, json={
+    res = client.post("/api/v1/shop/orders", headers=headers, json={
         "items": [{"key": f"s{sp['id']}-u", "qty": 1}],
         "delivery_method": "pickup",
-    }).json()
-    return headers, order
+        "contact_phone": "5512345678",
+    })
+    assert res.status_code == 201, res.text
+    return headers, res.json()
 
 
 def _approved(order, amount=None, ref=None):
@@ -276,3 +278,51 @@ def test_webhook_survives_garbage_body():
                       content=b"esto no es json",
                       headers={"Content-Type": "application/json"})
     assert res.status_code == 200
+
+
+# =========================================================
+# Teléfono obligatorio en entrega personal
+# =========================================================
+def test_pickup_requires_a_phone(fake_google, auth_headers):  # noqa: F811
+    _group, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], price=250.0)
+    headers = _sign_in()
+    items = [{"key": f"s{sp['id']}-u", "qty": 1}]
+
+    # sin teléfono (ni en el perfil) no hay pedido de entrega personal
+    res = client.post("/api/v1/shop/orders", headers=headers,
+                      json={"items": items, "delivery_method": "pickup"})
+    assert res.status_code == 422
+    assert "teléfono" in res.json()["detail"]
+
+    # tampoco con un teléfono de juguete
+    res = client.post("/api/v1/shop/orders", headers=headers,
+                      json={"items": items, "delivery_method": "pickup",
+                            "contact_phone": "123"})
+    assert res.status_code == 422
+
+    # con teléfono pasa, y de paso queda guardado en el perfil
+    res = client.post("/api/v1/shop/orders", headers=headers,
+                      json={"items": items, "delivery_method": "pickup",
+                            "contact_phone": "55 1234 5678"})
+    assert res.status_code == 201, res.text
+    assert res.json()["contact_phone"] == "55 1234 5678"
+    assert client.get("/api/v1/shop/me", headers=headers).json()["phone"] == "55 1234 5678"
+
+    # con el perfil ya poblado, el siguiente pickup no exige mandarlo
+    res = client.post("/api/v1/shop/orders", headers=headers,
+                      json={"items": [{"key": f"s{sp['id']}-u", "qty": 2}],
+                            "delivery_method": "pickup"})
+    assert res.status_code == 201, res.text
+    assert res.json()["contact_phone"] == "55 1234 5678"
+
+
+def test_shipping_still_works_without_phone(fake_google, auth_headers):  # noqa: F811
+    """Con envío el contacto llega solo (el cliente abre WhatsApp): no se exige."""
+    _group, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], price=250.0)
+    headers = _sign_in()
+    res = client.post("/api/v1/shop/orders", headers=headers,
+                      json={"items": [{"key": f"s{sp['id']}-u", "qty": 1}],
+                            "delivery_method": "shipping"})
+    assert res.status_code == 201, res.text
