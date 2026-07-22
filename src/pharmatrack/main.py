@@ -116,7 +116,24 @@ def root():
 
 @app.get("/healthcheck", tags=["Health Check"])
 def health_check():
-    return {"status": "ok", "message": "API is running"}
+    # Banderas de configuracion (nunca el valor de las credenciales): sirven
+    # para verificar de un vistazo que un deploy quedo bien conectado.
+    from .utils.google_auth import expected_client_id
+    from .utils.mercadopago import is_configured as payments_configured
+
+    return {
+        "status": "ok",
+        "message": "API is running",
+        "integrations": {
+            "google_sign_in": bool(expected_client_id()),
+            "payments": payments_configured(),
+            "payments_mode": (
+                "test" if settings.mercadopago_access_token.strip().startswith("TEST-")
+                else "live" if payments_configured() else "off"
+            ),
+            "email": bool(settings.resend_api_key),
+        },
+    }
 
 
 app.include_router(api_v1_router)
