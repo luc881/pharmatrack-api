@@ -32,13 +32,16 @@ morphs_router = APIRouter(prefix="/morphs", tags=["Animal Taxonomy"])
 # Animal groups (árbol recursivo, patrón product_categories)
 # =========================================================
 def _build_group_tree(groups: list[AnimalGroup], parent_id: Optional[int] = None) -> list[dict]:
+    """Arbol de grupos.
+
+    Los campos se copian desde el ORM en vez de listarlos a mano: al armar el
+    dict campo por campo, show_public y feature_home se quedaban fuera y
+    Pydantic los rellenaba con su default — el dashboard veia todo como no
+    destacado aunque en la BD estuviera marcado.
+    """
     return [
         {
-            "id": g.id,
-            "name": g.name,
-            "parent_id": g.parent_id,
-            "created_at": g.created_at,
-            "updated_at": g.updated_at,
+            **{c.name: getattr(g, c.name) for c in AnimalGroup.__table__.columns},
             "children": _build_group_tree(groups, g.id),
         }
         for g in groups

@@ -63,3 +63,20 @@ def test_site_settings_roundtrip(auth_headers):
                      json={"show_category_browse": False}, headers=auth_headers)
     assert res.status_code == 200, res.text
     assert client.get("/api/v1/settings/site").json()["show_category_browse"] is False
+
+
+def test_group_tree_keeps_flags(auth_headers):
+    """El arbol debe traer show_public y feature_home: se armaba campo por
+    campo y esos dos se quedaban fuera, asi que el dashboard los veia con su
+    valor por defecto aunque en la BD estuvieran marcados."""
+    group, sub, _genus, _sp, _morph = _make_taxonomy(auth_headers)
+    client.put(f"/api/v1/animal-groups/{group['id']}", headers=auth_headers,
+               json={"show_public": False})
+    client.put(f"/api/v1/animal-groups/{sub['id']}", headers=auth_headers,
+               json={"feature_home": True})
+
+    tree = client.get("/api/v1/animal-groups/tree", headers=auth_headers).json()
+    root = next(g for g in tree if g["id"] == group["id"])
+    assert root["show_public"] is False
+    child = next(c for c in root["children"] if c["id"] == sub["id"])
+    assert child["feature_home"] is True
