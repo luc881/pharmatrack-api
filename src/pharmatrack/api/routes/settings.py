@@ -56,6 +56,9 @@ def update_email_ticket(body: EmailTicketTemplate, db: db_dependency):
 # =========================================================
 SITE_DEFAULTS = {
     "show_category_browse": True,  # seccion "Explora por grupo" en la home
+    # Apagado: el sitio solo ofrece entrega personal en CDMX y la API rechaza
+    # pedidos con envio (ver create_order en routes/shop.py)
+    "shipping_enabled": True,
 }
 
 
@@ -67,6 +70,7 @@ def get_site_settings(db) -> dict:
 
 class SiteSettings(BaseModel):
     show_category_browse: bool = True
+    shipping_enabled: bool = True
 
 
 # Lectura publica (sin auth): el sitio la consulta para armar la home

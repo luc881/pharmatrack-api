@@ -307,3 +307,32 @@ def test_admin_sees_orders_and_changes_status(fake_google, auth_headers):
 
 def test_admin_orders_require_auth():
     assert client.get("/api/v1/orders").status_code == 401
+
+
+def test_shipping_can_be_turned_off(fake_google, auth_headers):
+    _group, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], price=250.0)
+    headers = _sign_in()
+    items = [{"key": f"s{sp['id']}-u", "qty": 1}]
+
+    # con envíos apagados, la API los rechaza aunque el sitio los ofreciera
+    client.put("/api/v1/settings/site", headers=auth_headers,
+               json={"show_category_browse": True, "shipping_enabled": False})
+    res = client.post("/api/v1/shop/orders", headers=headers,
+                      json={"items": items, "delivery_method": "shipping"})
+    assert res.status_code == 409
+    assert "CDMX" in res.json()["detail"]
+
+    # la entrega personal sigue funcionando
+    res = client.post("/api/v1/shop/orders", headers=headers,
+                      json={"items": items, "delivery_method": "pickup",
+                            "contact_phone": "5512345678"})
+    assert res.status_code == 201, res.text
+
+    # y al reactivarlos vuelve a pasar
+    client.put("/api/v1/settings/site", headers=auth_headers,
+               json={"show_category_browse": True, "shipping_enabled": True})
+    res = client.post("/api/v1/shop/orders", headers=headers,
+                      json={"items": [{"key": f"s{sp['id']}-u", "qty": 2}],
+                            "delivery_method": "shipping"})
+    assert res.status_code == 201, res.text

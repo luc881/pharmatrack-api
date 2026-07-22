@@ -48,6 +48,7 @@ from ...utils.permissions import CAN_READ_ORDERS, CAN_UPDATE_ORDERS
 from ...utils.rate_limit import limiter, LIMIT_AUTH
 from ...utils.security import create_customer_token, customer_dependency
 from .animal_taxonomy import hidden_group_ids
+from .settings import get_site_settings
 
 logger = get_logger(__name__)
 
@@ -301,6 +302,12 @@ async def create_order(request: Request, body: OrderCreate, db: db_dependency,
                        token_data: customer_dependency):
     customer = _current_customer(db, token_data)
     _reject_order_flood(db, customer.id, body.items)
+
+    if body.delivery_method == "shipping" and not get_site_settings(db)["shipping_enabled"]:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Por ahora solo entregamos en persona en CDMX.",
+        )
 
     # Entrega personal: sin teléfono acabaríamos con un pago acreditado y
     # ninguna forma de contactar al cliente para entregarle
