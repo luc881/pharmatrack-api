@@ -21,7 +21,7 @@ EMAIL_TICKET_DEFAULTS = {
     "footer_message": "Gracias por su compra.",
     # Logo y color de marca de TODOS los correos. El logo debe ser una URL
     # publica: los clientes de correo no pueden leer archivos del servidor.
-    "logo_url": "https://www.opuntiaden.com/logo/opuntia-logo.png",
+    "logo_url": "https://www.opuntiaden.com/logo/opuntia-logo.png",  # 640px, ~110 KB
     "accent_color": "#8C9E6E",
     # Textos de los correos de pedido (el resumen y los datos van aparte)
     "order_intro_pickup": (
