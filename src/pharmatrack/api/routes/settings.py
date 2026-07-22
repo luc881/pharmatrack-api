@@ -19,6 +19,23 @@ EMAIL_TICKET_DEFAULTS = {
     "business_name": "Opuntia Den",
     "intro_message": "",
     "footer_message": "Gracias por su compra.",
+    # Logo y color de marca de TODOS los correos. El logo debe ser una URL
+    # publica: los clientes de correo no pueden leer archivos del servidor.
+    "logo_url": "https://www.opuntiaden.com/logo/opuntia-logo.png",
+    "accent_color": "#8C9E6E",
+    # Textos de los correos de pedido (el resumen y los datos van aparte)
+    "order_intro_pickup": (
+        "Recibimos tu pedido de entrega personal en CDMX. En cuanto se acredite "
+        "tu pago te escribimos por WhatsApp para acordar la entrega."
+    ),
+    "order_intro_shipping": (
+        "Recibimos tu pedido. Te confirmamos disponibilidad, envio y total en "
+        "breve; todavia no se cobra nada."
+    ),
+    "paid_intro": (
+        "Listo! Recibimos tu pago. Te escribimos por WhatsApp para acordar el "
+        "punto y la hora de entrega."
+    ),
 }
 
 
@@ -32,6 +49,11 @@ class EmailTicketTemplate(BaseModel):
     business_name: str = EMAIL_TICKET_DEFAULTS["business_name"]
     intro_message: str = ""
     footer_message: str = EMAIL_TICKET_DEFAULTS["footer_message"]
+    logo_url: str = EMAIL_TICKET_DEFAULTS["logo_url"]
+    accent_color: str = EMAIL_TICKET_DEFAULTS["accent_color"]
+    order_intro_pickup: str = EMAIL_TICKET_DEFAULTS["order_intro_pickup"]
+    order_intro_shipping: str = EMAIL_TICKET_DEFAULTS["order_intro_shipping"]
+    paid_intro: str = EMAIL_TICKET_DEFAULTS["paid_intro"]
 
 
 @router.get("/email-ticket", dependencies=CAN_READ_SALES,
@@ -63,7 +85,7 @@ class TestEmailRequest(BaseModel):
 
 @router.post("/test-email", dependencies=CAN_UPDATE_SALES,
              summary="Mandar un correo de prueba y ver el error si falla")
-def test_email(body: TestEmailRequest):
+def test_email(body: TestEmailRequest, db: db_dependency):
     """Devuelve el error real de Resend en lugar de tragarselo en un log.
 
     Sin `to` usa ORDER_NOTIFY_EMAIL: es el buzon del negocio y el que de
@@ -76,7 +98,7 @@ def test_email(body: TestEmailRequest):
         )
     if body.kind == "simple":
         return send_test_email(to)
-    return send_sample_order_emails(to, body.kind)
+    return send_sample_order_emails(to, body.kind, get_email_ticket_template(db))
 
 
 # =========================================================

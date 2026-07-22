@@ -48,7 +48,7 @@ from ...utils.permissions import CAN_READ_ORDERS, CAN_UPDATE_ORDERS
 from ...utils.rate_limit import limiter, LIMIT_AUTH
 from ...utils.security import create_customer_token, customer_dependency
 from .animal_taxonomy import hidden_group_ids
-from .settings import get_site_settings
+from .settings import get_site_settings, get_email_ticket_template
 
 logger = get_logger(__name__)
 
@@ -358,7 +358,8 @@ async def create_order(request: Request, body: OrderCreate, db: db_dependency,
 
     # El correo nunca tumba el pedido: ya quedo guardado
     try:
-        send_order_emails(order, customer, settings.order_notify_email)
+        send_order_emails(order, customer, settings.order_notify_email,
+                          get_email_ticket_template(db))
     except Exception as exc:  # noqa: BLE001
         logger.error("Order %s saved but email failed: %s", order.id, exc)
 
@@ -423,7 +424,8 @@ def _apply_payment(db, order: Order, payment: dict) -> bool:
     logger.info("Pedido %s pagado (payment %s)", order.code, payment_id)
 
     try:
-        send_order_paid_email(order, order.customer, settings.order_notify_email)
+        send_order_paid_email(order, order.customer, settings.order_notify_email,
+                              get_email_ticket_template(db))
     except Exception as exc:  # noqa: BLE001
         logger.error("Order %s paid but email failed: %s", order.code, exc)
     return True
