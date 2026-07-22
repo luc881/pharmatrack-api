@@ -8,6 +8,35 @@ logger = get_logger(__name__)
 FROM_ADDRESS = settings.email_from
 
 
+def send_test_email(to_email: str) -> dict:
+    """Diagnostico: manda un correo y DEVUELVE el error tal cual si falla.
+
+    Los envios de la operacion (pedidos, tickets) nunca tumban el flujo: si
+    Resend falla solo queda un log. Eso esta bien para no perder un pedido,
+    pero deja el problema invisible — este endpoint es la forma de verlo.
+    """
+    if not settings.resend_api_key:
+        return {"ok": False, "error": "Falta RESEND_API_KEY en el servidor."}
+
+    resend.api_key = settings.resend_api_key
+    try:
+        response = resend.Emails.send({
+            "from": FROM_ADDRESS,
+            "to": [to_email],
+            "subject": "Prueba de correo — Opuntia Den",
+            "html": (
+                "<p>Si estás leyendo esto, el envío de correos funciona.</p>"
+                f"<p style='color:#6b7280'>Remitente configurado: {FROM_ADDRESS}</p>"
+            ),
+        })
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Test email to %s failed from=%s: %s", to_email, FROM_ADDRESS, exc)
+        return {"ok": False, "from_address": FROM_ADDRESS, "error": str(exc)}
+
+    logger.info("Test email sent to=%s resend_id=%s", to_email, response.get("id"))
+    return {"ok": True, "from_address": FROM_ADDRESS, "resend_id": response.get("id")}
+
+
 def send_password_reset_email(to_email: str, token: str) -> None:
     reset_link = f"{settings.frontend_url}/auth/reset-password?token={token}"
 

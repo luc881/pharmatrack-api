@@ -1,11 +1,12 @@
 import json
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from starlette import status
 
 from ...db.session import db_dependency
 from ...models.app_settings.orm import AppSetting
+from ...utils.email import send_test_email
 from ...utils.permissions import CAN_READ_SALES, CAN_UPDATE_SALES, CAN_UPDATE_ANIMAL_GROUPS
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -49,6 +50,17 @@ def update_email_ticket(body: EmailTicketTemplate, db: db_dependency):
     row.value = json.dumps(body.model_dump())
     db.commit()
     return get_email_ticket_template(db)
+
+
+class TestEmailRequest(BaseModel):
+    to: EmailStr
+
+
+@router.post("/test-email", dependencies=CAN_UPDATE_SALES,
+             summary="Mandar un correo de prueba y ver el error si falla")
+def test_email(body: TestEmailRequest):
+    """Devuelve el error real de Resend en lugar de tragarselo en un log."""
+    return send_test_email(body.to)
 
 
 # =========================================================

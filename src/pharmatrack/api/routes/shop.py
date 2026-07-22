@@ -349,6 +349,10 @@ async def create_order(request: Request, body: OrderCreate, db: db_dependency,
 
     order.total = total
     db.add(order)
+    # El carrito se vacía en el servidor, no sólo en el navegador: con pago en
+    # línea el cliente se va a Mercado Pago antes de que se sincronice, y al
+    # volver el carrito guardado le resucitaba el pedido que ya hizo.
+    customer.cart = []
     db.commit()
     db.refresh(order)
 
