@@ -80,3 +80,30 @@ def test_group_tree_keeps_flags(auth_headers):
     assert root["show_public"] is False
     child = next(c for c in root["children"] if c["id"] == sub["id"])
     assert child["feature_home"] is True
+
+
+def test_show_in_nav_is_independent_from_show_public(auth_headers):
+    """Quitar un grupo del menu no lo saca del sitio: sus animales se siguen
+    vendiendo y puede destacarse en la home."""
+    group, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"])
+
+    res = client.put(f"/api/v1/animal-groups/{group['id']}", headers=auth_headers,
+                     json={"show_in_nav": False})
+    assert res.status_code == 200, res.text
+    assert res.json()["show_in_nav"] is False
+    assert res.json()["show_public"] is True
+
+    # sigue en la API publica (el menu lo filtra el sitio, no el backend)
+    groups = client.get("/api/v1/public/animals/groups").json()
+    hit = next(g for g in groups if g["id"] == group["id"])
+    assert hit["show_in_nav"] is False
+
+    # y sus animales se siguen publicando
+    animals = client.get("/api/v1/public/animals",
+                         params={"species_id": sp["id"]}).json()["data"]
+    assert len(animals) == 1
+
+    # el arbol tambien lo refleja
+    tree = client.get("/api/v1/animal-groups/tree", headers=auth_headers).json()
+    assert next(g for g in tree if g["id"] == group["id"])["show_in_nav"] is False

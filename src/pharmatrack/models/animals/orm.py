@@ -25,6 +25,10 @@ class AnimalGroup(Base):
     show_public: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
     # Destacado en la home como mini-catalogo de sus especies (solo grupo raiz)
     feature_home: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")
+    # Aparece en el menu del sitio. Separado de show_public: un grupo puede
+    # estar activo (sus animales se venden, se puede destacar en la home) sin
+    # ocupar un lugar en la navegacion.
+    show_in_nav: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
 
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

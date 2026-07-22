@@ -15,6 +15,7 @@ class AnimalGroupBase(BaseModel):
     parent_id: Optional[int] = Field(None, ge=1, description="Grupo padre (NULL si es raíz)")
     show_public: bool = Field(True, description="Visible en el sitio publico")
     feature_home: bool = Field(False, description="Destacado en la home")
+    show_in_nav: bool = Field(True, description="Aparece en el menu del sitio")
 
     @field_validator("name")
     @classmethod
@@ -31,6 +32,7 @@ class AnimalGroupUpdate(BaseModel):
     parent_id: Optional[int] = Field(None, ge=1)
     show_public: Optional[bool] = None
     feature_home: Optional[bool] = None
+    show_in_nav: Optional[bool] = None
 
     @field_validator("name", mode="before")
     @classmethod
