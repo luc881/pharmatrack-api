@@ -3,9 +3,10 @@ from typing import List, Literal, Optional
 
 from pydantic import Field, BaseModel, ConfigDict, field_validator
 
-from .orm import ORDER_STATUSES
+from .orm import DELIVERY_METHODS, ORDER_STATUSES
 
 OrderStatus = Literal[ORDER_STATUSES]  # type: ignore[valid-type]
+DeliveryMethod = Literal[DELIVERY_METHODS]  # type: ignore[valid-type]
 
 
 # =========================================================
@@ -67,6 +68,8 @@ class OrderItemIn(BaseModel):
 
 class OrderCreate(BaseModel):
     items: List[OrderItemIn] = Field(..., min_length=1)
+    # pickup = entrega personal en CDMX (se puede pagar en linea de una vez)
+    delivery_method: DeliveryMethod = "shipping"
     contact_name: Optional[str] = Field(None, max_length=255)
     contact_phone: Optional[str] = Field(None, max_length=50)
     address: Optional[str] = None
@@ -92,6 +95,9 @@ class OrderResponse(BaseModel):
     id: int
     code: Optional[str] = None
     status: str
+    delivery_method: str = "shipping"
+    payment_id: Optional[str] = None
+    paid_at: Optional[datetime] = None
     total: float
     contact_name: Optional[str] = None
     contact_phone: Optional[str] = None
@@ -108,6 +114,12 @@ class OrderAdminResponse(OrderResponse):
 
     customer_email: Optional[str] = None
     customer_name: Optional[str] = None
+
+
+class CheckoutSession(BaseModel):
+    """A donde mandar al cliente para pagar."""
+
+    payment_url: str
 
 
 class OrderStatusUpdate(BaseModel):

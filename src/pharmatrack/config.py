@@ -60,6 +60,14 @@ class Settings(BaseSettings):
     site_url: str = "https://www.opuntiaden.com"
 
     # =========================================================
+    # 💳 Pagos en linea (Mercado Pago Checkout Pro)
+    # =========================================================
+    # Access Token de la aplicacion. TEST-... usa el sandbox automaticamente;
+    # vacio = los pagos en linea quedan apagados (503) y todo sigue por link
+    # de pago manual.
+    mercadopago_access_token: str = ""
+
+    # =========================================================
     # 📋 Logging
     # =========================================================
     log_level: str = "DEBUG"

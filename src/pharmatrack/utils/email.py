@@ -178,3 +178,46 @@ def send_order_emails(order, customer, notify_email: str = "") -> None:
             _send(notify_email, f"Nuevo pedido {order.code}", "Entró un pedido nuevo desde el sitio.")
         except Exception as exc:  # noqa: BLE001
             logger.error("Order %s: notify email failed: %s", order.id, exc)
+
+
+def send_order_paid_email(order, customer, notify_email: str = "") -> None:
+    """Aviso de pago acreditado (Mercado Pago). Igual que arriba: nunca tumba
+    el flujo, el pago ya quedó registrado."""
+    if not settings.resend_api_key:
+        return
+
+    resend.api_key = settings.resend_api_key
+    total = f"${float(order.total):.2f}"
+
+    def _send(to_email: str, subject: str, intro: str) -> None:
+        resend.Emails.send({
+            "from": FROM_ADDRESS,
+            "to": [to_email],
+            "subject": subject,
+            "html": f"""<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"></head>
+<body style="font-family: sans-serif; color:#1a1a1a; max-width:480px; margin:0 auto; padding:24px;">
+  <h2 style="margin-bottom:4px;">Opuntia Den</h2>
+  <p style="color:#6b7280;margin:0 0 16px;">Pedido {order.code}</p>
+  <p style="margin:0 0 16px;">{intro}</p>
+  <p style="font-size:16px;font-weight:bold;margin:12px 0;">Pagado: {total}</p>
+  <p style="color:#6b7280;font-size:13px;margin:0;">
+    {order.contact_name or customer.name or ''} &middot; {customer.email}
+    {f'&middot; {order.contact_phone}' if order.contact_phone else ''}
+  </p>
+</body></html>""",
+        })
+
+    try:
+        _send(customer.email, f"Pago recibido — pedido {order.code}",
+              "¡Listo! Recibimos tu pago. Te escribimos por WhatsApp para acordar "
+              "el punto y la hora de entrega.")
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Order %s: paid email to customer failed: %s", order.code, exc)
+
+    if notify_email:
+        try:
+            _send(notify_email, f"Pago recibido — pedido {order.code}",
+                  "Un pedido de entrega personal ya fue pagado en línea.")
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Order %s: paid notify failed: %s", order.code, exc)

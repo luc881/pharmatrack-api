@@ -28,12 +28,14 @@ from ...models.customers.schemas import (
     CustomerUpdate,
     CustomerSession,
     CustomerResponse,
+    CheckoutSession,
     OrderAdminResponse,
     OrderStatusUpdate,
 )
 from ...models.products.orm import Product
-from ...utils.email import send_order_emails
+from ...utils.email import send_order_emails, send_order_paid_email
 from ...utils.google_auth import verify_google_id_token
+from ...utils.mercadopago import get_payment, create_preference
 from ...utils.logger import get_logger
 from ...utils.pagination import paginate, PaginationParams, PaginatedResponse
 from ...utils.permissions import CAN_READ_ORDERS, CAN_UPDATE_ORDERS
@@ -285,6 +287,7 @@ async def create_order(request: Request, body: OrderCreate, db: db_dependency,
         contact_phone=body.contact_phone or customer.phone,
         address=body.address or customer.address,
         notes=body.notes,
+        delivery_method=body.delivery_method,
     )
 
     total = Decimal("0")
@@ -315,6 +318,86 @@ async def create_order(request: Request, body: OrderCreate, db: db_dependency,
     return order
 
 
+@router.post("/orders/{order_id}/checkout", response_model=CheckoutSession,
+             summary="Public: pagar en linea un pedido de entrega personal")
+@limiter.limit("10/minute")
+async def start_checkout(request: Request, order_id: int, db: db_dependency,
+                         token_data: customer_dependency):
+    order = db.query(Order).filter(
+        Order.id == order_id, Order.customer_id == token_data["id"]
+    ).first()
+    if order is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found.")
+    if order.status != "pending":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail="Este pedido ya no está pendiente de pago.")
+    if order.delivery_method != "pickup":
+        # Con envío el total todavía no es final: se cobra por link de pago
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Los pedidos con envío se cobran una vez cotizado el envío; "
+                   "te mandamos el link de pago por WhatsApp.",
+        )
+
+    notification_url = f"{str(request.base_url).rstrip('/')}/api/v1/shop/payments/webhook"
+    _preference_id, payment_url = create_preference(order, notification_url)
+    return {"payment_url": payment_url}
+
+
+@router.post("/payments/webhook", summary="Mercado Pago: aviso de pago",
+             status_code=status.HTTP_200_OK)
+async def mercadopago_webhook(request: Request, db: db_dependency):
+    """Público y sin auth (lo llama Mercado Pago). No confía en el cuerpo:
+    solo toma el id del pago y lo consulta con nuestro token."""
+    body = await request.json() if await request.body() else {}
+    payment_id = (
+        str((body.get("data") or {}).get("id") or "")
+        or request.query_params.get("data.id")
+        or request.query_params.get("id")
+        or ""
+    )
+    # Siempre 200: si respondemos error, Mercado Pago reintenta en bucle
+    if not payment_id:
+        return {"received": True}
+
+    payment = get_payment(payment_id)
+    if not payment or payment.get("status") != "approved":
+        return {"received": True}
+
+    order = db.query(Order).filter(
+        Order.code == payment.get("external_reference")
+    ).first()
+    if order is None:
+        logger.warning("Pago %s aprobado sin pedido: ref=%s",
+                       payment_id, payment.get("external_reference"))
+        return {"received": True}
+
+    # Idempotente: el mismo aviso llega varias veces
+    if order.payment_id == str(payment_id):
+        return {"received": True}
+
+    # El importe debe cuadrar con el pedido; si no, se registra y se revisa a mano
+    paid = Decimal(str(payment.get("transaction_amount") or 0))
+    if paid < order.total:
+        logger.error("Pago %s de %s no cubre el pedido %s (%s)",
+                     payment_id, paid, order.code, order.total)
+        return {"received": True}
+
+    order.payment_id = str(payment_id)
+    order.paid_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    if order.status in ("pending", "cancelled"):
+        order.status = "paid"
+    db.commit()
+    logger.info("Pedido %s pagado (payment %s)", order.code, payment_id)
+
+    try:
+        send_order_paid_email(order, order.customer, settings.order_notify_email)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Order %s paid but email failed: %s", order.code, exc)
+
+    return {"received": True}
+
+
 @router.delete("/orders/{order_id}", response_model=OrderResponse,
                summary="Public: cancelar mi pedido pendiente")
 @limiter.limit("10/minute")
@@ -328,10 +411,10 @@ async def cancel_my_order(request: Request, order_id: int, db: db_dependency,
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found.")
     if order.status != "pending":
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Este pedido ya fue confirmado; escríbenos por WhatsApp para cambiarlo.",
-        )
+        detail = ("Este pedido ya está pagado; escríbenos por WhatsApp y lo resolvemos."
+                  if order.status == "paid" else
+                  "Este pedido ya fue confirmado; escríbenos por WhatsApp para cambiarlo.")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
     order.status = "cancelled"
     db.commit()
     db.refresh(order)

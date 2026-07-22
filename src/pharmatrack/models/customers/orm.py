@@ -20,7 +20,13 @@ from ...db.session import Base
 
 # Un pedido NO es una venta: es una solicitud. Cuando la confirmas registras
 # la venta en el POS como siempre, para no ensuciar stock ni corte de caja.
-ORDER_STATUSES = ("pending", "confirmed", "completed", "cancelled")
+# "paid" solo lo pone el webhook de Mercado Pago, nunca el dashboard a mano.
+ORDER_STATUSES = ("pending", "paid", "confirmed", "completed", "cancelled")
+
+# Entrega personal en CDMX = el precio del catálogo ES el total, así que se
+# puede cobrar en línea de una vez. Con envío hay que cotizar antes: ese
+# sigue por link de pago manual desde WhatsApp.
+DELIVERY_METHODS = ("pickup", "shipping")
 
 
 class Customer(Base):
@@ -64,6 +70,13 @@ class Order(Base):
     contact_phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    delivery_method: Mapped[str] = mapped_column(String(20), nullable=False,
+                                                 server_default="shipping")
+    # id del pago en Mercado Pago; sirve de idempotencia (el webhook llega
+    # varias veces por el mismo pago) y para buscarlo en su panel
+    payment_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
+    paid_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=False), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
