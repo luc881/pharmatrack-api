@@ -163,13 +163,16 @@ def send_order_emails(order, customer, notify_email: str = "") -> None:
 </body></html>""",
         })
 
+    # El texto depende de la entrega: con pickup el cliente está pagando en
+    # línea en ese momento; decirle "no se cobra nada" sería mentirle.
+    if getattr(order, "delivery_method", "shipping") == "pickup":
+        intro = ("Recibimos tu pedido de entrega personal en CDMX. En cuanto se "
+                 "acredite tu pago te escribimos por WhatsApp para acordar la entrega.")
+    else:
+        intro = ("Recibimos tu pedido. Te confirmamos disponibilidad, envío y total "
+                 "en breve; todavía no se cobra nada.")
     try:
-        _send(
-            customer.email,
-            f"Pedido {order.code} recibido — Opuntia Den",
-            "Recibimos tu pedido. Te confirmamos disponibilidad, envío y total en breve; "
-            "todavía no se cobra nada.",
-        )
+        _send(customer.email, f"Pedido {order.code} recibido — Opuntia Den", intro)
     except Exception as exc:  # noqa: BLE001
         logger.error("Order %s: customer email failed: %s", order.id, exc)
 

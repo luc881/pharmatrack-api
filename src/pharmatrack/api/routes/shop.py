@@ -359,6 +359,13 @@ def _apply_payment(db, order: Order, payment: dict) -> bool:
     if not payment_id or order.payment_id == payment_id:
         return False  # idempotente: el mismo aviso llega varias veces
 
+    # Doble pago (dos checkouts abiertos, dos aprobados): se conserva el
+    # primero y NO se manda otro correo; el segundo se reembolsa a mano.
+    if order.payment_id:
+        logger.error("DOBLE PAGO en el pedido %s: ya tenia %s y llego %s — reembolsar el segundo",
+                     order.code, order.payment_id, payment_id)
+        return False
+
     # El importe debe cubrir el pedido; si no, se registra y se revisa a mano
     paid = Decimal(str(payment.get("transaction_amount") or 0))
     if paid < order.total:
@@ -407,7 +414,12 @@ async def sync_order_payment(request: Request, order_id: int, db: db_dependency,
 async def mercadopago_webhook(request: Request, db: db_dependency):
     """Público y sin auth (lo llama Mercado Pago). No confía en el cuerpo:
     solo toma el id del pago y lo consulta con nuestro token."""
-    body = await request.json() if await request.body() else {}
+    # Cuerpo tolerante: un JSON inválido no debe responder 500 (Mercado Pago
+    # reintentaría en bucle un mensaje que nunca va a mejorar)
+    try:
+        body = await request.json() if await request.body() else {}
+    except Exception:  # noqa: BLE001
+        body = {}
     payment_id = (
         str((body.get("data") or {}).get("id") or "")
         or request.query_params.get("data.id")
@@ -514,6 +526,14 @@ async def update_order_status(order_id: int, body: OrderStatusUpdate, db: db_dep
     if body.status not in ORDER_STATUSES:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                             detail="Estado invalido.")
+    # "Pagado" lo acredita únicamente un pago verificado (webhook o
+    # reconciliación); marcarlo a mano diría que hay dinero que no existe
+    if body.status == "paid" and not order.payment_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Pagado lo asigna el pago en línea. Si te pagaron por otro medio, "
+                   "usa Confirmado.",
+        )
     order.status = body.status
     db.commit()
     db.refresh(order)

@@ -232,3 +232,47 @@ def test_bad_signature_is_dropped_before_calling_mercadopago(order_with_pickup,
     # sin cabecera tampoco pasa
     client.post("/api/v1/shop/payments/webhook", json={"data": {"id": "444"}})
     assert called == []
+
+
+# =========================================================
+# Revisión: guardas adicionales
+# =========================================================
+def test_double_payment_keeps_first_and_logs(order_with_pickup, monkeypatch):
+    """Dos checkouts abiertos, dos pagos aprobados: se conserva el primero
+    (el segundo se reembolsa a mano) y no se manda otro correo."""
+    headers, order = order_with_pickup
+    monkeypatch.setattr("pharmatrack.api.routes.shop.get_payment",
+                        lambda _id: _approved(order))
+    client.post("/api/v1/shop/payments/webhook", json={"data": {"id": "aaa1"}})
+    client.post("/api/v1/shop/payments/webhook", json={"data": {"id": "bbb2"}})
+
+    mine = client.get("/api/v1/shop/orders", headers=headers).json()[0]
+    assert mine["payment_id"] == "aaa1"  # el segundo NO lo pisa
+
+
+def test_admin_cannot_mark_paid_without_a_real_payment(order_with_pickup, auth_headers):
+    _headers, order = order_with_pickup
+    res = client.put(f"/api/v1/orders/{order['id']}", headers=auth_headers,
+                     json={"status": "paid"})
+    assert res.status_code == 409
+    assert "Confirmado" in res.json()["detail"]
+
+
+def test_admin_can_move_a_truly_paid_order(order_with_pickup, auth_headers, monkeypatch):
+    headers, order = order_with_pickup
+    monkeypatch.setattr("pharmatrack.api.routes.shop.get_payment",
+                        lambda _id: _approved(order))
+    client.post("/api/v1/shop/payments/webhook", json={"data": {"id": "ccc3"}})
+
+    # pagado -> confirmado (y de vuelta a paid, ahora sí con pago real)
+    assert client.put(f"/api/v1/orders/{order['id']}", headers=auth_headers,
+                      json={"status": "confirmed"}).status_code == 200
+    assert client.put(f"/api/v1/orders/{order['id']}", headers=auth_headers,
+                      json={"status": "paid"}).status_code == 200
+
+
+def test_webhook_survives_garbage_body():
+    res = client.post("/api/v1/shop/payments/webhook",
+                      content=b"esto no es json",
+                      headers={"Content-Type": "application/json"})
+    assert res.status_code == 200
