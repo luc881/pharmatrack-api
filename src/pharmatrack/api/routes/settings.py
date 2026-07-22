@@ -1,12 +1,15 @@
 import json
 
 from fastapi import APIRouter, HTTPException
+from typing import Literal, Optional
+
 from pydantic import BaseModel, EmailStr
 from starlette import status
 
 from ...db.session import db_dependency
 from ...models.app_settings.orm import AppSetting
-from ...utils.email import send_test_email
+from ...config import settings
+from ...utils.email import send_test_email, send_sample_order_emails
 from ...utils.permissions import CAN_READ_SALES, CAN_UPDATE_SALES, CAN_UPDATE_ANIMAL_GROUPS
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -53,14 +56,27 @@ def update_email_ticket(body: EmailTicketTemplate, db: db_dependency):
 
 
 class TestEmailRequest(BaseModel):
-    to: EmailStr
+    to: Optional[EmailStr] = None
+    # "simple" = prueba minima; "order"/"paid" = los correos reales del pedido
+    kind: Literal["simple", "order", "paid"] = "simple"
 
 
 @router.post("/test-email", dependencies=CAN_UPDATE_SALES,
              summary="Mandar un correo de prueba y ver el error si falla")
 def test_email(body: TestEmailRequest):
-    """Devuelve el error real de Resend en lugar de tragarselo en un log."""
-    return send_test_email(body.to)
+    """Devuelve el error real de Resend en lugar de tragarselo en un log.
+
+    Sin `to` usa ORDER_NOTIFY_EMAIL: es el buzon del negocio y el que de
+    verdad interesa probar."""
+    to = body.to or settings.order_notify_email.strip()
+    if not to:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No hay a donde mandar: falta ORDER_NOTIFY_EMAIL en el servidor.",
+        )
+    if body.kind == "simple":
+        return send_test_email(to)
+    return send_sample_order_emails(to, body.kind)
 
 
 # =========================================================

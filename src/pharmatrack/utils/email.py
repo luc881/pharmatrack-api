@@ -8,6 +8,59 @@ logger = get_logger(__name__)
 FROM_ADDRESS = settings.email_from
 
 
+class _FakeItem:
+    """Artículo de mentira para las pruebas de correo."""
+
+    def __init__(self, title, detail, quantity, unit_price, unit=None):
+        self.title, self.detail = title, detail
+        self.quantity, self.unit_price, self.unit = quantity, unit_price, unit
+        self.subtotal = quantity * unit_price
+
+
+class _FakeOrder:
+    code = "PD-PRUEBA1"
+    delivery_method = "pickup"
+    contact_name = "Cliente de prueba"
+    contact_phone = "55 1234 5678"
+    address = None
+    notes = "Este es un pedido de prueba."
+    id = 0
+    total = 750
+
+    items = [
+        _FakeItem("Cubaris Murina Papaya", None, 1, 500),
+        _FakeItem("Sustrato para isópodos", "Bolsa de 1 kg", 1, 250),
+    ]
+
+
+class _FakeCustomer:
+    name = "Cliente de prueba"
+
+    def __init__(self, email):
+        self.email = email
+
+
+def send_sample_order_emails(to_email: str, kind: str) -> dict:
+    """Manda los correos REALES de pedido/pago con datos de mentira.
+
+    Usa las mismas funciones que la operación, así que lo que llega es
+    exactamente lo que va a ver un cliente — no una maqueta que se desfase.
+    """
+    if not settings.resend_api_key:
+        return {"ok": False, "error": "Falta RESEND_API_KEY en el servidor."}
+
+    customer = _FakeCustomer(to_email)
+    try:
+        if kind == "paid":
+            send_order_paid_email(_FakeOrder, customer, to_email)
+        else:
+            send_order_emails(_FakeOrder, customer, to_email)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Sample email (%s) to %s failed: %s", kind, to_email, exc)
+        return {"ok": False, "from_address": FROM_ADDRESS, "error": str(exc)}
+    return {"ok": True, "from_address": FROM_ADDRESS}
+
+
 def send_test_email(to_email: str) -> dict:
     """Diagnostico: manda un correo y DEVUELVE el error tal cual si falla.
 
@@ -145,13 +198,9 @@ def send_ticket_email(to_email: str, sale_id: int, date_str: str, items: list[di
     logger.info("Ticket email sent sale_id=%s to=%s resend_id=%s", sale_id, to_email, response.get("id"))
 
 
-def send_order_emails(order, customer, notify_email: str = "") -> None:
-    """Confirmación al cliente y aviso al negocio. No-op sin RESEND_API_KEY —
-    el pedido ya quedó guardado, el correo es un extra."""
-    if not settings.resend_api_key:
-        logger.warning("Order %s: RESEND_API_KEY missing, skipping emails", order.id)
-        return
-
+def _items_table(order, total_label: str = "Total") -> str:
+    """Tabla de artículos del pedido. Compartida por el correo de pedido y el
+    de pago para que el cliente vea siempre lo mismo."""
     rows = "".join(
         f"""<tr>
           <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">{item.title}
@@ -162,11 +211,23 @@ def send_order_emails(order, customer, notify_email: str = "") -> None:
         </tr>"""
         for item in order.items
     )
-    body = f"""
+    return f"""
   <table style="width:100%;border-collapse:collapse;font-size:14px;">{rows}</table>
   <p style="text-align:right;font-size:16px;font-weight:bold;margin:12px 0;">
-    Total estimado: ${float(order.total):.2f}</p>
+    {total_label}: ${float(order.total):.2f}</p>
 """
+
+
+def send_order_emails(order, customer, notify_email: str = "") -> None:
+    """Confirmación al cliente y aviso al negocio. No-op sin RESEND_API_KEY —
+    el pedido ya quedó guardado, el correo es un extra."""
+    if not settings.resend_api_key:
+        logger.warning("Order %s: RESEND_API_KEY missing, skipping emails", order.id)
+        return
+
+    # con entrega personal el monto ya es el final; con envío falta cotizar
+    is_pickup = getattr(order, "delivery_method", "shipping") == "pickup"
+    body = _items_table(order, "Total" if is_pickup else "Total estimado")
     contact = f"""
   <p style="color:#6b7280;font-size:13px;margin:0;">
     {order.contact_name or customer.name or ''} &middot; {customer.email}
@@ -194,7 +255,7 @@ def send_order_emails(order, customer, notify_email: str = "") -> None:
 
     # El texto depende de la entrega: con pickup el cliente está pagando en
     # línea en ese momento; decirle "no se cobra nada" sería mentirle.
-    if getattr(order, "delivery_method", "shipping") == "pickup":
+    if is_pickup:
         intro = ("Recibimos tu pedido de entrega personal en CDMX. En cuanto se "
                  "acredite tu pago te escribimos por WhatsApp para acordar la entrega.")
     else:
@@ -219,7 +280,9 @@ def send_order_paid_email(order, customer, notify_email: str = "") -> None:
         return
 
     resend.api_key = settings.resend_api_key
-    total = f"${float(order.total):.2f}"
+    # Mismo resumen que el correo del pedido: el cliente debe poder ver qué
+    # pagó sin tener que buscar el correo anterior
+    body = _items_table(order, "Total pagado")
 
     def _send(to_email: str, subject: str, intro: str) -> None:
         resend.Emails.send({
@@ -232,7 +295,7 @@ def send_order_paid_email(order, customer, notify_email: str = "") -> None:
   <h2 style="margin-bottom:4px;">Opuntia Den</h2>
   <p style="color:#6b7280;margin:0 0 16px;">Pedido {order.code}</p>
   <p style="margin:0 0 16px;">{intro}</p>
-  <p style="font-size:16px;font-weight:bold;margin:12px 0;">Pagado: {total}</p>
+  {body}
   <p style="color:#6b7280;font-size:13px;margin:0;">
     {order.contact_name or customer.name or ''} &middot; {customer.email}
     {f'&middot; {order.contact_phone}' if order.contact_phone else ''}
