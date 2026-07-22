@@ -118,6 +118,28 @@ def test_webhook_ignores_unapproved_and_short_payments(order_with_pickup, monkey
     assert client.get("/api/v1/shop/orders", headers=headers).json()[0]["status"] == "pending"
 
 
+def test_sync_recovers_a_lost_webhook(order_with_pickup, monkeypatch):
+    """Si el webhook nunca llegó, al volver de Mercado Pago el sitio
+    reconcilia y el pedido no se queda pendiente con el dinero cobrado."""
+    headers, order = order_with_pickup
+    monkeypatch.setattr("pharmatrack.api.routes.shop.find_approved_payment",
+                        lambda _ref: {**_approved(order), "id": "654321"})
+
+    res = client.post(f"/api/v1/shop/orders/{order['id']}/sync-payment", headers=headers)
+    assert res.status_code == 200, res.text
+    assert res.json()["status"] == "paid"
+    assert res.json()["payment_id"] == "654321"
+
+
+def test_sync_does_not_invent_payments(order_with_pickup, monkeypatch):
+    headers, order = order_with_pickup
+    monkeypatch.setattr("pharmatrack.api.routes.shop.find_approved_payment",
+                        lambda _ref: None)
+    res = client.post(f"/api/v1/shop/orders/{order['id']}/sync-payment", headers=headers)
+    assert res.status_code == 200
+    assert res.json()["status"] == "pending"
+
+
 def test_webhook_is_idempotent(order_with_pickup, monkeypatch):
     headers, order = order_with_pickup
     monkeypatch.setattr("pharmatrack.api.routes.shop.get_payment",

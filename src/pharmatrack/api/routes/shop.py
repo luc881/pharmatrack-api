@@ -35,7 +35,7 @@ from ...models.customers.schemas import (
 from ...models.products.orm import Product
 from ...utils.email import send_order_emails, send_order_paid_email
 from ...utils.google_auth import verify_google_id_token
-from ...utils.mercadopago import get_payment, create_preference
+from ...utils.mercadopago import get_payment, create_preference, find_approved_payment
 from ...utils.logger import get_logger
 from ...utils.pagination import paginate, PaginationParams, PaginatedResponse
 from ...utils.permissions import CAN_READ_ORDERS, CAN_UPDATE_ORDERS
@@ -344,6 +344,59 @@ async def start_checkout(request: Request, order_id: int, db: db_dependency,
     return {"payment_url": payment_url}
 
 
+def _apply_payment(db, order: Order, payment: dict) -> bool:
+    """Acredita un pago ya verificado contra Mercado Pago. Devuelve si cambió
+    algo. Mismas reglas para el webhook y para la reconciliación."""
+    if not payment or payment.get("status") != "approved":
+        return False
+
+    payment_id = str(payment.get("id") or "")
+    if not payment_id or order.payment_id == payment_id:
+        return False  # idempotente: el mismo aviso llega varias veces
+
+    # El importe debe cubrir el pedido; si no, se registra y se revisa a mano
+    paid = Decimal(str(payment.get("transaction_amount") or 0))
+    if paid < order.total:
+        logger.error("Pago %s de %s no cubre el pedido %s (%s)",
+                     payment_id, paid, order.code, order.total)
+        return False
+
+    order.payment_id = payment_id
+    order.paid_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    if order.status in ("pending", "cancelled"):
+        order.status = "paid"
+    db.commit()
+    logger.info("Pedido %s pagado (payment %s)", order.code, payment_id)
+
+    try:
+        send_order_paid_email(order, order.customer, settings.order_notify_email)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Order %s paid but email failed: %s", order.code, exc)
+    return True
+
+
+@router.post("/orders/{order_id}/sync-payment", response_model=OrderResponse,
+             summary="Public: reconciliar el pago de un pedido")
+@limiter.limit("20/minute")
+async def sync_order_payment(request: Request, order_id: int, db: db_dependency,
+                             token_data: customer_dependency):
+    """Lo llama el sitio al volver de Mercado Pago. Red de seguridad por si el
+    webhook no llegó: le pregunta a Mercado Pago si hay un pago aprobado para
+    este pedido. Los parametros que trae el navegador no se usan para nada."""
+    order = db.query(Order).filter(
+        Order.id == order_id, Order.customer_id == token_data["id"]
+    ).first()
+    if order is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found.")
+
+    if order.payment_id is None and order.code:
+        payment = find_approved_payment(order.code)
+        if payment:
+            _apply_payment(db, order, payment)
+            db.refresh(order)
+    return order
+
+
 @router.post("/payments/webhook", summary="Mercado Pago: aviso de pago",
              status_code=status.HTTP_200_OK)
 async def mercadopago_webhook(request: Request, db: db_dependency):
@@ -361,8 +414,10 @@ async def mercadopago_webhook(request: Request, db: db_dependency):
         return {"received": True}
 
     payment = get_payment(payment_id)
-    if not payment or payment.get("status") != "approved":
+    if not payment:
         return {"received": True}
+    # el id de la consulta manda sobre el del cuerpo
+    payment.setdefault("id", payment_id)
 
     order = db.query(Order).filter(
         Order.code == payment.get("external_reference")
@@ -372,29 +427,7 @@ async def mercadopago_webhook(request: Request, db: db_dependency):
                        payment_id, payment.get("external_reference"))
         return {"received": True}
 
-    # Idempotente: el mismo aviso llega varias veces
-    if order.payment_id == str(payment_id):
-        return {"received": True}
-
-    # El importe debe cuadrar con el pedido; si no, se registra y se revisa a mano
-    paid = Decimal(str(payment.get("transaction_amount") or 0))
-    if paid < order.total:
-        logger.error("Pago %s de %s no cubre el pedido %s (%s)",
-                     payment_id, paid, order.code, order.total)
-        return {"received": True}
-
-    order.payment_id = str(payment_id)
-    order.paid_at = datetime.now(timezone.utc).replace(tzinfo=None)
-    if order.status in ("pending", "cancelled"):
-        order.status = "paid"
-    db.commit()
-    logger.info("Pedido %s pagado (payment %s)", order.code, payment_id)
-
-    try:
-        send_order_paid_email(order, order.customer, settings.order_notify_email)
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Order %s paid but email failed: %s", order.code, exc)
-
+    _apply_payment(db, order, payment)
     return {"received": True}
 
 

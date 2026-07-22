@@ -86,6 +86,30 @@ def create_preference(order, notification_url: str) -> tuple[str, str]:
     return data["id"], url
 
 
+def find_approved_payment(external_reference: str) -> dict | None:
+    """Busca un pago aprobado por la referencia del pedido.
+
+    Red de seguridad para cuando el webhook no llega (deploy a media
+    transacción, timeout, caída): sin esto el cliente paga y su pedido se
+    queda 'pendiente' para siempre.
+    """
+    if not is_configured():
+        return None
+    try:
+        res = httpx.get(f"{API}/v1/payments/search",
+                        params={"external_reference": external_reference},
+                        headers=_headers(), timeout=15)
+    except httpx.HTTPError as exc:
+        logger.error("Mercado Pago unreachable on search %s: %s", external_reference, exc)
+        return None
+    if res.status_code != 200:
+        return None
+    for payment in res.json().get("results", []):
+        if payment.get("status") == "approved":
+            return payment
+    return None
+
+
 def get_payment(payment_id: str) -> dict | None:
     """Consulta un pago. None si no existe o no es nuestro."""
     if not is_configured():
