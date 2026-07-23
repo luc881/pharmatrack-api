@@ -113,6 +113,13 @@ class Morph(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # === Manejo/cria (PRIVADO — nunca se expone en la API publica) ===
+    # El morph maneja su cria independiente del nominal (puede estar en cultivo
+    # aunque la especie no lo esté, o al revés). Mismo esquema que Species.
+    husbandry_status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="active")
+    low_stock_threshold: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    private_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=False), server_default=func.now(), onupdate=func.now()

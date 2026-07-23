@@ -11,7 +11,7 @@ from ...models.animals.schemas import (
     AnimalGroupCreate, AnimalGroupUpdate, AnimalGroupResponse, AnimalGroupTreeResponse,
     GenusCreate, GenusUpdate, GenusResponse,
     SpeciesCreate, SpeciesUpdate, SpeciesResponse,
-    MorphCreate, MorphUpdate, MorphResponse,
+    MorphCreate, MorphUpdate, MorphResponse, MorphAdminResponse,
 )
 from ...utils.permissions import (
     CAN_READ_ANIMAL_GROUPS, CAN_CREATE_ANIMAL_GROUPS, CAN_UPDATE_ANIMAL_GROUPS, CAN_DELETE_ANIMAL_GROUPS,
@@ -336,7 +336,7 @@ async def delete_species(species_id: int, db: db_dependency):
 # =========================================================
 # Morphs
 # =========================================================
-@morphs_router.get("", response_model=PaginatedResponse[MorphResponse],
+@morphs_router.get("", response_model=PaginatedResponse[MorphAdminResponse],
                    summary="List morphs", dependencies=CAN_READ_MORPHS)
 async def list_morphs(db: db_dependency, species_id: Optional[int] = None,
                       pagination: PaginationParams = Depends()):
@@ -346,7 +346,7 @@ async def list_morphs(db: db_dependency, species_id: Optional[int] = None,
     return paginate(query.order_by(Morph.name.asc()), pagination)
 
 
-@morphs_router.get("/{morph_id}", response_model=MorphResponse,
+@morphs_router.get("/{morph_id}", response_model=MorphAdminResponse,
                    summary="Get morph by ID", dependencies=CAN_READ_MORPHS)
 async def get_morph(morph_id: int, db: db_dependency):
     morph = db.get(Morph, morph_id)
@@ -355,7 +355,7 @@ async def get_morph(morph_id: int, db: db_dependency):
     return morph
 
 
-@morphs_router.post("", response_model=MorphResponse, status_code=status.HTTP_201_CREATED,
+@morphs_router.post("", response_model=MorphAdminResponse, status_code=status.HTTP_201_CREATED,
                     summary="Create a morph", dependencies=CAN_CREATE_MORPHS)
 async def create_morph(payload: MorphCreate, db: db_dependency):
     if not db.get(Species, payload.species_id):
@@ -372,7 +372,7 @@ async def create_morph(payload: MorphCreate, db: db_dependency):
     return morph
 
 
-@morphs_router.put("/{morph_id}", response_model=MorphResponse,
+@morphs_router.put("/{morph_id}", response_model=MorphAdminResponse,
                    summary="Update a morph", dependencies=CAN_UPDATE_MORPHS)
 async def update_morph(morph_id: int, payload: MorphUpdate, db: db_dependency):
     morph = db.get(Morph, morph_id)

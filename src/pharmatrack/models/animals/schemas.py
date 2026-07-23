@@ -224,6 +224,10 @@ class MorphUpdate(BaseModel):
     species_id: Optional[int] = Field(None, ge=1)
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[DescriptionStr] = None
+    # Manejo/cria (privado) — el morph es independiente del nominal
+    husbandry_status: Optional[HusbandryStatusEnum] = None
+    low_stock_threshold: Optional[int] = Field(None, ge=1)
+    private_notes: Optional[str] = Field(None, max_length=5000)
 
     @field_validator("name", mode="before")
     @classmethod
@@ -237,6 +241,17 @@ class MorphResponse(MorphBase):
     id: int
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MorphAdminResponse(MorphResponse):
+    """Igual que MorphResponse pero con los campos privados de manejo/cria.
+    Solo la usan las rutas admin de /morphs; el catalogo publico (embebido en
+    los animales) usa MorphResponse para no filtrar datos internos."""
+    husbandry_status: HusbandryStatusEnum = HusbandryStatusEnum.ACTIVE
+    low_stock_threshold: Optional[int] = None
+    private_notes: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
