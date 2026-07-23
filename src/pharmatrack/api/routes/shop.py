@@ -14,6 +14,7 @@ from decimal import Decimal
 from typing import Optional
 
 from fastapi import Depends, APIRouter, HTTPException, Request
+from sqlalchemy import or_, and_
 from sqlalchemy.orm import selectinload
 from starlette import status
 
@@ -242,6 +243,15 @@ def resolve_item(db, key: str) -> dict:
 # =========================================================
 RESERVING_STATUSES = ("paid", "confirmed")
 
+# Al abrir el pago en línea, el pedido aparta su stock estos minutos. Si no
+# paga a tiempo, la reserva caduca sola (se calcula al leer, sin cron) para no
+# bloquear stock con un checkout abandonado.
+CHECKOUT_HOLD_MINUTES = 15
+
+
+def _now():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
 
 def _tier_units(tier: str) -> int:
     """Unidades físicas por pieza pedida: 1 si es individual/cepa ('u'), o el
@@ -270,11 +280,22 @@ def _physical_units(db, species_id: int, morph_id: Optional[int]) -> int:
 
 def _reserved_units(db, species_id: int, morph_id: Optional[int],
                     exclude_order_id: Optional[int] = None) -> int:
-    """Unidades del pool ya apartadas por pedidos pagados/confirmados."""
+    """Unidades del pool ya apartadas: por pedidos pagados/confirmados, o por
+    pedidos pendientes que abrieron el pago hace menos de CHECKOUT_HOLD_MINUTES."""
+    hold_cutoff = _now() - timedelta(minutes=CHECKOUT_HOLD_MINUTES)
     query = (
         db.query(OrderItem)
         .join(Order, OrderItem.order_id == Order.id)
-        .filter(Order.status.in_(RESERVING_STATUSES))
+        .filter(
+            or_(
+                Order.status.in_(RESERVING_STATUSES),
+                and_(
+                    Order.status == "pending",
+                    Order.checkout_at.isnot(None),
+                    Order.checkout_at > hold_cutoff,
+                ),
+            )
+        )
     )
     if exclude_order_id is not None:
         query = query.filter(Order.id != exclude_order_id)
@@ -506,8 +527,15 @@ async def start_checkout(request: Request, order_id: int, db: db_dependency,
 
     # Barrera de stock en el momento del pago: aquí es donde entra dinero, así
     # que se valida contra lo disponible (físico − apartado por otros pedidos
-    # pagados/confirmados; se excluye este pedido, que sigue pendiente).
+    # pagados/confirmados o con un pago recién abierto; se excluye este pedido).
     check_stock(db, [(i.item_key, i.quantity) for i in order.items], exclude_order_id=order.id)
+
+    # Aparta el stock mientras el cliente paga, para que otro no pague lo mismo.
+    # ponytail: sin lock de fila; queda una ventana de milisegundos entre este
+    # check y el commit (dos checkouts casi simultáneos). La cubre la red de
+    # seguridad del webhook (_apply_payment avisa si al acreditar ya se sobrepasó).
+    order.checkout_at = _now()
+    db.commit()
 
     notification_url = f"{str(request.base_url).rstrip('/')}/api/v1/shop/payments/webhook"
     _preference_id, payment_url = create_preference(order, notification_url)
@@ -538,8 +566,18 @@ def _apply_payment(db, order: Order, payment: dict) -> bool:
                      payment_id, paid, order.code, order.total)
         return False
 
+    # Red de seguridad de la carrera: si al acreditar el pago el stock ya se
+    # sobrepasó (dos pagaron casi a la vez), el dinero ya entró y NO se puede
+    # rechazar. Se marca pagado igual y se avisa para revisar/reembolsar a mano.
+    try:
+        check_stock(db, [(i.item_key, i.quantity) for i in order.items],
+                    exclude_order_id=order.id)
+    except HTTPException:
+        logger.error("SOBREVENTA en el pedido %s (payment %s): se cobró de más, "
+                     "revisar/reembolsar a mano", order.code, payment_id)
+
     order.payment_id = payment_id
-    order.paid_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    order.paid_at = _now()
     if order.status in ("pending", "cancelled"):
         order.status = "paid"
     db.commit()

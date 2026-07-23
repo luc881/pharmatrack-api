@@ -389,3 +389,39 @@ def test_validate_cart_reports_availability(fake_google, auth_headers):
     assert items[f"m{morph['id']}-u"]["available"] is True
     assert items[f"m{morph['id']}-u"]["max_qty"] == 1
     assert items["pr-999999"]["available"] is False
+
+
+def test_checkout_hold_reserves_then_expires(fake_google, auth_headers, db_session, monkeypatch):
+    from datetime import datetime, timezone, timedelta
+    from pharmatrack.models.customers.orm import Order
+    from pharmatrack.api.routes.shop import CHECKOUT_HOLD_MINUTES
+
+    monkeypatch.setattr("pharmatrack.api.routes.shop.create_preference",
+                        lambda *_a, **_k: ("pref", "https://mp.test/pagar"))
+    _g, _s, _ge, sp, _m = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], price=250.0)
+    _create_animal(auth_headers, sp["id"], price=250.0)  # 2 disponibles
+    headers = _sign_in()
+    pickup = {"delivery_method": "pickup", "contact_phone": "5512345678"}
+
+    a = client.post("/api/v1/shop/orders", headers=headers,
+                    json={"items": [{"key": f"s{sp['id']}-u", "qty": 2}], **pickup}).json()
+    # A abre el pago: aparta las 2 unidades
+    assert client.post(f"/api/v1/shop/orders/{a['id']}/checkout",
+                       headers=headers).status_code == 200
+
+    b = client.post("/api/v1/shop/orders", headers=headers,
+                    json={"items": [{"key": f"s{sp['id']}-u", "qty": 1}], **pickup}).json()
+    # B no puede pagar mientras A tiene el stock apartado
+    blocked = client.post(f"/api/v1/shop/orders/{b['id']}/checkout", headers=headers)
+    assert blocked.status_code == 409, blocked.text
+
+    # cae la reserva de A al pasar el TTL: B ya puede pagar
+    db_session.expire_all()
+    order_a = db_session.get(Order, a["id"])
+    order_a.checkout_at = (
+        datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=CHECKOUT_HOLD_MINUTES + 5)
+    )
+    db_session.commit()
+    freed = client.post(f"/api/v1/shop/orders/{b['id']}/checkout", headers=headers)
+    assert freed.status_code == 200, freed.text

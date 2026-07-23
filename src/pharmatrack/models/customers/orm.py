@@ -89,6 +89,10 @@ class Order(Base):
     # varias veces por el mismo pago) y para buscarlo en su panel
     payment_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
     paid_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=False), nullable=True)
+    # Momento en que se abrió el pago en línea: aparta el stock unos minutos
+    # mientras el cliente paga, para que dos no paguen el mismo. Ver
+    # CHECKOUT_HOLD_MINUTES en la ruta shop.
+    checkout_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=False), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
