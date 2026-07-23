@@ -24,6 +24,7 @@ from ...models.customers.orm import ORDER_STATUSES, Order, Customer, OrderItem
 from ...models.customers.schemas import (
     OrderCreate,
     GoogleSignIn,
+    CartValidate,
     OrderResponse,
     CustomerUpdate,
     CustomerSession,
@@ -31,6 +32,7 @@ from ...models.customers.schemas import (
     CheckoutSession,
     OrderAdminResponse,
     OrderStatusUpdate,
+    CartValidateResponse,
 )
 from ...models.products.orm import Product
 from ...utils.email import send_order_emails, send_order_paid_email
@@ -232,6 +234,121 @@ def resolve_item(db, key: str) -> dict:
 
 
 # =========================================================
+# Stock: solo se valida al PAGAR (un pedido es una solicitud libre). El stock
+# físico solo baja cuando registras la venta en el POS; aquí "apartado" =
+# unidades comprometidas por pedidos con dinero/compromiso pero aún no
+# registrados en el POS. Convención: marca el pedido "Completado" al registrar
+# la venta para que su apartado se libere (si no, quedaría contado dos veces).
+# =========================================================
+RESERVING_STATUSES = ("paid", "confirmed")
+
+
+def _tier_units(tier: str) -> int:
+    """Unidades físicas por pieza pedida: 1 si es individual/cepa ('u'), o el
+    tamaño del paquete (p. ej. 'paquete de 6' consume 6)."""
+    return 1 if tier == "u" else int(tier)
+
+
+def _pool_of(db, key: str):
+    """(species_id, morph_id, unidades_por_pieza) del pool físico de una llave
+    de animal. None si la llave no es de animal (p. ej. producto a granel)."""
+    match = _ITEM_RE.match(key)
+    if not match or match.group("product"):
+        return None
+    kind, entity_id, tier = match.group("kind"), int(match.group("id")), match.group("tier")
+    if kind == "m":
+        morph = db.get(Morph, entity_id)
+        if morph is None:
+            return None
+        return (morph.species_id, entity_id, _tier_units(tier))
+    return (entity_id, None, _tier_units(tier))
+
+
+def _physical_units(db, species_id: int, morph_id: Optional[int]) -> int:
+    return sum(int(a.stock or 0) for a in _listing_animals(db, species_id, morph_id))
+
+
+def _reserved_units(db, species_id: int, morph_id: Optional[int],
+                    exclude_order_id: Optional[int] = None) -> int:
+    """Unidades del pool ya apartadas por pedidos pagados/confirmados."""
+    query = (
+        db.query(OrderItem)
+        .join(Order, OrderItem.order_id == Order.id)
+        .filter(Order.status.in_(RESERVING_STATUSES))
+    )
+    if exclude_order_id is not None:
+        query = query.filter(Order.id != exclude_order_id)
+    total = 0
+    for item in query:
+        pool = _pool_of(db, item.item_key)
+        if pool and pool[0] == species_id and pool[1] == morph_id:
+            total += int(item.quantity) * pool[2]
+    return total
+
+
+def _available_units(db, species_id: int, morph_id: Optional[int],
+                     exclude_order_id: Optional[int] = None) -> int:
+    return _physical_units(db, species_id, morph_id) - _reserved_units(
+        db, species_id, morph_id, exclude_order_id
+    )
+
+
+def check_stock(db, lines, exclude_order_id: Optional[int] = None) -> None:
+    """`lines`: iterable de (key, qty). Lanza 409 si algún animal se pide por
+    encima de lo disponible. Los productos no se topan aquí (los cubre resolve)."""
+    needed: dict = {}
+    for key, qty in lines:
+        pool = _pool_of(db, key)
+        if pool is None:
+            continue
+        species_id, morph_id, per = pool
+        needed[(species_id, morph_id)] = needed.get((species_id, morph_id), 0) + int(qty) * per
+    for (species_id, morph_id), want in needed.items():
+        available = _available_units(db, species_id, morph_id, exclude_order_id)
+        if want > available:
+            morph = db.get(Morph, morph_id) if morph_id else None
+            species = morph.species if morph else db.get(Species, species_id)
+            base = (species.common_name if species else None) or " ".join(
+                filter(None, [species.genus.name if species and species.genus else None,
+                              species.name if species else None])
+            )
+            title = f"{base} {morph.name}" if morph else base
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(f"Solo quedan {available} disponibles de {title}."
+                        if available > 0 else f"{title} ya no está disponible."),
+            )
+
+
+@router.post("/cart/validate", response_model=CartValidateResponse,
+             summary="Public: revisar disponibilidad y precios del carrito")
+@limiter.limit("30/minute")
+async def validate_cart(request: Request, body: CartValidate, db: db_dependency):
+    out = []
+    for line in body.items:
+        try:
+            resolved = resolve_item(db, line.key)
+        except HTTPException:
+            out.append({"key": line.key, "available": False})
+            continue
+        pool = _pool_of(db, line.key)
+        max_qty = None
+        if pool is not None:
+            species_id, morph_id, per = pool
+            max_qty = max(_available_units(db, species_id, morph_id) // per, 0)
+        out.append({
+            "key": line.key,
+            "available": True,
+            "title": resolved["title"],
+            "detail": resolved["detail"],
+            "unit_price": float(resolved["unit_price"]),
+            "unit": resolved["unit"],
+            "max_qty": max_qty,
+        })
+    return {"items": out}
+
+
+# =========================================================
 # Pedidos del cliente
 # =========================================================
 @router.get("/orders", response_model=list[OrderResponse], summary="Public: mis pedidos")
@@ -386,6 +503,11 @@ async def start_checkout(request: Request, order_id: int, db: db_dependency,
             detail="Los pedidos con envío se cobran una vez cotizado el envío; "
                    "te mandamos el link de pago por WhatsApp.",
         )
+
+    # Barrera de stock en el momento del pago: aquí es donde entra dinero, así
+    # que se valida contra lo disponible (físico − apartado por otros pedidos
+    # pagados/confirmados; se excluye este pedido, que sigue pendiente).
+    check_stock(db, [(i.item_key, i.quantity) for i in order.items], exclude_order_id=order.id)
 
     notification_url = f"{str(request.base_url).rstrip('/')}/api/v1/shop/payments/webhook"
     _preference_id, payment_url = create_preference(order, notification_url)

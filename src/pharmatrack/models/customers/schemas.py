@@ -139,6 +139,30 @@ class OrderAdminResponse(OrderResponse):
     customer_name: Optional[str] = None
 
 
+class CartValidate(BaseModel):
+    """Revisión del carrito contra el catálogo: disponibilidad, precio y tope."""
+
+    items: List[OrderItemIn] = Field(..., min_length=1, max_length=100)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class CartLineStatus(BaseModel):
+    key: str
+    # False = el artículo ya no se puede pedir (borrado/vendido/oculto)
+    available: bool
+    title: Optional[str] = None
+    detail: Optional[str] = None
+    unit_price: Optional[float] = None
+    unit: Optional[str] = None
+    # Máximo pedible hoy (para paquetes, en paquetes). None = sin tope (productos)
+    max_qty: Optional[int] = None
+
+
+class CartValidateResponse(BaseModel):
+    items: List[CartLineStatus]
+
+
 class CheckoutSession(BaseModel):
     """A donde mandar al cliente para pagar."""
 

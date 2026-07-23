@@ -336,3 +336,56 @@ def test_shipping_can_be_turned_off(fake_google, auth_headers):
                       json={"items": [{"key": f"s{sp['id']}-u", "qty": 2}],
                             "delivery_method": "shipping"})
     assert res.status_code == 201, res.text
+
+
+# =========================================================
+# Stock: barrera dura solo al pagar (checkout) + validación del carrito
+# =========================================================
+def test_checkout_blocked_when_over_stock(fake_google, auth_headers):
+    _g, _s, _ge, sp, _m = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], price=250.0)  # 1 disponible
+    headers = _sign_in()
+    # pedir de más es válido (es una solicitud); pagar de más no
+    order = client.post("/api/v1/shop/orders", headers=headers,
+                        json={"items": [{"key": f"s{sp['id']}-u", "qty": 2}],
+                              "delivery_method": "pickup",
+                              "contact_phone": "5512345678"}).json()
+    res = client.post(f"/api/v1/shop/orders/{order['id']}/checkout", headers=headers)
+    assert res.status_code == 409, res.text
+    assert "Solo quedan 1" in res.json()["detail"]
+
+
+def test_confirmed_order_reserves_stock_from_checkout(fake_google, auth_headers):
+    _g, _s, _ge, sp, _m = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], price=250.0)
+    _create_animal(auth_headers, sp["id"], price=250.0)  # 2 disponibles
+    headers = _sign_in()
+    pickup = {"delivery_method": "pickup", "contact_phone": "5512345678"}
+
+    first = client.post("/api/v1/shop/orders", headers=headers,
+                        json={"items": [{"key": f"s{sp['id']}-u", "qty": 2}], **pickup}).json()
+    # staff lo confirma: sus 2 unidades quedan apartadas
+    client.put(f"/api/v1/orders/{first['id']}", headers=auth_headers,
+               json={"status": "confirmed"})
+
+    # otro pedido ya no tiene stock para pagar (2 físico − 2 apartado = 0)
+    second = client.post("/api/v1/shop/orders", headers=headers,
+                         json={"items": [{"key": f"s{sp['id']}-u", "qty": 1}], **pickup}).json()
+    res = client.post(f"/api/v1/shop/orders/{second['id']}/checkout", headers=headers)
+    assert res.status_code == 409, res.text
+    assert "ya no está disponible" in res.json()["detail"]
+
+
+def test_validate_cart_reports_availability(fake_google, auth_headers):
+    _g, _s, _ge, sp, morph = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], morph_ids=[morph["id"]], price=250.0)  # 1
+
+    res = client.post("/api/v1/shop/cart/validate", json={"items": [
+        {"key": f"m{morph['id']}-u", "qty": 5},
+        {"key": "pr-999999", "qty": 1},
+    ]})
+    assert res.status_code == 200, res.text
+    items = {i["key"]: i for i in res.json()["items"]}
+    assert items[f"m{morph['id']}-u"]["available"] is True
+    assert items[f"m{morph['id']}-u"]["max_qty"] == 1
+    assert items["pr-999999"]["available"] is False
