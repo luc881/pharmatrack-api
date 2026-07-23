@@ -15,7 +15,6 @@ from pharmatrack.seeds.seed_product_categories import seed_product_categories
 from pharmatrack.seeds.seed_superuser import seed_superuser
 from pharmatrack.seeds.seed_branches import seed_branches
 from pharmatrack.seeds.seed_animal_groups import seed_animal_groups
-from pharmatrack.seeds.seed_animals import seed_animals
 
 
 def init_db():
@@ -47,8 +46,9 @@ def init_db():
         print("\n🕷️ Grupos de animales...")
         seed_animal_groups(db)
 
-        print("\n🦎 Animales de ejemplo...")
-        seed_animals(db)
+        # Los animales de ejemplo NO se siembran en el arranque: recreaban en cada
+        # deploy las especies placeholder que se borran desde el dashboard. Para
+        # una BD nueva, correr a mano: python -m pharmatrack.seeds.seed_animals
 
         # ponytail: los seeders de productos escanean un catálogo de ~11k líneas
         # registro por registro; solo tiene sentido en una BD vacía.
