@@ -18,6 +18,13 @@ def test_sales_summary(auth_headers, db_session,
     assert data["count"] >= 1
     assert float(data["total"]) > 0
     assert any(animal["code"] in p["title"] for p in data["top_products"])
+    # desglose por producto para la hoja de inventario
+    row = next(p for p in data["by_product"] if p["product_id"] == animal["product_id"])
+    assert row["quantity"] >= 1 and row["total"] > 0
+
+    # un rango que no incluye la venta no la cuenta
+    res = client.get("/api/v1/sales/summary", params={"date_to": "2000-01-01T00:00:00"}, headers=auth_headers)
+    assert all(p["product_id"] != animal["product_id"] for p in res.json()["by_product"])
 
 
 def test_email_ticket_sin_api_key(auth_headers, db_session,

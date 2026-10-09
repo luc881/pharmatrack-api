@@ -143,6 +143,19 @@ def sales_summary(
         .all()
     )
 
+    # Todas las líneas por producto (sin tope): la hoja de inventario del
+    # dashboard cruza esto con el producto gemelo de cada animal.
+    by_product = (
+        db.query(
+            SaleDetail.product_id,
+            func.coalesce(func.sum(SaleDetail.quantity), 0),
+            func.coalesce(func.sum(SaleDetail.total), 0),
+        )
+        .filter(SaleDetail.sale_id.in_(sale_ids))
+        .group_by(SaleDetail.product_id)
+        .all()
+    )
+
     payments = (
         db.query(SalePayment.method_payment, func.coalesce(func.sum(SalePayment.amount), 0))
         .filter(SalePayment.sale_id.in_(sale_ids))
@@ -158,6 +171,9 @@ def sales_summary(
         "discounts": discounts,
         "top_products": [
             {"title": t, "quantity": float(q), "total": float(tot)} for t, q, tot in top_products
+        ],
+        "by_product": [
+            {"product_id": pid, "quantity": float(q), "total": float(tot)} for pid, q, tot in by_product
         ],
         "payments": [
             {"method": (m.value if hasattr(m, "value") else m), "amount": float(a)} for m, a in payments
