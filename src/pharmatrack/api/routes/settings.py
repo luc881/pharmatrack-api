@@ -22,7 +22,7 @@ EMAIL_TICKET_DEFAULTS = {
     # Logo y color de marca de TODOS los correos. El logo debe ser una URL
     # publica: los clientes de correo no pueden leer archivos del servidor.
     "logo_url": "https://www.opuntiaden.com/brand/assets/logo/sello-claro-480.png",  # 480px, ~28 KB
-    "accent_color": "#8C9E6E",
+    "accent_color": "#A8455C",
     # Textos de los correos de pedido (el resumen y los datos van aparte)
     "order_intro_pickup": (
         "Recibimos tu pedido de entrega personal en CDMX. En cuanto se acredite "

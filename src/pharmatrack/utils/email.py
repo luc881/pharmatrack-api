@@ -189,7 +189,7 @@ def send_ticket_email(to_email: str, sale_id: int, date_str: str, items: list[di
 
 
 # Marca por defecto (verde del logo). El panel puede sobreescribirla.
-BRAND_ACCENT = "#8C9E6E"
+BRAND_ACCENT = "#A8455C"  # tuna de la marca (acento puntual)
 BRAND_DARK = "#33402F"
 
 
