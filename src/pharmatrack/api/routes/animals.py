@@ -85,9 +85,9 @@ def _validate_compare_at(price, compare_at):
 
 
 def _validate_stock(species: Species, stock: int):
-    # Los individuales tienen folio único: su stock siempre es 1.
+    # Los individuales tienen folio único: su stock es 1 (o 0 si ya no está).
     # Cantidades mayores son solo para especies en cepa/paquete.
-    if stock != 1 and species.sale_format == "individual":
+    if stock > 1 and species.sale_format == "individual":
         raise HTTPException(
             status_code=400,
             detail="Solo las especies en cepa o paquete aceptan stock mayor a 1.",
@@ -292,8 +292,11 @@ async def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency
                 quantity=payload.stock,
                 purchase_price=animal.price_cost,
             ))
-        # Resurtir una cepa agotada la regresa a la venta
-        if animal.status == AnimalStatusEnum.SOLD.value:
+        # Stock en 0 = agotado (igual que cuando una venta vacía el lote);
+        # resurtir una cepa agotada la regresa a la venta.
+        if payload.stock == 0:
+            animal.status = AnimalStatusEnum.SOLD.value
+        elif animal.status == AnimalStatusEnum.SOLD.value:
             animal.status = AnimalStatusEnum.AVAILABLE.value
 
     _validate_compare_at(animal.price, animal.compare_at_price)

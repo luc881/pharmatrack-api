@@ -93,3 +93,25 @@ def test_partial_sale_keeps_available_and_zero_marks_sold(
     assert res.status_code == status.HTTP_200_OK, res.text
     assert res.json()["status"] == "available"
     assert res.json()["stock"] == 10
+
+
+def test_manual_zero_stock_marks_sold_and_restock_reactivates(auth_headers):
+    """Si ya no hay cepa (murió, se usó, etc.), poner 0 a mano la agota sin venta."""
+    _, _, _, sp, _ = _make_taxonomy(auth_headers)
+    colony = _make_colony_species(auth_headers, sp)
+    animal = _create_animal(auth_headers, colony["id"], stock=10)
+
+    # Aunque el dashboard mande status "available" junto con stock 0, gana el stock
+    res = animals_put(str(animal["id"]), json={"stock": 0, "status": "available"}, headers=auth_headers)
+    assert res.status_code == status.HTTP_200_OK, res.text
+    assert res.json()["stock"] == 0
+    assert res.json()["status"] == "sold"
+
+    res = animals_put(str(animal["id"]), json={"stock": 4}, headers=auth_headers)
+    assert res.status_code == status.HTTP_200_OK, res.text
+    assert res.json()["stock"] == 4
+    assert res.json()["status"] == "available"
+
+    # Negativo sigue rechazado
+    res = animals_put(str(animal["id"]), json={"stock": -1}, headers=auth_headers)
+    assert res.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY

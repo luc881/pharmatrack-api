@@ -328,7 +328,7 @@ class AnimalUpdate(BaseModel):
     requires_legal_doc: Optional[bool] = None
     legal_doc: Optional[str] = Field(None, max_length=150)
     legal_doc_url: Optional[str] = Field(None, max_length=500)
-    stock: Optional[int] = Field(None, ge=1, description="Ajusta las unidades disponibles (resurtir cepa)")
+    stock: Optional[int] = Field(None, ge=0, description="Ajusta las unidades disponibles (resurtir cepa); 0 = agotado")
     compare_at_price: Optional[float] = Field(None, gt=0, description="Precio anterior (tachado); null quita la oferta")
 
     @field_validator("status")
