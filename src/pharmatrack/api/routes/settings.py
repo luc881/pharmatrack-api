@@ -3,7 +3,7 @@ import json
 from fastapi import APIRouter, HTTPException
 from typing import Literal, Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from starlette import status
 
 from ...db.session import db_dependency
@@ -189,3 +189,125 @@ def update_site_settings(body: SiteSettings, db: db_dependency):
     row.value = json.dumps({**stored, **patch})
     db.commit()
     return get_site_settings(db)
+
+
+# =========================================================
+# Paginas tipo linktree: /gracias (QR del sticker) y /links (bio de IG)
+# =========================================================
+# Un solo blob (app_settings key="link_pages") que el dashboard guarda
+# completo. Los defaults son el contenido con el que se publicaron; el sitio
+# guarda una copia por si el API no responde.
+LINK_PAGES_DEFAULTS = {
+    "events": [
+        {
+            "title": "Animalia Otoño CDMX 2026",
+            "place": "Centro de Convenciones Tlatelolco, CDMX",
+            "date": "2026-11-21",
+            "time": "",
+            "ends": "",
+            "url": "",
+            "url_label": "Más información",
+        }
+    ],
+    # url vacia = todavia no hay guia: el sitio la ofrece por WhatsApp
+    "guides": [
+        {"name": "Fásmidos", "url": "", "sub": False},
+        {"name": 'Phyllium gardabagusi "Argopuro"', "url": "", "sub": True},
+        {"name": "Isópodos", "url": "/articulos/isopodos-y-colembolos-el-equipo-de-limpieza-del-terrario-2", "sub": False},
+        {"name": "Colémbolos", "url": "/articulos/isopodos-y-colembolos-el-equipo-de-limpieza-del-terrario-2", "sub": False},
+        {"name": "Cucarachas", "url": "", "sub": False},
+    ],
+    "pages": {
+        "gracias": {
+            "label": "Criadero · Ciudad de México",
+            "title": "Gracias por tu compra",
+            "lead": "Gracias por llevarte un pedacito de nuestro criadero. Aquí tienes todo para que tus animales estén bien.",
+            "footer": "Ciudad de México",
+            "buttons": [
+                {"label": "Ver catálogo", "url": "/catalogo", "primary": True},
+                {"label": "Instagram · @opuntia_den", "url": "https://www.instagram.com/opuntia_den/", "primary": False},
+                {"label": "WhatsApp · Ventas Opuntia", "url": "https://wa.me/525562292037", "primary": False},
+                {"label": "Sitio web", "url": "/", "primary": False},
+            ],
+        },
+        "links": {
+            "label": "Criadero · CDMX",
+            "title": "Vida en miniatura",
+            "lead": "Isópodos, colémbolos, fásmidos y bioactivo. Entregas a convenir.",
+            "footer": "CDMX · Entregas a convenir",
+            "buttons": [
+                {"label": "Ver catálogo", "url": "/catalogo", "primary": True},
+                {"label": "Escríbenos por WhatsApp", "url": "https://wa.me/525562292037", "primary": False},
+                {"label": "Instagram · @opuntia_den", "url": "https://www.instagram.com/opuntia_den/", "primary": False},
+                {"label": "Sitio web", "url": "/", "primary": False},
+            ],
+        },
+    },
+}
+
+# Solo rutas del sitio, http(s), tel: y mailto:. Bloquea javascript: y
+# similares: estas URLs terminan como href en una pagina publica.
+URL_PATTERN = r"^(/[^/]|/$|https?://|tel:|mailto:)"
+DATE_PATTERN = r"^\d{4}-\d{2}-\d{2}$"
+
+
+class LinkButton(BaseModel):
+    label: str = Field(min_length=1, max_length=80)
+    url: str = Field(pattern=URL_PATTERN, max_length=500)
+    primary: bool = False
+
+
+class LinkGuide(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    url: str = Field("", pattern=rf"{URL_PATTERN}|^$", max_length=500)
+    sub: bool = False
+
+
+class LinkEvent(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    place: str = Field("", max_length=160)
+    date: str = Field(pattern=DATE_PATTERN)
+    time: str = Field("", pattern=r"^(\d{2}:\d{2})?$")
+    ends: str = Field("", pattern=rf"{DATE_PATTERN}|^$")
+    url: str = Field("", pattern=rf"{URL_PATTERN}|^$", max_length=500)
+    url_label: str = Field("Más información", max_length=60)
+
+
+class LinkPage(BaseModel):
+    label: str = Field("", max_length=80)
+    title: str = Field(min_length=1, max_length=120)
+    lead: str = Field("", max_length=400)
+    footer: str = Field("", max_length=160)
+    buttons: list[LinkButton] = Field(default_factory=list, max_length=12)
+
+
+class LinkPages(BaseModel):
+    events: list[LinkEvent] = Field(default_factory=list, max_length=20)
+    guides: list[LinkGuide] = Field(default_factory=list, max_length=30)
+    pages: dict[Literal["gracias", "links"], LinkPage]
+
+
+def get_link_pages(db) -> dict:
+    row = db.query(AppSetting).filter(AppSetting.key == "link_pages").first()
+    return json.loads(row.value) if row else LINK_PAGES_DEFAULTS
+
+
+# Lectura publica (sin auth): el sitio la consulta para /gracias y /links
+@router.get("/link-pages", summary="Contenido de /gracias y /links")
+def read_link_pages(db: db_dependency):
+    return get_link_pages(db)
+
+
+@router.put("/link-pages", dependencies=CAN_UPDATE_SETTINGS,
+            summary="Guardar contenido de /gracias y /links")
+def update_link_pages(body: LinkPages, db: db_dependency):
+    if set(body.pages) != {"gracias", "links"}:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail="Faltan paginas: se esperan gracias y links.")
+    row = db.query(AppSetting).filter(AppSetting.key == "link_pages").first()
+    if not row:
+        row = AppSetting(key="link_pages", value="{}")
+        db.add(row)
+    row.value = json.dumps(body.model_dump(), ensure_ascii=False)
+    db.commit()
+    return get_link_pages(db)
