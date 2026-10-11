@@ -64,6 +64,7 @@ AnimalGroupTreeResponse.model_rebuild()
 # =========================================================
 class GenusBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
+    # Opcional solo en respuestas (géneros viejos sin grupo); al escribir es obligatorio
     group_id: Optional[int] = Field(None, ge=1)
 
     @field_validator("name")
@@ -73,6 +74,9 @@ class GenusBase(BaseModel):
 
 
 class GenusCreate(GenusBase):
+    # Estricto: todo género nuevo cuelga de un grupo
+    group_id: int = Field(..., ge=1)
+
     model_config = ConfigDict(extra="forbid")
 
 
@@ -84,6 +88,13 @@ class GenusUpdate(BaseModel):
     @classmethod
     def normalize_name(cls, v):
         return norm_title(v) if v is not None else v
+
+    @model_validator(mode="after")
+    def group_not_cleared(self):
+        # Se puede omitir (no cambia), pero no quitar el grupo
+        if "group_id" in self.model_fields_set and self.group_id is None:
+            raise ValueError("A genus must belong to an animal group.")
+        return self
 
     model_config = ConfigDict(extra="forbid")
 

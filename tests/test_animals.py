@@ -79,7 +79,7 @@ def test_duplicate_names_rejected(auth_headers):
     root, sub, genus, sp, morph = _make_taxonomy(auth_headers)
 
     assert groups_post(json={"name": root["name"]}, headers=auth_headers).status_code == 400
-    assert genera_post(json={"name": genus["name"]}, headers=auth_headers).status_code == 400
+    assert genera_post(json={"name": genus["name"], "group_id": sub["id"]}, headers=auth_headers).status_code == 400
     assert species_post(json={"genus_id": genus["id"], "name": sp["name"]},
                         headers=auth_headers).status_code == 400
     assert morphs_post(json={"species_id": sp["id"], "name": morph["name"]},
@@ -298,3 +298,15 @@ def test_delete_available_animal_removes_twin_product(auth_headers, db_session):
 
     from pharmatrack.models.products.orm import Product
     assert db_session.get(Product, animal["product_id"]) is None
+
+
+def test_genus_requires_group(auth_headers):
+    root, sub, genus, sp, morph = _make_taxonomy(auth_headers)
+    url = f"/api/v1/genera/{genus['id']}"
+
+    assert genera_post(json={"name": "Sin grupo"}, headers=auth_headers).status_code == 422
+    assert genera_post(json={"name": "Sin grupo", "group_id": None}, headers=auth_headers).status_code == 422
+    assert client.put(url, json={"group_id": None}, headers=auth_headers).status_code == 422
+    # omitirlo al editar conserva el grupo
+    res = client.put(url, json={"name": "Renombrado"}, headers=auth_headers)
+    assert res.status_code == 200 and res.json()["group"]["id"] == sub["id"]

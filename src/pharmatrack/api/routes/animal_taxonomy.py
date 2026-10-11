@@ -208,7 +208,7 @@ async def get_genus(genus_id: int, db: db_dependency):
 @genera_router.post("", response_model=GenusResponse, status_code=status.HTTP_201_CREATED,
                     summary="Create a genus", dependencies=CAN_CREATE_GENERA)
 async def create_genus(payload: GenusCreate, db: db_dependency):
-    if payload.group_id is not None and not db.get(AnimalGroup, payload.group_id):
+    if not db.get(AnimalGroup, payload.group_id):
         raise HTTPException(status_code=400, detail="Animal group not found.")
     if db.query(Genus).filter(Genus.name == payload.name).first():
         raise HTTPException(status_code=400, detail="A genus with this name already exists.")
