@@ -36,6 +36,7 @@ from pharmatrack.models.animals.orm import AnimalGroup, Genus, Species, Morph, A
 from pharmatrack.models.articles.orm import Article
 from pharmatrack.models.products.orm import BundleItem
 from pharmatrack.models.husbandry_logs.orm import HusbandryLog
+from pharmatrack.models.deliveries.orm import Delivery
 
 # =========================================================
 # 🔹 Config de Alembic

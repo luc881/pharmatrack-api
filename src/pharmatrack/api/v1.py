@@ -5,7 +5,7 @@ from .routes import (
     sale_details, refund_products, suppliers, purchases,
     purchase_details, product_batch, sale_batch_usage,
     product_master, product_brand, ingredients, stats, sensor_readings, dashboard, calendar,
-    animal_taxonomy, animals, husbandry_logs, public_animals, public_species, public_products, image_cache, articles,
+    animal_taxonomy, animals, husbandry_logs, deliveries, public_animals, public_species, public_products, image_cache, articles,
     settings, shop,
 )
 
@@ -41,6 +41,7 @@ api_v1_router.include_router(animal_taxonomy.species_router)
 api_v1_router.include_router(animal_taxonomy.morphs_router)
 api_v1_router.include_router(animals.router)
 api_v1_router.include_router(husbandry_logs.router)
+api_v1_router.include_router(deliveries.router)
 api_v1_router.include_router(public_animals.router)
 api_v1_router.include_router(public_species.router)
 api_v1_router.include_router(image_cache.router)
