@@ -1,3 +1,5 @@
+import html
+
 import resend
 from pharmatrack.config import settings
 from pharmatrack.utils.logger import get_logger
@@ -266,6 +268,22 @@ def _items_table(order, total_label: str = "Total") -> str:
 """
 
 
+def _contact_html(order, customer, with_address: bool = False) -> str:
+    """Datos de contacto del pedido. Los escribe el cliente (nombre, teléfono,
+    dirección, notas): se escapan para que no puedan meter HTML/enlaces en el
+    correo, sobre todo en el aviso que le llega al negocio."""
+    e = html.escape
+    extra = ""
+    if with_address:
+        extra = (f"<br>{e(order.address)}" if order.address else "") + (
+            f"<br><em>{e(order.notes)}</em>" if order.notes else "")
+    return f"""
+  <p style="color:#6b7280;font-size:13px;margin:0;">
+    {e(order.contact_name or customer.name or '')} &middot; {e(customer.email or '')}
+    {f'&middot; {e(order.contact_phone)}' if order.contact_phone else ''}{extra}
+  </p>"""
+
+
 def send_order_emails(order, customer, notify_email: str = "", template: dict | None = None) -> None:
     """Confirmación al cliente y aviso al negocio. No-op sin RESEND_API_KEY —
     el pedido ya quedó guardado, el correo es un extra."""
@@ -276,13 +294,7 @@ def send_order_emails(order, customer, notify_email: str = "", template: dict | 
     # con entrega personal el monto ya es el final; con envío falta cotizar
     is_pickup = getattr(order, "delivery_method", "shipping") == "pickup"
     body = _items_table(order, "Total" if is_pickup else "Total estimado")
-    contact = f"""
-  <p style="color:#6b7280;font-size:13px;margin:0;">
-    {order.contact_name or customer.name or ''} &middot; {customer.email}
-    {f'&middot; {order.contact_phone}' if order.contact_phone else ''}
-    {f'<br>{order.address}' if order.address else ''}
-    {f'<br><em>{order.notes}</em>' if order.notes else ''}
-  </p>"""
+    contact = _contact_html(order, customer, with_address=True)
 
     resend.api_key = settings.resend_api_key
 
@@ -328,11 +340,7 @@ def send_order_paid_email(order, customer, notify_email: str = "",
     body = _items_table(order, "Total pagado")
 
     tpl = template or {}
-    contact = f"""
-  <p style="color:#6b7280;font-size:13px;margin:0;">
-    {order.contact_name or customer.name or ''} &middot; {customer.email}
-    {f'&middot; {order.contact_phone}' if order.contact_phone else ''}
-  </p>"""
+    contact = _contact_html(order, customer)
 
     def _send(to_email: str, subject: str, intro: str) -> None:
         resend.Emails.send({

@@ -162,7 +162,7 @@ def validate_refresh_token(db: Session, refresh_token: str) -> User:
     user = (
         db.query(User)
         .options(selectinload(User.role).selectinload(Role.permissions))
-        .filter(User.remember_token == refresh_token)
+        .filter(User.remember_token == refresh_token, User.deleted_at.is_(None))
         .first()
     )
     if not user:

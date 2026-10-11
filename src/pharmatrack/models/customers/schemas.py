@@ -61,8 +61,9 @@ class CustomerUpdate(AddressFields):
 
     name: Optional[str] = Field(None, max_length=255)
     phone: Optional[str] = Field(None, max_length=50)
-    favorites: Optional[List[str]] = None
-    cart: Optional[List[dict]] = None
+    # Acotados: se guardan tal cual en la fila del cliente
+    favorites: Optional[List[str]] = Field(None, max_length=500)
+    cart: Optional[List[dict]] = Field(None, max_length=200)
 
     model_config = ConfigDict(extra="forbid")
 

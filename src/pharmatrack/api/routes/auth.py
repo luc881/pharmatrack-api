@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, APIRouter, Request
 from typing import Annotated
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from ...db.session import get_db, db_dependency
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta, datetime, timezone
@@ -39,8 +39,20 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class ResetPasswordRequest(BaseModel):
-    token: str
-    new_password: str
+    token: str = Field(..., max_length=200)
+    new_password: str = Field(..., max_length=255)
+
+    # Misma regla que al crear o cambiar la contraseña
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("La contraseña debe tener al menos 8 caracteres.")
+        if not any(c.isupper() for c in v):
+            raise ValueError("Debe contener al menos una mayúscula.")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Debe contener al menos un número.")
+        return v
 
 
 router = APIRouter(
@@ -208,6 +220,9 @@ async def reset_password(request: Request, payload: ResetPasswordRequest, db: db
 
     user.password = bcrypt_context.hash(payload.new_password)
     reset_token.used = True
+    # Si alguien más tenía la sesión abierta, la pierde con la contraseña vieja
+    user.remember_token = None
+    user.refresh_token_expires_at = None
     db.commit()
 
     logger.info("Password reset completed for user id=%s", user.id)

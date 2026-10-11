@@ -401,6 +401,11 @@ async def update(sale_id: int, sale: SaleUpdate, db: db_dependency):
     if sale.status in (SaleStatusEnum.REFUNDED, SaleStatusEnum.PARTIALLY_REFUNDED):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Refund statuses can only be set automatically by the refund system.")
 
+    # Completar solo por POST /{id}/complete: ahí se descuenta stock y se
+    # recalculan totales. Por aquí quedaría "completada" sin tocar inventario.
+    if sale.status == SaleStatusEnum.COMPLETED:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Use POST /sales/{id}/complete to complete a sale.")
+
     if existing_sale.status != SaleStatusEnum.DRAFT:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only draft sales can be modified.")
 
