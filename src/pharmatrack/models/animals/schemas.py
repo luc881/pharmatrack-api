@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Literal, Optional, List
 from datetime import datetime, date
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
@@ -108,6 +108,15 @@ class PriceTier(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class PlanItem(BaseModel):
+    """Renglón del plan de manejo: qué se da y cada cuántos días."""
+    kind: Literal["food", "supplement"]
+    name: str = Field(..., min_length=1, max_length=100)
+    every_days: int = Field(..., ge=1, le=365)
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class SpeciesBase(BaseModel):
     genus_id: int = Field(..., ge=1)
     name: str = Field(..., min_length=1, max_length=100)
@@ -176,6 +185,7 @@ class SpeciesUpdate(BaseModel):
     husbandry_status: Optional[HusbandryStatusEnum] = None
     low_stock_threshold: Optional[int] = Field(None, ge=1)
     private_notes: Optional[str] = Field(None, max_length=5000)
+    husbandry_plan: Optional[List[PlanItem]] = Field(None, max_length=30)
 
     @field_validator("name", "common_name", mode="before")
     @classmethod
@@ -201,6 +211,7 @@ class SpeciesAdminResponse(SpeciesResponse):
     husbandry_status: HusbandryStatusEnum = HusbandryStatusEnum.ACTIVE
     low_stock_threshold: Optional[int] = None
     private_notes: Optional[str] = None
+    husbandry_plan: Optional[List[PlanItem]] = None
     show_public: bool = True
 
     model_config = ConfigDict(from_attributes=True)

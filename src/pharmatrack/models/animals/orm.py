@@ -100,6 +100,8 @@ class Species(Base):
     husbandry_status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="active")
     low_stock_threshold: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     private_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Plan de manejo: [{kind: food|supplement, name, every_days}] (privado)
+    husbandry_plan: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

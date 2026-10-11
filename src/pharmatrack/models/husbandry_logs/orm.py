@@ -29,9 +29,20 @@ class HusbandryLog(Base):
     grams: Mapped[Optional[Decimal]] = mapped_column(Numeric(8, 2), nullable=True)
     appetite: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     feeding_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    supplement: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
+    # Bajas: si se elige el ejemplar/cepa, se descuentan de su inventario.
+    # stock_deducted guarda lo que de verdad se descontó, para regresarlo al
+    # editar o borrar la entrada.
+    deaths: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    animal_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey("animals.id", ondelete="SET NULL"), nullable=True
+    )
+    stock_deducted: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0", default=0)
 
     activities: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    photos: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
 
     user_id: Mapped[Optional[int]] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
@@ -41,6 +52,7 @@ class HusbandryLog(Base):
     species = relationship("Species")
     morph = relationship("Morph")
     user = relationship("User")
+    animal = relationship("Animal")
 
     @property
     def species_name(self) -> Optional[str]:
@@ -52,6 +64,10 @@ class HusbandryLog(Base):
     @property
     def morph_name(self) -> Optional[str]:
         return self.morph.name if self.morph else None
+
+    @property
+    def animal_code(self) -> Optional[str]:
+        return self.animal.code if self.animal else None
 
     @property
     def user_name(self) -> Optional[str]:
