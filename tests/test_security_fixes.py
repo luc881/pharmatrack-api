@@ -2,6 +2,8 @@
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
+from pharmatrack.utils.security import hash_token
+
 from .utils import client
 
 
@@ -17,7 +19,7 @@ def test_sale_cannot_be_completed_via_put(auth_headers, test_sale):
 def _reset_token(db_session, user):
     from pharmatrack.models.password_reset_tokens.orm import PasswordResetToken
 
-    tok = PasswordResetToken(token="tok-123", user_id=user.id, used=False,
+    tok = PasswordResetToken(token=hash_token("tok-123"), user_id=user.id, used=False,
                              expires_at=datetime.now(timezone.utc) + timedelta(minutes=15))
     db_session.add(tok)
     db_session.commit()
@@ -26,7 +28,7 @@ def _reset_token(db_session, user):
 
 def test_reset_password_enforces_rules_and_revokes_sessions(db_session, test_user_with_role_permissions_branch_auth):
     user = test_user_with_role_permissions_branch_auth
-    user.remember_token = "old-refresh"
+    user.remember_token = hash_token("old-refresh")
     db_session.commit()
     _reset_token(db_session, user)
 
@@ -41,7 +43,7 @@ def test_reset_password_enforces_rules_and_revokes_sessions(db_session, test_use
 
 def test_deleted_user_cannot_refresh(db_session, test_user_with_role_permissions_branch_auth):
     user = test_user_with_role_permissions_branch_auth
-    user.remember_token = "live-refresh"
+    user.remember_token = hash_token("live-refresh")
     user.refresh_token_expires_at = datetime.now(timezone.utc) + timedelta(days=1)
     db_session.commit()
     assert client.post("/api/v1/auth/refresh", json={"refresh_token": "live-refresh"}).status_code == 200
@@ -59,3 +61,23 @@ def test_order_email_escapes_customer_fields():
     html = _contact_html(order, SimpleNamespace(name=None, email="a@b.com"), with_address=True)
     assert "<a href" not in html and "<script>" not in html and "<img" not in html
     assert "&lt;a href=" in html
+
+
+def test_tokens_stored_hashed(db_session, test_user_with_role_permissions_branch_auth):
+    """Login y reset guardan el sha256, nunca el token en claro."""
+    from pharmatrack.models.password_reset_tokens.orm import PasswordResetToken
+    from .utils import client as c
+
+    user = test_user_with_role_permissions_branch_auth
+    login = c.post("/api/v1/auth/token", data={"username": user.email, "password": "secureMpassword123"})
+    assert login.status_code == 200, login.text
+    refresh = login.json()["refresh_token"]
+    db_session.refresh(user)
+    assert user.remember_token == hash_token(refresh) and user.remember_token != refresh
+    assert c.post("/api/v1/auth/refresh", json={"refresh_token": refresh}).status_code == 200
+    # el hash guardado no sirve como token
+    assert c.post("/api/v1/auth/refresh", json={"refresh_token": user.remember_token}).status_code == 401
+
+    c.post("/api/v1/auth/forgot-password", json={"email": user.email})
+    stored = db_session.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).all()
+    assert stored and all(len(t.token) == 64 for t in stored)

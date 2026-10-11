@@ -11,6 +11,7 @@ from ...utils.security import (
     authenticate_user,
     create_jwt_token,
     create_refresh_token,
+    hash_token,
     save_refresh_token,
     validate_refresh_token,
     revoke_refresh_token,
@@ -162,7 +163,7 @@ async def forgot_password(request: Request, payload: ForgotPasswordRequest, db: 
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=PASSWORD_RESET_EXPIRE_MINUTES)
 
     reset_token = PasswordResetToken(
-        token=token,
+        token=hash_token(token),  # el correo lleva el token; la BD, su hash
         user_id=user.id,
         expires_at=expires_at,
         used=False,
@@ -190,7 +191,7 @@ async def forgot_password(request: Request, payload: ForgotPasswordRequest, db: 
 @limiter.limit(LIMIT_AUTH)
 async def reset_password(request: Request, payload: ResetPasswordRequest, db: db_dependency):
     reset_token = db.query(PasswordResetToken).filter(
-        PasswordResetToken.token == payload.token,
+        PasswordResetToken.token == hash_token(payload.token),
     ).first()
 
     if not reset_token:

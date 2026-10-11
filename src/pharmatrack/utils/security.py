@@ -14,6 +14,7 @@ from fastapi.security import (
 )
 from datetime import timedelta, datetime, timezone
 from jose import jwt, JWTError
+import hashlib
 import secrets
 from pharmatrack.config import settings
 
@@ -137,6 +138,13 @@ customer_dependency = Annotated[dict, Depends(decode_customer_token)]
 # =========================================================
 # 🔹 Refresh Token
 # =========================================================
+def hash_token(token: str) -> str:
+    """En la BD solo va el sha256 de los tokens opacos (refresh y reset de
+    contraseña): si se filtra la base, no sirven para entrar. Son aleatorios
+    de 512 bits, así que no hace falta sal ni un hash lento."""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
 def create_refresh_token() -> str:
     """
     Genera un token aleatorio seguro para usar como refresh token.
@@ -149,7 +157,7 @@ def save_refresh_token(db: Session, user_id: int, refresh_token: str) -> None:
     """Guarda el refresh token y su fecha de expiración en el usuario."""
     user = db.query(User).filter(User.id == user_id).first()
     if user:
-        user.remember_token = refresh_token
+        user.remember_token = hash_token(refresh_token)
         user.refresh_token_expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
         db.commit()
 
@@ -162,7 +170,7 @@ def validate_refresh_token(db: Session, refresh_token: str) -> User:
     user = (
         db.query(User)
         .options(selectinload(User.role).selectinload(Role.permissions))
-        .filter(User.remember_token == refresh_token, User.deleted_at.is_(None))
+        .filter(User.remember_token == hash_token(refresh_token), User.deleted_at.is_(None))
         .first()
     )
     if not user:
