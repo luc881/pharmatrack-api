@@ -78,3 +78,24 @@ def test_delivery_validation(auth_headers, db_session):
     for body in bad:
         assert client.post(URL, json=body, headers=auth_headers).status_code in (400, 422), body
     assert client.get(URL).status_code == 401
+
+
+def test_delivery_summary(auth_headers, db_session):
+    rows = [
+        _payload(scheduled_date="2026-10-01", amount=300, paid=True, payment_method="transfer"),
+        _payload(scheduled_date="2026-10-05", amount=200, paid=True, payment_method="cash", status="delivered"),
+        _payload(scheduled_date="2026-10-06", amount=50, paid=True, payment_method=None),
+        _payload(scheduled_date="2026-09-30", amount=999, paid=True, payment_method="cash"),  # fuera de rango
+        _payload(scheduled_date="2026-10-07", amount=120, paid=False),  # por cobrar
+        _payload(scheduled_date="2026-10-08", amount=500, paid=True, status="cancelled"),  # cancelada: no cuenta
+        _payload(scheduled_date="2026-11-20", amount=80, paid=False),  # por cobrar aunque sea de otro mes
+    ]
+    for body in rows:
+        assert client.post(URL, json=body, headers=auth_headers).status_code == 201
+
+    s = client.get(f"{URL}/summary", params={"date_from": "2026-10-01", "date_to": "2026-10-31"},
+                   headers=auth_headers).json()
+    assert float(s["collected"]) == 550
+    assert float(s["transfer"]) == 300 and float(s["cash"]) == 200 and float(s["other"]) == 50
+    assert float(s["to_collect"]) == 200 and s["to_collect_count"] == 2
+    assert s["pending_count"] == 5

@@ -1,10 +1,11 @@
 """Control de entregas en persona (ventas y cambios). Solo registro: no mueve
 inventario ni modifica ventas o pedidos; sale_id/order_id son referencias."""
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 from starlette import status
 
@@ -13,7 +14,7 @@ from ...models.animals.orm import Animal
 from ...models.customers.orm import Order
 from ...models.deliveries.orm import Delivery
 from ...models.deliveries.schemas import (
-    DeliveryCreate, DeliveryResponse, DeliveryStatusUpdate, DeliveryUpdate,
+    DeliveryCreate, DeliveryResponse, DeliveryStatusUpdate, DeliverySummary, DeliveryUpdate,
 )
 from ...models.sales.orm import Sale
 from ...utils.permissions import CAN_CREATE_SALES, CAN_READ_SALES, CAN_UPDATE_SALES
@@ -54,6 +55,33 @@ def _set_status(d: Delivery, new_status: str):
     else:
         d.delivered_at = None
     d.status = new_status
+
+
+@router.get("/summary", response_model=DeliverySummary, dependencies=CAN_READ_SALES)
+async def delivery_summary(db: db_dependency, date_from: Optional[date] = None, date_to: Optional[date] = None):
+    """Cobrado por entregas en el rango (por fecha de la entrega, sin
+    canceladas) y lo que falta por cobrar de todas las no canceladas."""
+    active = db.query(Delivery).filter(Delivery.status != "cancelled")
+
+    in_range = active.filter(Delivery.paid.is_(True))
+    if date_from:
+        in_range = in_range.filter(Delivery.scheduled_date >= date_from)
+    if date_to:
+        in_range = in_range.filter(Delivery.scheduled_date <= date_to)
+    by_method = dict(
+        in_range.with_entities(Delivery.payment_method, func.coalesce(func.sum(Delivery.amount), 0))
+        .group_by(Delivery.payment_method).all()
+    )
+    unpaid = active.filter(Delivery.paid.is_(False), Delivery.amount > 0)
+    return {
+        "collected": sum(by_method.values(), Decimal(0)),
+        "cash": by_method.get("cash", 0),
+        "transfer": by_method.get("transfer", 0),
+        "other": by_method.get("other", 0) + by_method.get(None, 0),
+        "to_collect": unpaid.with_entities(func.coalesce(func.sum(Delivery.amount), 0)).scalar(),
+        "to_collect_count": unpaid.count(),
+        "pending_count": active.filter(Delivery.status == "pending").count(),
+    }
 
 
 @router.get("", response_model=PaginatedResponse[DeliveryResponse], dependencies=CAN_READ_SALES)

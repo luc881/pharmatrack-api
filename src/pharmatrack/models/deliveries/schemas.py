@@ -78,3 +78,13 @@ class DeliveryResponse(BaseModel):
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class DeliverySummary(BaseModel):
+    collected: Decimal  # cobrado (pagadas) en el rango
+    cash: Decimal
+    transfer: Decimal
+    other: Decimal  # otra forma o sin especificar
+    to_collect: Decimal  # por cobrar, sin importar la fecha
+    to_collect_count: int
+    pending_count: int  # entregas pendientes
