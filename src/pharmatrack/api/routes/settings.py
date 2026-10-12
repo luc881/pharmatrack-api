@@ -232,7 +232,7 @@ LINK_PAGES_DEFAULTS = {
         },
         "links": {
             "label": "Criadero · CDMX",
-            "title": "Vida en miniatura",
+            "title": "Para quien mira de cerca",
             "lead": "Isópodos, colémbolos, fásmidos y bioactivo. Entregas a convenir.",
             "footer": "CDMX · Entregas a convenir",
             "buttons": [
