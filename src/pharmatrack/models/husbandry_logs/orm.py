@@ -33,6 +33,11 @@ class HusbandryLog(Base):
     feeding_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     supplement: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
+    # Cómo se ve el ejemplar: active | lethargic | other (+ condition_note)
+    condition: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    condition_note: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    weight_g: Mapped[Optional[Decimal]] = mapped_column(Numeric(8, 2), nullable=True)
+
     # Ejemplar de la entrada (código individual) cuando se anota uno por uno.
     # Bajas: si se elige el ejemplar/cepa, se descuentan de su inventario.
     # stock_deducted guarda lo que de verdad se descontó, para regresarlo al

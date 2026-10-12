@@ -4,7 +4,9 @@ from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+# good = comió todo, poor = poco, refused = nada (regular queda por entradas viejas)
 Appetite = Literal["good", "regular", "poor", "refused"]
+Condition = Literal["active", "lethargic", "other"]
 # Fotos subidas a Cloudinary desde el navegador
 HttpsUrl = Annotated[str, StringConstraints(max_length=500, pattern=r"^https://")]
 
@@ -24,6 +26,9 @@ class HusbandryLogCreate(BaseModel):
     appetite: Optional[Appetite] = None
     feeding_notes: Optional[str] = Field(None, max_length=2000)
     supplement: Optional[str] = Field(None, max_length=100)
+    condition: Optional[Condition] = None
+    condition_note: Optional[str] = Field(None, max_length=200)
+    weight_g: Optional[Decimal] = Field(None, gt=0, le=100000, decimal_places=2)
     deaths: Optional[int] = Field(None, ge=0, le=100000)
     animal_id: Optional[int] = Field(None, gt=0)
     activities: list[Activity] = Field(default_factory=list, max_length=10)
@@ -61,6 +66,9 @@ class HusbandryLogResponse(BaseModel):
     appetite: Optional[str] = None
     feeding_notes: Optional[str] = None
     supplement: Optional[str] = None
+    condition: Optional[str] = None
+    condition_note: Optional[str] = None
+    weight_g: Optional[Decimal] = None
     deaths: Optional[int] = None
     animal_id: Optional[int] = None
     animal_code: Optional[str] = None

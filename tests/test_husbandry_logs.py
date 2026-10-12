@@ -165,3 +165,18 @@ def test_per_animal_and_assisted_feeding(auth_headers, db_session):
                 headers=auth_headers)
     rows = client.get(URL, params={"animal_id": a1["id"]}, headers=auth_headers).json()["data"]
     assert [r["animal_code"] for r in rows] == ["EJ-001"]
+
+
+def test_condition_and_weight(auth_headers, db_session):
+    _root, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    base = {"species_id": sp["id"], "log_date": "2026-10-10"}
+
+    res = client.post(URL, json={**base, "condition": "other", "condition_note": "Ojo hinchado",
+                                 "weight_g": 42.5, "appetite": "poor", "pieces": 2}, headers=auth_headers)
+    assert res.status_code == 201, res.text
+    body = res.json()
+    assert body["condition"] == "other" and body["condition_note"] == "Ojo hinchado"
+    assert float(body["weight_g"]) == 42.5 and body["fed"] is True
+
+    for bad in ({"condition": "sleepy"}, {"weight_g": 0}, {"weight_g": -3}):
+        assert client.post(URL, json={**base, **bad}, headers=auth_headers).status_code == 422, bad
