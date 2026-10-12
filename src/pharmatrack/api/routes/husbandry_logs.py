@@ -14,6 +14,7 @@ from ...models.husbandry_logs.schemas import (
     HusbandryLogCreate, HusbandryLogResponse, HusbandryLogUpdate, HusbandryStatus,
 )
 from ...models.product_batch.orm import ProductBatch
+from ...utils.animal_replacement import pending_deliveries, swap, unswap, validate_replacement
 from ...utils.permissions import CAN_READ_ANIMALS, CAN_UPDATE_ANIMALS
 from ...utils.security import user_dependency
 from pharmatrack.types.animals import AnimalStatusEnum
@@ -39,6 +40,7 @@ def _query(db: Session):
         joinedload(HusbandryLog.morph),
         joinedload(HusbandryLog.user),
         joinedload(HusbandryLog.animal),
+        joinedload(HusbandryLog.replacement),
     )
 
 
@@ -92,6 +94,15 @@ def _deduct(db: Session, log: HusbandryLog):
         return
     animal = db.get(Animal, log.animal_id)
     batches = _batches(db, animal)
+    log.prev_status = animal.status
+    # Vendido pero sin entregar: ya no hay stock que descontar; la baja solo
+    # lo marca (y se puede cambiar por otro ejemplar para esa venta)
+    if animal.status == AnimalStatusEnum.SOLD.value and sum(b.quantity for b in batches) == 0:
+        if log.deaths != 1:
+            raise HTTPException(status_code=400, detail="Un ejemplar vendido solo puede tener 1 baja.")
+        log.stock_deducted = 0
+        animal.status = AnimalStatusEnum.DECEASED.value
+        return
     if log.deaths > sum(b.quantity for b in batches):
         raise HTTPException(status_code=400, detail="Deaths exceed the animal's stock.")
     remaining = log.deaths
@@ -104,21 +115,47 @@ def _deduct(db: Session, log: HusbandryLog):
 
 
 def _restore(db: Session, log: HusbandryLog):
-    """Regresa al inventario lo que esta entrada descontó."""
-    if not (log.stock_deducted and log.animal_id):
+    """Regresa al inventario lo que esta entrada descontó y al ejemplar su
+    estado de antes (reservado sigue reservado; vendido sigue vendido)."""
+    animal = db.get(Animal, log.animal_id) if log.animal_id and log.deaths else None
+    if animal is None:
         log.stock_deducted = 0
         return
-    animal = db.get(Animal, log.animal_id)
-    batches = _batches(db, animal)
-    if batches:
-        batches[0].quantity += log.stock_deducted
-    else:
-        db.add(ProductBatch(product_id=animal.product_id, quantity=log.stock_deducted,
-                            purchase_price=animal.price_cost))
-        db.flush()
+    if log.stock_deducted:
         batches = _batches(db, animal)
+        if batches:
+            batches[0].quantity += log.stock_deducted
+        else:
+            db.add(ProductBatch(product_id=animal.product_id, quantity=log.stock_deducted,
+                                purchase_price=animal.price_cost))
+            db.flush()
+    left = sum(b.quantity for b in _batches(db, animal))
+    prev = log.prev_status
+    closed = (AnimalStatusEnum.SOLD.value, AnimalStatusEnum.DECEASED.value)
+    if left > 0 and animal.status in closed:
+        reopened = (AnimalStatusEnum.AVAILABLE.value, AnimalStatusEnum.RESERVED.value)
+        animal.status = prev if prev in reopened else AnimalStatusEnum.AVAILABLE.value
+    elif left == 0 and animal.status == AnimalStatusEnum.DECEASED.value and prev == AnimalStatusEnum.SOLD.value:
+        animal.status = AnimalStatusEnum.SOLD.value
     log.stock_deducted = 0
-    _sync_status(animal, batches)
+
+
+def _check_replacement(db: Session, data: HusbandryLogCreate) -> Animal:
+    """Antes de tocar nada: la baja deja al ejemplar sin stock (murió), el
+    reemplazo está disponible y había algo que pasarle."""
+    dead = db.get(Animal, data.animal_id) if data.deaths and data.animal_id else None
+    left = sum(b.quantity for b in _batches(db, dead)) if dead else 0
+    sold_unshipped = dead is not None and dead.status == AnimalStatusEnum.SOLD.value and left == 0
+    if dead is None or not (sold_unshipped or left == data.deaths):
+        raise HTTPException(status_code=400, detail="El cambio por otro ejemplar va con la baja de un ejemplar que murió.")
+    repl = validate_replacement(db, dead, data.replacement_animal_id)
+    committed = (AnimalStatusEnum.RESERVED.value, AnimalStatusEnum.SOLD.value)
+    if dead.status not in committed and not pending_deliveries(db, dead.id):
+        raise HTTPException(
+            status_code=400,
+            detail=f"{dead.code} no estaba reservado, vendido ni en una entrega: no hay nada que cambiar.",
+        )
+    return repl
 
 
 # =========================================================
@@ -226,9 +263,12 @@ async def list_logs(
 @router.post("", response_model=HusbandryLogResponse, status_code=status.HTTP_201_CREATED, dependencies=CAN_UPDATE_ANIMALS)
 async def create_log(data: HusbandryLogCreate, db: db_dependency, user: user_dependency):
     _validate(db, data)
+    repl = _check_replacement(db, data) if data.replacement_animal_id else None
     log = HusbandryLog(**data.model_dump(), user_id=user["id"])
     db.add(log)
     _deduct(db, log)
+    if repl:
+        log.replaced_usage_id = swap(db, db.get(Animal, log.animal_id), repl, log.prev_status)
     db.commit()
     return _get(db, log.id)
 
@@ -237,10 +277,21 @@ async def create_log(data: HusbandryLogCreate, db: db_dependency, user: user_dep
 async def update_log(log_id: int, data: HusbandryLogUpdate, db: db_dependency):
     log = _get(db, log_id)
     _validate(db, data)
-    _restore(db, log)
-    for k, v in data.model_dump().items():
-        setattr(log, k, v)
-    _deduct(db, log)
+    if log.replacement_animal_id or data.replacement_animal_id:
+        # con cambio de ejemplar, la baja queda fija: lo demás sí se edita
+        fixed = ("deaths", "animal_id", "replacement_animal_id")
+        if any(getattr(data, k) != getattr(log, k) for k in fixed):
+            raise HTTPException(
+                status_code=400,
+                detail="Una baja con cambio de ejemplar no se edita: bórrala (deshace el cambio) y anótala de nuevo.",
+            )
+        for k, v in data.model_dump(exclude=set(fixed)).items():
+            setattr(log, k, v)
+    else:
+        _restore(db, log)
+        for k, v in data.model_dump().items():
+            setattr(log, k, v)
+        _deduct(db, log)
     db.commit()
     db.expire_all()
     return _get(db, log_id)
@@ -249,6 +300,8 @@ async def update_log(log_id: int, data: HusbandryLogUpdate, db: db_dependency):
 @router.delete("/{log_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=CAN_UPDATE_ANIMALS)
 async def delete_log(log_id: int, db: db_dependency):
     log = _get(db, log_id)
+    if log.replacement_animal_id:
+        unswap(db, db.get(Animal, log.animal_id), log.replacement, log.prev_status, log.replaced_usage_id)
     _restore(db, log)
     db.delete(log)
     db.commit()

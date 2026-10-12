@@ -166,6 +166,20 @@ async def get_animal(animal_id: int, db: db_dependency):
 
 
 # =========================================================
+# GET /{animal_id}/commitments
+# =========================================================
+@router.get("/{animal_id}/commitments", summary="Reserva, venta y entregas pendientes del ejemplar",
+            dependencies=CAN_READ_ANIMALS)
+async def get_commitments(animal_id: int, db: db_dependency):
+    from ...utils.animal_replacement import commitments
+
+    animal = db.get(Animal, animal_id)
+    if not animal:
+        raise HTTPException(status_code=404, detail="Animal not found.")
+    return commitments(db, animal)
+
+
+# =========================================================
 # POST /
 # =========================================================
 @router.post("", response_model=AnimalResponse, status_code=status.HTTP_201_CREATED,

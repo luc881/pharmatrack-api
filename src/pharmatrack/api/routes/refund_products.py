@@ -186,6 +186,17 @@ async def create(refund_product: RefundProductCreate, db: db_dependency):
     # -----------------------
     reintegrated_batches = {}
     if refund_product.is_reintegrable and sale_detail:
+        from ...models.animals.orm import Animal
+        from pharmatrack.types.animals import AnimalStatusEnum
+        dead = db.query(Animal.code).filter(
+            Animal.product_id == refund_product.product_id,
+            Animal.status == AnimalStatusEnum.DECEASED.value,
+        ).first()
+        if dead:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{dead.code} murió: registra la devolución sin reintegrar al inventario.",
+            )
         remaining_qty = refund_product.quantity
 
         # Ordenamos los lotes por fecha de expiración (FEFO)

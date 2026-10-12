@@ -47,6 +47,17 @@ class HusbandryLog(Base):
         BigInteger, ForeignKey("animals.id", ondelete="SET NULL"), nullable=True, index=True
     )
     stock_deducted: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0", default=0)
+    # Estado del ejemplar antes de la baja: al borrarla regresa a ese
+    # (reservado sigue reservado; vendido sin entregar sigue vendido)
+    prev_status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    # Cambio por otro ejemplar (utils/animal_replacement.py): a quién pasó la
+    # reserva/venta/entrega, y qué uso de lote se movió para poder deshacerlo
+    replacement_animal_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey("animals.id", ondelete="SET NULL"), nullable=True
+    )
+    replaced_usage_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, ForeignKey("sale_batch_usages.id", ondelete="SET NULL"), nullable=True
+    )
 
     activities: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -60,7 +71,8 @@ class HusbandryLog(Base):
     species = relationship("Species")
     morph = relationship("Morph")
     user = relationship("User")
-    animal = relationship("Animal")
+    animal = relationship("Animal", foreign_keys=[animal_id])
+    replacement = relationship("Animal", foreign_keys=[replacement_animal_id])
 
     @property
     def species_name(self) -> Optional[str]:
@@ -80,6 +92,10 @@ class HusbandryLog(Base):
     @property
     def animal_code(self) -> Optional[str]:
         return self.animal.code if self.animal else None
+
+    @property
+    def replacement_code(self) -> Optional[str]:
+        return self.replacement.code if self.replacement else None
 
     @property
     def user_name(self) -> Optional[str]:

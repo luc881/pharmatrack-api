@@ -31,6 +31,9 @@ class HusbandryLogCreate(BaseModel):
     weight_g: Optional[Decimal] = Field(None, gt=0, le=100000, decimal_places=2)
     deaths: Optional[int] = Field(None, ge=0, le=100000)
     animal_id: Optional[int] = Field(None, gt=0)
+    # si murió un ejemplar comprometido (reservado, vendido o en una entrega),
+    # pasa ese compromiso a este otro ejemplar disponible
+    replacement_animal_id: Optional[int] = Field(None, gt=0)
     activities: list[Activity] = Field(default_factory=list, max_length=10)
     notes: Optional[str] = Field(None, max_length=4000)
     photos: list[HttpsUrl] = Field(default_factory=list, max_length=12)
@@ -73,6 +76,9 @@ class HusbandryLogResponse(BaseModel):
     animal_id: Optional[int] = None
     animal_code: Optional[str] = None
     stock_deducted: int = 0
+    prev_status: Optional[str] = None
+    replacement_animal_id: Optional[int] = None
+    replacement_code: Optional[str] = None
     activities: Optional[list[str]] = None
     notes: Optional[str] = None
     photos: Optional[list[str]] = None
