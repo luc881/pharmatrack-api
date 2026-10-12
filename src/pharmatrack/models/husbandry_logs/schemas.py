@@ -99,6 +99,8 @@ class PlanStatusItem(BaseModel):
     last_done: Optional[date] = None
     next_due: date
     days_overdue: int  # >0 atrasado, 0 toca hoy, <0 faltan días
+    # suplementos: los ejemplares a los que ya les toca, si no son todos
+    pending_codes: list[str] = []
 
 
 class HusbandryStatus(BaseModel):

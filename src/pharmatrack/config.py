@@ -51,6 +51,15 @@ class Settings(BaseSettings):
     order_notify_email: str = ""
 
     # =========================================================
+    # 📨 Recordatorios del plan de manejo por Telegram
+    # =========================================================
+    # Bot creado con @BotFather; chat id(s) separados por coma. Vacío = apagado.
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+    # Hora de CDMX a partir de la cual sale el recordatorio del día
+    reminder_hour: int = 8
+
+    # =========================================================
     # 👤 Login de clientes con Google (sitio publico)
     # =========================================================
     # Mismo client id que usa Auth.js en pharmatrack-web; el token que manda

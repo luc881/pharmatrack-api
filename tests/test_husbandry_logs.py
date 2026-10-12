@@ -180,3 +180,48 @@ def test_condition_and_weight(auth_headers, db_session):
 
     for bad in ({"condition": "sleepy"}, {"weight_g": 0}, {"weight_g": -3}):
         assert client.post(URL, json={**base, **bad}, headers=auth_headers).status_code == 422, bad
+
+
+def test_supplement_per_specimen_and_telegram_text(auth_headers, db_session, monkeypatch):
+    from datetime import timedelta
+    from pharmatrack.api.routes.husbandry_logs import today_mx
+    from pharmatrack.utils import telegram
+    from .test_animals import _create_animal
+
+    _root, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    plan = [{"kind": "supplement", "name": "Calcio", "every_days": 7}]
+    client.put(f"/api/v1/species/{sp['id']}", json={"husbandry_plan": plan}, headers=auth_headers)
+    a1 = _create_animal(auth_headers, sp["id"], code="EJ-001")
+    _create_animal(auth_headers, sp["id"], code="EJ-002")
+    today = today_mx()
+    day = lambda n: str(today - timedelta(days=n))  # noqa: E731
+
+    def calcio():
+        rows = client.get(f"{URL}/status", params={"species_id": sp["id"]}, headers=auth_headers).json()
+        return rows[0]["plan"][0]
+
+    # a toda la especie hace 9 días: atrasado para los dos (no se nombran)
+    client.post(URL, json={"species_id": sp["id"], "log_date": day(9), "supplement": "Calcio"}, headers=auth_headers)
+    assert calcio()["days_overdue"] == 2 and calcio()["pending_codes"] == []
+
+    # solo EJ-001 hoy: la especie sigue atrasada por EJ-002, y se nombra
+    client.post(URL, json={"species_id": sp["id"], "log_date": day(0), "animal_id": a1["id"],
+                           "supplement": "Calcio"}, headers=auth_headers)
+    item = calcio()
+    assert item["days_overdue"] == 2 and item["pending_codes"] == ["EJ-002"]
+
+    rows = client.get(f"{URL}/status", params={"species_id": sp["id"]}, headers=auth_headers).json()
+    text = telegram.reminder_text(rows, today)
+    assert "Calcio — atrasado 2 días (EJ-002)" in text
+
+    # a toda la especie hoy: al día
+    client.post(URL, json={"species_id": sp["id"], "log_date": day(0), "supplement": "Calcio"}, headers=auth_headers)
+    assert calcio()["days_overdue"] == -7
+    assert telegram.reminder_text(client.get(f"{URL}/status", params={"species_id": sp["id"]},
+                                             headers=auth_headers).json(), today) == ""
+
+    # sin configurar: el botón avisa
+    assert client.post(f"{URL}/remind", headers=auth_headers).status_code == 400
+    # el día se aparta una sola vez (varios workers → un mensaje)
+    assert telegram._claim(db_session, "2999-01-01") is True
+    assert telegram._claim(db_session, "2999-01-01") is False

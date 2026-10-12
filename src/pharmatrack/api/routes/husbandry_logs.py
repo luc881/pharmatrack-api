@@ -172,7 +172,33 @@ def _done_by(item: dict, log: HusbandryLog) -> bool:
     return log.fed and (not log.food_type or _norm(log.food_type) == _norm(item["name"]))
 
 
-def build_status(species_list: list[Species], logs: list[HusbandryLog], today: date) -> list[dict]:
+def _plan_item(item: dict, done: list[HusbandryLog], herd: list[tuple[int, str]], today: date) -> dict:
+    """Próxima fecha de un renglón del plan. Con `herd` (ejemplares vivos) va
+    por ejemplar: cuenta la entrada de toda la especie o la suya, y la especie
+    queda tan atrasada como su ejemplar más atrasado."""
+    def due(last):
+        return last + timedelta(days=item["every_days"]) if last else today
+
+    if not herd:
+        last = next((l.log_date for l in done), None)
+        pending = []
+    else:
+        lasts = {code: next((l.log_date for l in done if l.animal_id in (None, aid)), None)
+                 for aid, code in herd}
+        last = min(lasts.values(), key=lambda d: d or date.min)
+        pending = [code for code, d in lasts.items() if due(d) <= today]
+        if len(pending) == len(herd):
+            pending = []  # toca a todos: es de la especie, no hace falta nombrarlos
+    next_due = due(last)
+    return {**item, "last_done": last, "next_due": next_due,
+            "days_overdue": (today - next_due).days, "pending_codes": pending}
+
+
+def build_status(species_list: list[Species], logs: list[HusbandryLog], today: date,
+                 herds: Optional[dict[int, list[tuple[int, str]]]] = None) -> list[dict]:
+    """`herds`: especie → [(id, código)] de sus ejemplares vivos; los
+    suplementos se siguen por ejemplar (la comida sigue siendo por especie)."""
+    herds = herds or {}
     by_species: dict[int, list[HusbandryLog]] = {}
     for log in logs:  # vienen de la más nueva a la más vieja
         by_species.setdefault(log.species_id, []).append(log)
@@ -181,12 +207,11 @@ def build_status(species_list: list[Species], logs: list[HusbandryLog], today: d
     out = []
     for sp in species_list:
         sp_logs = by_species.get(sp.id, [])
-        plan = []
-        for item in sp.husbandry_plan or []:
-            last = next((l.log_date for l in sp_logs if _done_by(item, l)), None)
-            next_due = last + timedelta(days=item["every_days"]) if last else today
-            plan.append({**item, "last_done": last, "next_due": next_due,
-                         "days_overdue": (today - next_due).days})
+        plan = [
+            _plan_item(item, [l for l in sp_logs if _done_by(item, l)],
+                       herds.get(sp.id, []) if item["kind"] == "supplement" else [], today)
+            for item in sp.husbandry_plan or []
+        ]
         month_logs = [l for l in sp_logs if l.log_date >= month_start]
         acts = [a for l in month_logs for a in (l.activities or [])]
         out.append({
@@ -210,8 +235,7 @@ def build_status(species_list: list[Species], logs: list[HusbandryLog], today: d
 # =========================================================
 # Rutas
 # =========================================================
-@router.get("/status", response_model=list[HusbandryStatus], dependencies=CAN_READ_ANIMALS)
-async def plan_status(db: db_dependency, species_id: Optional[int] = Query(None, gt=0)):
+def status_rows(db: Session, species_id: Optional[int] = None) -> list[dict]:
     """Una fila por especie con plan (o la pedida): próxima fecha de cada
     renglón del plan, última comida y conteos del mes. Sin species_id solo
     entran las especies en cultivo que tienen plan."""
@@ -232,8 +256,37 @@ async def plan_status(db: db_dependency, species_id: Optional[int] = Query(None,
         .order_by(HusbandryLog.log_date.desc(), HusbandryLog.id.desc())
         .all()
     )
-    rows = build_status(species_list, logs, today)
+    herds: dict[int, list[tuple[int, str]]] = {}
+    for aid, code, sid in (
+        db.query(Animal.id, Animal.code, Animal.species_id)
+        .filter(Animal.species_id.in_([s.id for s in species_list]),
+                Animal.status.in_([AnimalStatusEnum.AVAILABLE.value, AnimalStatusEnum.RESERVED.value]))
+        .order_by(Animal.code)
+    ):
+        herds.setdefault(sid, []).append((aid, code))
+    rows = build_status(species_list, logs, today, herds)
     return sorted(rows, key=lambda r: -max((p["days_overdue"] for p in r["plan"]), default=-999))
+
+
+@router.get("/status", response_model=list[HusbandryStatus], dependencies=CAN_READ_ANIMALS)
+async def plan_status(db: db_dependency, species_id: Optional[int] = Query(None, gt=0)):
+    return status_rows(db, species_id)
+
+
+@router.post("/remind", summary="Manda ahora los pendientes del plan a Telegram",
+             dependencies=CAN_UPDATE_ANIMALS)
+def remind_now(db: db_dependency):
+    from ...utils.telegram import configured, reminder_text, send
+
+    if not configured():
+        raise HTTPException(status_code=400,
+                            detail="Telegram no está configurado (TELEGRAM_BOT_TOKEN y TELEGRAM_CHAT_ID en Railway).")
+    text = reminder_text(status_rows(db), today_mx()) or "✅ Plan de manejo: todo al día."
+    try:
+        send(text)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Telegram no aceptó el mensaje: {exc}")
+    return {"sent": True}
 
 
 @router.get("", response_model=PaginatedResponse[HusbandryLogResponse], dependencies=CAN_READ_ANIMALS)

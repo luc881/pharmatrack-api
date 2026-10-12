@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -40,7 +41,11 @@ async def lifespan(app: FastAPI):
     logger.info("Running database seeds...")
     from .seeds.init_db import init_db
     init_db()
+    from .utils.telegram import configured, reminder_loop
+    reminder = asyncio.create_task(reminder_loop()) if configured() else None
     yield
+    if reminder:
+        reminder.cancel()
     logger.info("Application shutdown")
 
 
