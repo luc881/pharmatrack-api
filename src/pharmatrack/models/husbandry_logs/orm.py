@@ -24,6 +24,8 @@ class HusbandryLog(Base):
     log_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
 
     fed: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")
+    # Alimentación asistida (forzada): no comió solo, se le dio
+    assisted: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0", default=False)
     food_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     pieces: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     grams: Mapped[Optional[Decimal]] = mapped_column(Numeric(8, 2), nullable=True)
@@ -31,12 +33,13 @@ class HusbandryLog(Base):
     feeding_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     supplement: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
+    # Ejemplar de la entrada (código individual) cuando se anota uno por uno.
     # Bajas: si se elige el ejemplar/cepa, se descuentan de su inventario.
     # stock_deducted guarda lo que de verdad se descontó, para regresarlo al
     # editar o borrar la entrada.
     deaths: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     animal_id: Mapped[Optional[int]] = mapped_column(
-        BigInteger, ForeignKey("animals.id", ondelete="SET NULL"), nullable=True
+        BigInteger, ForeignKey("animals.id", ondelete="SET NULL"), nullable=True, index=True
     )
     stock_deducted: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0", default=0)
 
@@ -60,6 +63,10 @@ class HusbandryLog(Base):
         if not sp:
             return None
         return f"{sp.genus.name} {sp.name}" if sp.genus else sp.name
+
+    @property
+    def species_common_name(self) -> Optional[str]:
+        return self.species.common_name if self.species else None
 
     @property
     def morph_name(self) -> Optional[str]:

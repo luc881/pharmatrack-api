@@ -17,6 +17,7 @@ class HusbandryLogCreate(BaseModel):
     morph_id: Optional[int] = Field(None, gt=0)
     log_date: date
     fed: bool = False
+    assisted: bool = False
     food_type: Optional[str] = Field(None, max_length=100)
     pieces: Optional[int] = Field(None, ge=0, le=100000)
     grams: Optional[Decimal] = Field(None, ge=0, le=100000, decimal_places=2)
@@ -33,8 +34,9 @@ class HusbandryLogCreate(BaseModel):
 
     @model_validator(mode="after")
     def _implied_fed(self):
-        # Si se anotó cuánto comió, comió (salvo que lo haya rechazado)
-        if (self.pieces or self.grams) and self.appetite != "refused":
+        # Si se anotó cuánto comió, comió (salvo que lo haya rechazado);
+        # asistida también cuenta como comida, aunque no haya comido solo
+        if self.assisted or ((self.pieces or self.grams) and self.appetite != "refused"):
             self.fed = True
         if self.deaths:
             self.activities = [*self.activities, "deaths"]
@@ -52,6 +54,7 @@ class HusbandryLogResponse(BaseModel):
     morph_id: Optional[int] = None
     log_date: date
     fed: bool
+    assisted: bool = False
     food_type: Optional[str] = None
     pieces: Optional[int] = None
     grams: Optional[Decimal] = None
@@ -67,6 +70,7 @@ class HusbandryLogResponse(BaseModel):
     photos: Optional[list[str]] = None
     user_id: Optional[int] = None
     species_name: Optional[str] = None
+    species_common_name: Optional[str] = None
     morph_name: Optional[str] = None
     user_name: Optional[str] = None
     created_at: Optional[datetime] = None

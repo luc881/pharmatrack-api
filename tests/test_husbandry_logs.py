@@ -141,3 +141,27 @@ def test_plan_status(auth_headers, db_session):
 
     assert client.put(f"/api/v1/species/{sp['id']}", json={"husbandry_plan": [{"kind": "x", "name": "a", "every_days": 1}]},
                       headers=auth_headers).status_code == 422
+
+
+def test_per_animal_and_assisted_feeding(auth_headers, db_session):
+    from .test_animals import _create_animal
+
+    _root, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    a1 = _create_animal(auth_headers, sp["id"], code="EJ-001")
+    a2 = _create_animal(auth_headers, sp["id"], code="EJ-002")
+
+    # asistida: cuenta como comida; un ejemplar sin bajas no toca inventario
+    res = client.post(URL, json={
+        "species_id": sp["id"], "log_date": "2026-10-10", "animal_id": a1["id"],
+        "assisted": True, "food_type": "Papilla", "grams": 1,
+    }, headers=auth_headers)
+    assert res.status_code == 201, res.text
+    body = res.json()
+    assert body["assisted"] is True and body["fed"] is True
+    assert body["animal_code"] == "EJ-001" and body["stock_deducted"] == 0
+    assert body["species_common_name"] == sp["common_name"]
+
+    client.post(URL, json={"species_id": sp["id"], "log_date": "2026-10-10", "animal_id": a2["id"], "fed": True},
+                headers=auth_headers)
+    rows = client.get(URL, params={"animal_id": a1["id"]}, headers=auth_headers).json()["data"]
+    assert [r["animal_code"] for r in rows] == ["EJ-001"]

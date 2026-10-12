@@ -202,6 +202,7 @@ async def list_logs(
     db: db_dependency,
     species_id: Optional[int] = Query(None, gt=0),
     morph_id: Optional[int] = Query(None, gt=0),
+    animal_id: Optional[int] = Query(None, gt=0),
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     pagination: PaginationParams = Depends(),
@@ -211,6 +212,8 @@ async def list_logs(
         q = q.filter(HusbandryLog.species_id == species_id)
     if morph_id:
         q = q.filter(HusbandryLog.morph_id == morph_id)
+    if animal_id:
+        q = q.filter(HusbandryLog.animal_id == animal_id)
     if date_from:
         q = q.filter(HusbandryLog.log_date >= date_from)
     if date_to:
