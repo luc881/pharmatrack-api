@@ -269,6 +269,15 @@ async def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency
     if payload.photos is not None:
         animal.photos = [AnimalPhoto(url=u) for u in payload.photos]
 
+    # Un ejemplar que murió no vuelve a la venta cambiando el estado: se borra
+    # la baja en la bitácora (o se resurte una cepa con stock)
+    if (animal.status == AnimalStatusEnum.DECEASED.value and payload.status is not None
+            and not payload.stock):
+        raise HTTPException(
+            status_code=400,
+            detail="Este ejemplar murió. Para regresarlo, borra su baja en la bitácora.",
+        )
+
     update_data = payload.model_dump(exclude_unset=True, exclude={"morph_ids", "photos", "stock"})
     for key, value in update_data.items():
         setattr(animal, key, value.value if hasattr(value, "value") else value)
@@ -294,9 +303,11 @@ async def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency
             ))
         # Stock en 0 = agotado (igual que cuando una venta vacía el lote);
         # resurtir una cepa agotada la regresa a la venta.
+        # (si murió se queda como murió; resurtir una cepa muerta la reactiva)
         if payload.stock == 0:
-            animal.status = AnimalStatusEnum.SOLD.value
-        elif animal.status == AnimalStatusEnum.SOLD.value:
+            if animal.status != AnimalStatusEnum.DECEASED.value:
+                animal.status = AnimalStatusEnum.SOLD.value
+        elif animal.status in (AnimalStatusEnum.SOLD.value, AnimalStatusEnum.DECEASED.value):
             animal.status = AnimalStatusEnum.AVAILABLE.value
 
     _validate_compare_at(animal.price, animal.compare_at_price)
@@ -331,6 +342,9 @@ async def delete_animal(animal_id: int, db: db_dependency):
         raise HTTPException(status_code=404, detail="Animal not found.")
     if animal.status == AnimalStatusEnum.SOLD.value:
         raise HTTPException(status_code=400, detail="Cannot delete a sold animal.")
+    # su código se queda en el historial de la bitácora
+    if animal.status == AnimalStatusEnum.DECEASED.value:
+        raise HTTPException(status_code=400, detail="No se borra un ejemplar que murió: su historial en la bitácora lo usa.")
 
     if db.query(SaleDetail.id).filter(SaleDetail.product_id == animal.product_id).first():
         raise HTTPException(status_code=400, detail="Cannot delete an animal referenced by a sale.")

@@ -88,10 +88,10 @@ def test_deaths_deduct_and_restore_stock(auth_headers, db_session):
     assert client.post(URL, json={**base, "deaths": 8}, headers=auth_headers).status_code == 400
     assert stock()["stock"] == 7
 
-    # editar: regresa las 3 y descuenta 7 → agotado
+    # editar: regresa las 3 y descuenta 7 → murió (no «vendido»)
     upd = client.put(f"{URL}/{log.json()['id']}", json={**base, "deaths": 10}, headers=auth_headers)
     assert upd.status_code == 200, upd.text
-    assert stock()["stock"] == 0 and stock()["status"] == "sold"
+    assert stock()["stock"] == 0 and stock()["status"] == "deceased"
 
     # borrar: regresa todo y vuelve a la venta
     assert client.delete(f"{URL}/{log.json()['id']}", headers=auth_headers).status_code == 204

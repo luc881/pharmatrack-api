@@ -341,6 +341,18 @@ def complete_sale(sale_id: int, db: db_dependency):
             detail=f"Animal(es) reservado(s): {codes}. Libera la reserva antes de completar la venta.",
         )
 
+    # Uno que murió (baja en la bitácora) puede seguir en un borrador o paquete
+    deceased = db.query(Animal.code).filter(
+        Animal.product_id.in_(effective_ids),
+        Animal.status == AnimalStatusEnum.DECEASED.value,
+    ).all()
+    if deceased:
+        codes = ", ".join(r.code for r in deceased)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Animal(es) que murieron: {codes}. Quítalos de la venta.",
+        )
+
     for detail in sale.sale_details:
         allocate_batches_for_sale_detail(db, detail)
 
@@ -366,7 +378,8 @@ def complete_sale(sale_id: int, db: db_dependency):
     sold_out = [pid for pid in effective_ids if remaining.get(pid, 0) <= 0]
     if sold_out:
         db.query(Animal).filter(
-            Animal.product_id.in_(sold_out)
+            Animal.product_id.in_(sold_out),
+            Animal.status != AnimalStatusEnum.DECEASED.value,
         ).update({Animal.status: AnimalStatusEnum.SOLD.value}, synchronize_session=False)
 
     db.commit()

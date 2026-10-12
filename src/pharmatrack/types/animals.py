@@ -12,6 +12,8 @@ class AnimalStatusEnum(str, Enum):
     AVAILABLE = "available"
     RESERVED = "reserved"
     SOLD = "sold"
+    # Murió: lo pone una baja en la bitácora (y lo quita borrar esa baja)
+    DECEASED = "deceased"
 
 
 class SaleFormatEnum(str, Enum):

@@ -356,9 +356,12 @@ class AnimalUpdate(BaseModel):
     @field_validator("status")
     @classmethod
     def forbid_manual_sold(cls, v):
-        # "sold" lo asigna el flujo de venta, nunca el cliente
+        # "sold" lo asigna el flujo de venta y "deceased" una baja en la
+        # bitácora (que además descuenta el stock); nunca el cliente
         if v == AnimalStatusEnum.SOLD:
             raise ValueError("status 'sold' is managed by the sale flow and cannot be set manually")
+        if v == AnimalStatusEnum.DECEASED:
+            raise ValueError("status 'deceased' is set by recording a death in the husbandry log")
         return v
 
     model_config = ConfigDict(extra="forbid")

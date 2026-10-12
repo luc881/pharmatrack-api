@@ -74,12 +74,14 @@ def _batches(db: Session, animal: Animal) -> list[ProductBatch]:
     )
 
 
-def _sync_status(animal: Animal, batches: list[ProductBatch]):
-    # Igual que ajustar stock a mano: en 0 queda agotado; si vuelve a haber, a la venta
+def _sync_status(animal: Animal, batches: list[ProductBatch], died: bool = False):
+    # Bajas que dejan el stock en 0: murió (no «vendido»). Si vuelve a haber
+    # (se borró o corrigió la baja), regresa a la venta.
     left = sum(b.quantity for b in batches)
     if left == 0:
-        animal.status = AnimalStatusEnum.SOLD.value
-    elif animal.status == AnimalStatusEnum.SOLD.value:
+        if died:
+            animal.status = AnimalStatusEnum.DECEASED.value
+    elif animal.status in (AnimalStatusEnum.SOLD.value, AnimalStatusEnum.DECEASED.value):
         animal.status = AnimalStatusEnum.AVAILABLE.value
 
 
@@ -98,7 +100,7 @@ def _deduct(db: Session, log: HusbandryLog):
         b.quantity -= take
         remaining -= take
     log.stock_deducted = log.deaths
-    _sync_status(animal, batches)
+    _sync_status(animal, batches, died=True)
 
 
 def _restore(db: Session, log: HusbandryLog):
