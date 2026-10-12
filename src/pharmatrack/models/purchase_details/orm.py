@@ -31,6 +31,14 @@ class PurchaseDetail(Base):
     expiration_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     lot_code: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
+    # Lote al que este renglón sumó stock (utils/purchase_stock.py)
+    batch_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger,
+        ForeignKey("product_batches.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=False), server_default=func.now()
     )
@@ -40,3 +48,4 @@ class PurchaseDetail(Base):
 
     purchase = relationship("Purchase", back_populates="details")
     product = relationship("Product", back_populates="purchase_details")
+    batch = relationship("ProductBatch")

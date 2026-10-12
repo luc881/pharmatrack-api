@@ -1,5 +1,5 @@
 from fastapi import Depends, HTTPException, APIRouter, Request
-from typing import Annotated
+from typing import Annotated, Optional
 from sqlalchemy.orm import Session
 from starlette import status
 
@@ -21,6 +21,7 @@ from ...utils.permissions import (
     CAN_DELETE_PURCHASE_DETAILS,
 )
 from pharmatrack.utils.pagination import paginate
+from ...utils.purchase_stock import stock_in, stock_out
 from ...utils.rate_limit import limiter, LIMIT_READ, LIMIT_WRITE
 
 
@@ -38,8 +39,16 @@ router = APIRouter(prefix="/purchase-details", tags=["Purchase Details"])
     dependencies=CAN_READ_PURCHASE_DETAILS,
 )
 @limiter.limit(LIMIT_READ)
-async def read_all(request: Request, db: db_dependency, pagination: PaginationParams = Depends()):
-    return paginate(db.query(PurchaseDetail).order_by(PurchaseDetail.id.desc()), pagination)
+async def read_all(
+    request: Request,
+    db: db_dependency,
+    pagination: PaginationParams = Depends(),
+    purchase_id: Optional[int] = None,
+):
+    query = db.query(PurchaseDetail).order_by(PurchaseDetail.id.asc())
+    if purchase_id is not None:
+        query = query.filter(PurchaseDetail.purchase_id == purchase_id)
+    return paginate(query, pagination)
 
 
 # ------------------------------------------------------------------
@@ -84,6 +93,7 @@ async def create(request: Request, payload: PurchaseDetailCreate, db: db_depende
 
     detail = PurchaseDetail(**payload.model_dump())
     db.add(detail)
+    stock_in(db, detail)
     db.commit()
     db.refresh(detail)
     return detail
@@ -107,8 +117,16 @@ async def update(request: Request, detail_id: int, payload: PurchaseDetailUpdate
             status_code=status.HTTP_404_NOT_FOUND, detail="Purchase detail not found"
         )
 
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    restock = bool(data.keys() & {"quantity", "lot_code", "expiration_date"})
+    if restock:
+        stock_out(db, [detail])
+    for key, value in data.items():
         setattr(detail, key, value)
+    if restock:
+        stock_in(db, detail)
+    elif "unit_price" in data and detail.batch:
+        detail.batch.purchase_price = data["unit_price"]
 
     db.commit()
     db.refresh(detail)
@@ -130,5 +148,6 @@ async def delete(detail_id: int, db: db_dependency):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Purchase detail not found"
         )
+    stock_out(db, [detail])
     db.delete(detail)
     db.commit()

@@ -1,7 +1,8 @@
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, date
 from pydantic import BaseModel, Field, ConfigDict
 from pharmatrack.models.products.schemas import PaginatedResponse, PaginationParams
+from pharmatrack.types.common import FutureOrPresentDate
 
 __all__ = ["PaginatedResponse", "PaginationParams"]
 
@@ -17,9 +18,30 @@ class PurchaseBase(BaseModel):
 
 
 # =========================================================
+# 🔸 Renglón (lo que llegó); se suma al stock al guardar
+# =========================================================
+class PurchaseItem(BaseModel):
+    product_id: int = Field(..., ge=1, description="ID del producto")
+    quantity: float = Field(..., gt=0, description="Cantidad recibida")
+    unit_price: float = Field(..., ge=0, description="Precio unitario de compra")
+    expiration_date: Optional[FutureOrPresentDate] = Field(None, description="Fecha de vencimiento del lote")
+    lot_code: Optional[str] = Field(None, max_length=100, description="Código de lote")
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class PurchaseItemEdit(PurchaseItem):
+    # al editar, un lote ya registrado puede haber vencido
+    expiration_date: Optional[date] = None
+
+
+# =========================================================
 # 🟢 Create
 # =========================================================
 class PurchaseCreate(PurchaseBase):
+    date_emision: Optional[datetime] = None
+    items: list[PurchaseItem] = Field(default_factory=list)
+
     model_config = ConfigDict(
         extra="forbid",
         json_schema_extra={
@@ -41,6 +63,9 @@ class PurchaseUpdate(BaseModel):
     user_id: Optional[int] = Field(None, ge=1)
     total: Optional[float] = Field(None, gt=0)
     description: Optional[str] = Field(None, max_length=2000)
+    date_emision: Optional[datetime] = None
+    # si viene, reemplaza los renglones: resta del stock los viejos y suma los nuevos
+    items: Optional[list[PurchaseItemEdit]] = None
 
     model_config = ConfigDict(
         extra="forbid",
