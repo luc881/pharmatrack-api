@@ -16,6 +16,8 @@ from pharmatrack.utils.logger import get_logger
 logger = get_logger(__name__)
 
 SENT_KEY = "telegram_reminder_sent"
+HOUR_KEY = "telegram_reminder_hour"  # hora de CDMX, se elige en la bitácora
+DEFAULT_HOUR = 8
 MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
 
 
@@ -58,6 +60,19 @@ def reminder_text(rows: list[dict], today: date) -> str:
     return f"🦎 Pendientes del plan · {today.day} {MONTHS[today.month - 1]}\n\n" + "\n\n".join(blocks)
 
 
+def get_hour(db) -> int:
+    row = db.execute(text("SELECT value FROM app_settings WHERE key = :k"), {"k": HOUR_KEY}).first()
+    return int(row.value) if row else DEFAULT_HOUR
+
+
+def set_hour(db, hour: int) -> None:
+    db.execute(text(
+        "INSERT INTO app_settings (key, value) VALUES (:k, :v) "
+        "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value"
+    ), {"k": HOUR_KEY, "v": str(hour)})
+    db.commit()
+
+
 def _claim(db, value: str) -> bool:
     row = db.execute(text(
         "INSERT INTO app_settings (key, value) VALUES (:k, :v) "
@@ -73,11 +88,9 @@ def _tick() -> None:
     from pharmatrack.db.session import SessionLocal
 
     now = datetime.now(CDMX)
-    if now.hour < settings.reminder_hour:
-        return
     db = SessionLocal()
     try:
-        if not _claim(db, now.date().isoformat()):
+        if now.hour < get_hour(db) or not _claim(db, now.date().isoformat()):
             return
         try:
             message = reminder_text(status_rows(db), now.date())

@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
 from starlette import status
 
@@ -271,6 +272,25 @@ def status_rows(db: Session, species_id: Optional[int] = None) -> list[dict]:
 @router.get("/status", response_model=list[HusbandryStatus], dependencies=CAN_READ_ANIMALS)
 async def plan_status(db: db_dependency, species_id: Optional[int] = Query(None, gt=0)):
     return status_rows(db, species_id)
+
+
+class ReminderSettings(BaseModel):
+    hour: int = Field(..., ge=0, le=23)
+
+
+@router.get("/reminder", summary="Hora del recordatorio diario por Telegram", dependencies=CAN_READ_ANIMALS)
+def read_reminder(db: db_dependency):
+    from ...utils.telegram import configured, get_hour
+
+    return {"hour": get_hour(db), "configured": configured()}
+
+
+@router.put("/reminder", summary="Cambiar la hora del recordatorio", dependencies=CAN_UPDATE_ANIMALS)
+def update_reminder(body: ReminderSettings, db: db_dependency):
+    from ...utils.telegram import configured, set_hour
+
+    set_hour(db, body.hour)
+    return {"hour": body.hour, "configured": configured()}
 
 
 @router.post("/remind", summary="Manda ahora los pendientes del plan a Telegram",

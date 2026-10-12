@@ -56,8 +56,7 @@ class Settings(BaseSettings):
     # Bot creado con @BotFather; chat id(s) separados por coma. Vacío = apagado.
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
-    # Hora de CDMX a partir de la cual sale el recordatorio del día
-    reminder_hour: int = 8
+    # La hora del recordatorio se elige en la bitácora (app_settings)
 
     # =========================================================
     # 👤 Login de clientes con Google (sitio publico)

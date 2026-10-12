@@ -222,6 +222,11 @@ def test_supplement_per_specimen_and_telegram_text(auth_headers, db_session, mon
 
     # sin configurar: el botón avisa
     assert client.post(f"{URL}/remind", headers=auth_headers).status_code == 400
+    # la hora se elige en la bitácora
+    assert client.get(f"{URL}/reminder", headers=auth_headers).json() == {"hour": 8, "configured": False}
+    assert client.put(f"{URL}/reminder", json={"hour": 7}, headers=auth_headers).json()["hour"] == 7
+    assert client.get(f"{URL}/reminder", headers=auth_headers).json()["hour"] == 7
+    assert client.put(f"{URL}/reminder", json={"hour": 24}, headers=auth_headers).status_code == 422
     # el día se aparta una sola vez (varios workers → un mensaje)
     assert telegram._claim(db_session, "2999-01-01") is True
     assert telegram._claim(db_session, "2999-01-01") is False
