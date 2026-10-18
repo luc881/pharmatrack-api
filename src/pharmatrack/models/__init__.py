@@ -50,6 +50,7 @@ from .sale_batch_usage.orm import SaleBatchUsage
 from .product_master.orm import ProductMaster
 from .product_brand.orm import ProductBrand
 from .ingredients.orm import Ingredient
+from .care_sheets.orm import CareSheet
 
 # when you have all coorect you can try
 # # src/pharmatrack/models/__init__.py

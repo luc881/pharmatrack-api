@@ -211,8 +211,8 @@ LINK_PAGES_DEFAULTS = {
     ],
     # url vacia = todavia no hay guia: el sitio la ofrece por WhatsApp
     "guides": [
-        {"name": "Fásmidos", "url": "/guias/phyllium-gardabagusi-argopuro", "sub": False},
-        {"name": 'Phyllium gardabagusi "Argopuro"', "url": "/guias/phyllium-gardabagusi-argopuro", "sub": True},
+        {"name": "Fásmidos", "url": "/fichas/phyllium-gardabagusi-argopuro", "sub": False},
+        {"name": 'Phyllium gardabagusi "Argopuro"', "url": "/fichas/phyllium-gardabagusi-argopuro", "sub": True},
         {"name": "Isópodos", "url": "/articulos/isopodos-y-colembolos-el-equipo-de-limpieza-del-terrario-2", "sub": False},
         {"name": "Colémbolos", "url": "/articulos/isopodos-y-colembolos-el-equipo-de-limpieza-del-terrario-2", "sub": False},
         {"name": "Cucarachas", "url": "", "sub": False},
