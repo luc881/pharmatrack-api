@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import Field, BaseModel, ConfigDict
+from pydantic import Field, BaseModel, ConfigDict, field_validator
 
 from pharmatrack.types.common import ImageURLStr
 
@@ -54,6 +54,13 @@ class CareSheetContent(BaseModel):
     photos: List[Photo] = Field(default_factory=list)
     video: Optional[Video] = None
     references: List[Reference] = Field(default_factory=list)
+
+    # las columnas JSON agregadas después (morphology, tags) quedan NULL en fichas viejas
+    @field_validator("taxonomy", "facts", "basics", "morphology", "tags", "photos",
+                     "references", mode="before")
+    @classmethod
+    def _null_as_empty(cls, v):
+        return [] if v is None else v
 
 
 class CareSheetCreate(CareSheetContent):

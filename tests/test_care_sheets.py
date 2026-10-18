@@ -68,3 +68,10 @@ def test_care_sheet_lifecycle(auth_headers, db_session):
     assert client.post(URL, json=_sheet(sp)).status_code in (401, 403)
     assert client.delete(f"{URL}/{body['id']}", headers=auth_headers).status_code == 204
     assert client.get(PUB).json() == []
+
+
+def test_null_json_columns_read_as_empty_lists():
+    # fichas anteriores a caresheets02 tienen morphology/tags en NULL
+    from pharmatrack.models.care_sheets.schemas import CareSheetContent
+    c = CareSheetContent.model_validate({"summary": "x", "morphology": None, "tags": None})
+    assert c.morphology == [] and c.tags == []
