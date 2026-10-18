@@ -36,6 +36,10 @@ class CareSheet(Base):
     facts: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     basics: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     body: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Morfología por etapa/sexo: [{label: "Hembra", text: "..."}]
+    morphology: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    habitat: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    tags: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     photos: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     video: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     references: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)

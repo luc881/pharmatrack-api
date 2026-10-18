@@ -20,6 +20,9 @@ def _sheet(sp, **extra):
         "photos": [{"src": "https://res.cloudinary.com/x/image/upload/a.jpg", "alt": "Hembra"}],
         "video": {"src": "https://res.cloudinary.com/x/video/upload/v.mp4", "alt": "Ninfas"},
         "references": [{"text": "ZooKeys 913: 89–126.", "url": "https://doi.org/10.3897/zookeys.913.49044"}],
+        "morphology": [{"label": "Hembra", "text": "6.5–7.5 cm."}, {"label": "Huevo", "text": "5 × 3 mm."}],
+        "habitat": "Bosque húmedo de montaña.",
+        "tags": ["Mimetismo", "Partenogénesis"],
         **extra,
     }
 
@@ -53,6 +56,8 @@ def test_care_sheet_lifecycle(auth_headers, db_session):
     detail = client.get(f"{PUB}/{body['slug']}").json()
     assert detail["facts"][0] == {"label": "Hembra adulta", "value": "6.5–7.5 cm"}
     assert detail["taxonomy"][1]["italic"] is True and detail["video"]["alt"] == "Ninfas"
+    assert detail["morphology"][1] == {"label": "Huevo", "text": "5 × 3 mm."}
+    assert detail["habitat"].startswith("Bosque") and detail["tags"] == ["Mimetismo", "Partenogénesis"]
 
     # validaciones
     bad = _sheet(sp, photos=[{"src": "javascript:alert(1)", "alt": "x"}])

@@ -19,6 +19,11 @@ class Fact(BaseModel):
     value: str = Field(..., min_length=1, max_length=120)
 
 
+class MorphologyItem(BaseModel):
+    label: str = Field(..., min_length=1, max_length=60)
+    text: str = Field(..., min_length=1, max_length=1000)
+
+
 class Photo(BaseModel):
     src: ImageURLStr
     alt: str = Field(..., min_length=1, max_length=200)
@@ -43,6 +48,9 @@ class CareSheetContent(BaseModel):
     facts: List[Fact] = Field(default_factory=list)
     basics: List[str] = Field(default_factory=list)
     body: Optional[str] = Field(None, description='Markdown; cada "## " es una sección')
+    morphology: List[MorphologyItem] = Field(default_factory=list)
+    habitat: Optional[str] = Field(None, max_length=2000)
+    tags: List[str] = Field(default_factory=list, max_length=12)
     photos: List[Photo] = Field(default_factory=list)
     video: Optional[Video] = None
     references: List[Reference] = Field(default_factory=list)
