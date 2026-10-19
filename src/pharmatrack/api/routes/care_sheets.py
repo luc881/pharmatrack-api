@@ -124,7 +124,8 @@ async def public_list_sheets(db: db_dependency):
     counts = dict(
         db.query(Animal.species_id, func.count(Animal.id))
         .filter(Animal.species_id.in_([s.species_id for s in sheets]),
-                Animal.status == AnimalStatusEnum.AVAILABLE.value)
+                Animal.status == AnimalStatusEnum.AVAILABLE.value,
+                Animal.purpose == "sale")
         .group_by(Animal.species_id)
         .all()
     ) if sheets else {}

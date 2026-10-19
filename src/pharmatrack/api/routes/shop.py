@@ -172,7 +172,8 @@ def _listing_animals(db, species_id: int, morph_id: Optional[int]):
     """Ejemplares disponibles del listado, igual que agrupa el sitio:
     por morph, o los que no tienen morph cuando el listado es de especie."""
     query = db.query(Animal).filter(
-        Animal.species_id == species_id, Animal.status == "available"
+        Animal.species_id == species_id, Animal.status == "available",
+        Animal.purpose == "sale",
     )
     if morph_id is not None:
         return query.join(animal_has_morphs).filter(

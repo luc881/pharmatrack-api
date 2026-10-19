@@ -55,7 +55,7 @@ async def public_list_animals(
         animal_status=None if include_unavailable else AnimalStatusEnum.AVAILABLE,
         exclude_group_ids=hidden_group_ids(db),
         exclude_hidden_taxa=True,
-    ).filter(Animal.status != AnimalStatusEnum.DECEASED.value)
+    ).filter(Animal.status != AnimalStatusEnum.DECEASED.value, Animal.purpose == "sale")
     return paginate(query, pagination)
 
 
@@ -63,7 +63,8 @@ async def public_list_animals(
             summary="Public: animal detail")
 async def public_get_animal(animal_id: int, db: db_dependency):
     animal = _query_with_relations(db).filter(Animal.id == animal_id).first()
-    if not animal or animal.status == AnimalStatusEnum.DECEASED.value:
+    # pie de cría y crianza no se anuncian: mismo 404 que un fallecido
+    if not animal or animal.status == AnimalStatusEnum.DECEASED.value or animal.purpose != "sale":
         raise HTTPException(status_code=404, detail="Animal not found.")
     # Un grupo oculto también oculta el detalle (el listado ya lo excluye,
     # pero un link directo no debe seguir mostrando el animal)

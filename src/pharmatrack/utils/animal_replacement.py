@@ -86,6 +86,8 @@ def validate_replacement(db: Session, dead: Animal, replacement_id: int) -> Anim
         raise HTTPException(status_code=400, detail="El reemplazo debe ser otro ejemplar de la misma especie.")
     if repl.status != AnimalStatusEnum.AVAILABLE.value or not _first_batch(db, repl, with_stock=True):
         raise HTTPException(status_code=400, detail=f"{repl.code} no está disponible para el cambio.")
+    if repl.purpose != "sale":
+        raise HTTPException(status_code=400, detail=f"{repl.code} no está en venta; ponlo en venta para usarlo de reemplazo.")
     return repl
 
 

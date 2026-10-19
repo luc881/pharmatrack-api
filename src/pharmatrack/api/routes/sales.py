@@ -353,6 +353,18 @@ def complete_sale(sale_id: int, db: db_dependency):
             detail=f"Animal(es) que murieron: {codes}. Quítalos de la venta.",
         )
 
+    # Pie de cría o crianza: no se cobran hasta ponerlos en venta
+    not_for_sale = db.query(Animal.code).filter(
+        Animal.product_id.in_(effective_ids),
+        Animal.purpose != "sale",
+    ).all()
+    if not_for_sale:
+        codes = ", ".join(r.code for r in not_for_sale)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Animal(es) que no están en venta: {codes}. Ponlos en venta o quítalos de la venta.",
+        )
+
     for detail in sale.sale_details:
         allocate_batches_for_sale_detail(db, detail)
 
