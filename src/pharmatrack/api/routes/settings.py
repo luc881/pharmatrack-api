@@ -11,6 +11,7 @@ from ...models.app_settings.orm import AppSetting
 from ...config import settings
 from ...utils.email import send_test_email, send_sample_order_emails
 from ...utils.permissions import CAN_READ_SALES, CAN_UPDATE_SALES, CAN_UPDATE_SETTINGS
+from ...utils.security import user_dependency
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -75,6 +76,42 @@ def update_email_ticket(body: EmailTicketTemplate, db: db_dependency):
     row.value = json.dumps(body.model_dump())
     db.commit()
     return get_email_ticket_template(db)
+
+
+# =========================================================
+# Impresora de tickets (por usuario)
+# =========================================================
+# Rollo y ajuste horizontal de la termica de cada cuenta; vive en app_settings
+# con una clave por usuario para no migrar la tabla users.
+class TicketPrintSettings(BaseModel):
+    width: Literal[58, 80] = 80
+    offset: float = Field(0, ge=-8, le=8, description="Ajuste horizontal en mm")
+
+
+def _ticket_print_key(user: dict) -> str:
+    return f"ticket_print:{user['id']}"
+
+
+@router.get("/ticket-print", dependencies=CAN_READ_SALES,
+            summary="Rollo y ajuste de la impresora de tickets del usuario")
+def read_ticket_print(db: db_dependency, user: user_dependency):
+    row = db.get(AppSetting, _ticket_print_key(user))
+    if not row:
+        return {**TicketPrintSettings().model_dump(), "saved": False}
+    return {**TicketPrintSettings(**json.loads(row.value)).model_dump(), "saved": True}
+
+
+@router.put("/ticket-print", dependencies=CAN_READ_SALES,
+            summary="Guardar rollo y ajuste de la impresora de tickets del usuario")
+def update_ticket_print(body: TicketPrintSettings, db: db_dependency, user: user_dependency):
+    body.offset = round(body.offset, 1)
+    row = db.get(AppSetting, _ticket_print_key(user))
+    if not row:
+        row = AppSetting(key=_ticket_print_key(user), value="{}")
+        db.add(row)
+    row.value = json.dumps(body.model_dump())
+    db.commit()
+    return {**body.model_dump(), "saved": True}
 
 
 class TestEmailRequest(BaseModel):
