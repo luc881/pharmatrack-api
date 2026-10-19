@@ -126,10 +126,11 @@ Read it first; it carries the rules this plan argues from.
     `ProductBatch(quantity=stock)`.
   - Adds the animal and flushes. It does **not** commit.
   - Logic moved verbatim from `create_animal`.
-- `set_animal_stock(db, animal: Animal, quantity: int) -> None`
+- `set_animal_stock(db, animal: Animal, quantity: int, closing: bool = True) -> None`
   - The batch-rewrite block moved out of `update_animal`.
-  - Status rule: quantity 0 → `sold` only if `purpose == sale` and the animal
-    is not `deceased`; quantity > 0 on a `sold`/`deceased` record → `available`.
+  - Status rule: quantity 0 → `sold` only if `closing` and `purpose == sale`
+    and the animal is not `deceased`; quantity > 0 on a `sold`/`deceased`
+    record → `available`. Moves pass `closing=False`.
   - Does not commit.
 - `find_bulk_sibling(db, animal_or_key, purpose: str, exclude_id: int | None = None) -> Animal | None`
   - Returns the `available` record with the same `species_id`, the same
@@ -316,12 +317,9 @@ with a Spanish message and changes nothing):
      `price_cost`, `description`, `image`, photos' URLs, `requires_legal_doc`,
      `legal_doc` and `legal_doc_url`. It copies the morphs, sets
      `sex="unknown"` and `stock=units_in`; its price comes from the price rule.
-   - Then `set_animal_stock(source, source.stock - units_out)`. When it
-     reaches 0 the source stays `available` because it is non-sale. A
-     **sale** source that reaches 0 by a move must also stay `available`, so
-     pass a flag: `set_animal_stock(..., closing=False)` skips the 0 → `sold`
-     rule. Add that keyword to Task 1's signature as
-     `closing: bool = True`.
+   - Then `set_animal_stock(source, source.stock - units_out)`. Every move
+     call passes `closing=False`, so a source emptied by a move stays
+     `available`, even a **sale** one.
    - Return `[source, target]`.
 7. **Price rule** for the record that ends up as `sale`:
    - `price` from the body, if sent;
@@ -412,6 +410,12 @@ def test_failed_move_changes_nothing(auth_headers, monkeypatch): ... # monkeypat
     price field «Precio de venta».
   - Calls `moveAnimal`, shows `toast.success('Movido a …')` or
     `toast.error(error.message)`.
+- `<MoveAnimalMenu animal species onMoved />` (same file):
+  - a text `Button` «Mover a…» that opens a `Menu` with the two other
+    destinations: `Poner en venta`, `Pasar a pie de cría`, `Pasar a crianza`;
+  - an item is disabled with `moveBlockReason` as secondary text when that
+    isn't null;
+  - choosing an item opens `MoveAnimalDialog`.
 
 - [ ] **Step 1: Write failing tests**
 
@@ -476,10 +480,7 @@ it('MoveAnimalDialog en especie individual no pide cantidad', ...)
 - **Expanded specimens table:**
   - Columns: Código, Morph, Sexo, Destino (chip), Estado (`statusLabel`),
     Cantidad (bulk only), Precio (only when `purposeOf === 'sale'`).
-  - Actions, a text button `Mover a…` that opens a menu with the two other
-    destinations: `Poner en venta`, `Pasar a pie de cría`, `Pasar a crianza`.
-    The item is disabled and shows `moveBlockReason` as secondary text when it
-    isn't null.
+  - Actions: `MoveAnimalMenu`.
   - Also the existing edit action, and a text link `Anotar` →
     `${paths.dashboard.animal.log}?species=${species.id}`.
   - Empty bulk records (stock 0, `available`) appear only under `Todo`, with
@@ -539,9 +540,7 @@ it('borrado múltiple manda máximo 5 a la vez', ...)          // MSW handler co
     `¿Cuántos en crianza?` / `¿Cuántos de pie de cría?` (non-sale),
     `¿Cuántas cepas …?` (colony).
 - **Edit:**
-  - The purpose shows as a chip with a `Mover a…` button (the same menu and
-    dialog as Task 5; extract the menu into a component in
-    `move-animal-dialog.jsx` as `MoveAnimalMenu` and reuse it in Task 5).
+  - The purpose shows as a chip next to `MoveAnimalMenu` (from Task 4).
   - `purpose` is never sent in the PUT.
   - Price fields are hidden when not `sale`.
 - **Details view:**
