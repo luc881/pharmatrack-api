@@ -2,7 +2,7 @@ from typing import Literal, Optional, List
 from datetime import datetime, date
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
-from pharmatrack.types.animals import AnimalSexEnum, AnimalStatusEnum, SaleFormatEnum, HusbandryStatusEnum
+from pharmatrack.types.animals import AnimalSexEnum, AnimalStatusEnum, AnimalPurposeEnum, SaleFormatEnum, HusbandryStatusEnum
 from pharmatrack.types.common import DescriptionStr, ImageURLStr
 from pharmatrack.utils.normalize import norm_title
 
@@ -307,6 +307,7 @@ class AnimalBase(BaseModel):
 
 
 class AnimalCreate(AnimalBase):
+    purpose: AnimalPurposeEnum = AnimalPurposeEnum.SALE
     code: Optional[str] = Field(
         None, min_length=1, max_length=50,
         description="Identificador único del animal; se genera automáticamente si se omite",
@@ -394,6 +395,7 @@ class AnimalResponse(AnimalBase):
     id: int
     code: str
     status: AnimalStatusEnum
+    purpose: AnimalPurposeEnum
     product_id: int
     # Unidades disponibles (lotes del producto gemelo); individuales: 1
     stock: Optional[int] = None

@@ -184,6 +184,9 @@ class Animal(Base):
     sex: Mapped[str] = mapped_column(String(10), nullable=False, server_default="unknown")
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="available", index=True)
 
+    # Destino: sale | breeder | growing (solo "sale" se vende/aparta)
+    purpose: Mapped[str] = mapped_column(String(20), nullable=False, server_default="sale", index=True)
+
     birth_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     # Precio anterior (tachado) para mostrar oferta en la tienda

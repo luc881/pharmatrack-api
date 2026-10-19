@@ -1,6 +1,5 @@
 """CRUD de animales (individuos). Cada animal tiene un producto gemelo con un
 lote de quantity=1, así se vende por el POS reutilizando todo el flujo de ventas."""
-import uuid
 from typing import Optional
 
 from fastapi import Depends, HTTPException, APIRouter, Query
@@ -12,35 +11,27 @@ from ...models.animals.orm import Genus, Species, Morph, Animal, AnimalPhoto
 from ...models.animals.schemas import AnimalCreate, AnimalUpdate, AnimalResponse
 from .animal_taxonomy import descendant_group_ids, hidden_group_ids
 from ...models.products.orm import Product
-from ...models.product_batch.orm import ProductBatch
-from ...models.product_categories.orm import ProductCategory
 from ...models.sale_details.orm import SaleDetail
 from ...utils.permissions import (
     CAN_READ_ANIMALS, CAN_CREATE_ANIMALS, CAN_UPDATE_ANIMALS, CAN_DELETE_ANIMALS,
 )
-from pharmatrack.types.animals import AnimalStatusEnum
+from pharmatrack.types.animals import AnimalStatusEnum, AnimalPurposeEnum
+from pharmatrack.utils.animal_records import (
+    new_animal, set_animal_stock, find_bulk_sibling, _animal_title,
+)
 from pharmatrack.utils.pagination import paginate, PaginationParams, PaginatedResponse
 from pharmatrack.utils.slugify import slugify
 
 
 router = APIRouter(prefix="/animals", tags=["Animals"])
 
-ANIMALS_CATEGORY_SLUG = "animales"
+BULK_FORMATS = ("package", "colony")
+BULK_DUPLICATE_MSG = "Ya existe un registro de esa colonia para ese destino; ajusta su cantidad."
 
 
 # =========================================================
 # Helpers
 # =========================================================
-def _animals_category_id(db: Session) -> int:
-    """Categoría 'Animales' para los productos gemelos (se crea si no existe)."""
-    cat = db.query(ProductCategory).filter(ProductCategory.slug == ANIMALS_CATEGORY_SLUG).first()
-    if not cat:
-        cat = ProductCategory(name="Animales", slug=ANIMALS_CATEGORY_SLUG, is_active=True)
-        db.add(cat)
-        db.flush()
-    return cat.id
-
-
 def _validate_morphs(db: Session, morph_ids: list[int], species_id: int) -> list[Morph]:
     if not morph_ids:
         return []
@@ -54,15 +45,6 @@ def _validate_morphs(db: Session, morph_ids: list[int], species_id: int) -> list
             detail=f"Morphs do not belong to the animal's species: {', '.join(wrong)}",
         )
     return morphs
-
-
-def _animal_title(species: Species, code: str, morphs: list[Morph] | None = None) -> str:
-    # El morph en el título distingue gemelos de la misma especie en el POS
-    # y en el buscador de paquetes ("Murina Glacier AN-X" vs "Murina Papaya AN-Y")
-    parts = [species.common_name or species.name]
-    parts.extend(m.name for m in (morphs or []))
-    parts.append(code)
-    return " ".join(parts)
 
 
 def _query_with_relations(db: Session):
@@ -99,7 +81,7 @@ def _validate_stock(species: Species, stock: int):
 # =========================================================
 def _animals_query(db, species_id=None, genus_id=None, group_id=None,
                    animal_status=None, exclude_group_ids=None,
-                   exclude_hidden_taxa=False):
+                   exclude_hidden_taxa=False, purpose=None):
     query = _query_with_relations(db)
     if species_id is not None:
         query = query.filter(Animal.species_id == species_id)
@@ -135,6 +117,8 @@ def _animals_query(db, species_id=None, genus_id=None, group_id=None,
         )
     if animal_status is not None:
         query = query.filter(Animal.status == animal_status.value)
+    if purpose is not None:
+        query = query.filter(Animal.purpose == purpose.value)
     return query.order_by(Animal.id.desc())
 
 
@@ -146,10 +130,12 @@ async def list_animals(
     genus_id: Optional[int] = None,
     group_id: Optional[int] = None,
     animal_status: Optional[AnimalStatusEnum] = Query(None, alias="status"),
+    purpose: Optional[AnimalPurposeEnum] = None,
     pagination: PaginationParams = Depends(),
 ):
     return paginate(
-        _animals_query(db, species_id, genus_id, group_id, animal_status), pagination
+        _animals_query(db, species_id, genus_id, group_id, animal_status, purpose=purpose),
+        pagination
     )
 
 
@@ -194,58 +180,24 @@ async def create_animal(payload: AnimalCreate, db: db_dependency):
     _validate_stock(species, payload.stock)
     _validate_compare_at(payload.price, payload.compare_at_price)
 
-    code = payload.code or f"AN-{uuid.uuid4().hex[:8].upper()}"
-    if db.query(Animal.id).filter(Animal.code == code).first():
+    if payload.code and db.query(Animal.id).filter(Animal.code == payload.code).first():
         raise HTTPException(status_code=400, detail="An animal with this code already exists.")
 
-    # Sin image explícita, la primera foto es la principal
-    main_image = payload.image or (payload.photos[0] if payload.photos else None)
+    if species.sale_format in BULK_FORMATS and find_bulk_sibling(
+        db, (species.id, frozenset(m.id for m in morphs)), payload.purpose.value
+    ):
+        raise HTTPException(status_code=400, detail=BULK_DUPLICATE_MSG)
 
-    title = _animal_title(species, code, morphs)
-    product = Product(
-        title=title,
-        slug=slugify(title),
-        sku=code,
-        price_retail=payload.price,
-        price_cost=payload.price_cost,
-        compare_at_price=payload.compare_at_price,
-        product_category_id=_animals_category_id(db),
-        is_unit_sale=True,
-        unit_name="pieza",
-        tracks_batches=True,
-        image=main_image,
-        description=payload.description,
-    )
-    db.add(product)
-    db.flush()
-
-    # Lote único sin caducidad: el FIFO existente descuenta cada venta.
-    # Individuales: 1 (imposible vender el mismo folio dos veces);
-    # cepas/paquetes: N unidades idénticas bajo un solo registro.
-    db.add(ProductBatch(
-        product_id=product.id,
-        quantity=payload.stock,
-        purchase_price=payload.price_cost,
-    ))
-
-    animal = Animal(
-        species_id=species.id,
-        product_id=product.id,
-        code=code,
-        sex=payload.sex.value,
-        birth_date=payload.birth_date,
-        price=payload.price,
-        compare_at_price=payload.compare_at_price,
-        price_cost=payload.price_cost,
-        description=payload.description,
-        image=main_image,
+    animal = new_animal(
+        db, species, morphs,
+        purpose=payload.purpose.value, stock=payload.stock,
+        price=payload.price, price_cost=payload.price_cost,
+        compare_at_price=payload.compare_at_price, code=payload.code,
+        sex=payload.sex.value, birth_date=payload.birth_date,
+        description=payload.description, image=payload.image, photos=payload.photos,
         requires_legal_doc=payload.requires_legal_doc,
-        legal_doc=payload.legal_doc,
-        legal_doc_url=payload.legal_doc_url,
+        legal_doc=payload.legal_doc, legal_doc_url=payload.legal_doc_url,
     )
-    animal.morphs = morphs
-    animal.photos = [AnimalPhoto(url=u) for u in payload.photos]
-    db.add(animal)
     db.commit()
 
     return _query_with_relations(db).filter(Animal.id == animal.id).first()
@@ -276,6 +228,13 @@ async def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency
                 detail="Changing species invalidates current morphs; send morph_ids with the update.",
             )
 
+    # Cambiar morphs o especie no puede chocar con otra colonia del mismo destino
+    if (species.sale_format in BULK_FORMATS
+            and (payload.morph_ids is not None or payload.species_id is not None)
+            and find_bulk_sibling(db, (species.id, frozenset(m.id for m in animal.morphs)),
+                                  animal.purpose, exclude_id=animal.id)):
+        raise HTTPException(status_code=400, detail=BULK_DUPLICATE_MSG)
+
     if payload.code is not None and payload.code != animal.code:
         if db.query(Animal.id).filter(Animal.code == payload.code, Animal.id != animal_id).first():
             raise HTTPException(status_code=400, detail="An animal with this code already exists.")
@@ -292,6 +251,9 @@ async def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency
             detail="Este ejemplar murió. Para regresarlo, borra su baja en la bitácora.",
         )
 
+    if payload.status == AnimalStatusEnum.RESERVED and animal.purpose != AnimalPurposeEnum.SALE.value:
+        raise HTTPException(status_code=400, detail="Solo un animal en venta se puede apartar.")
+
     update_data = payload.model_dump(exclude_unset=True, exclude={"morph_ids", "photos", "stock"})
     for key, value in update_data.items():
         setattr(animal, key, value.value if hasattr(value, "value") else value)
@@ -299,30 +261,7 @@ async def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency
     # Ajustar stock = reescribir el lote del producto gemelo (resurtir cepa)
     if payload.stock is not None:
         _validate_stock(species, payload.stock)
-        batches = (
-            db.query(ProductBatch)
-            .filter(ProductBatch.product_id == animal.product_id)
-            .order_by(ProductBatch.id)
-            .all()
-        )
-        if batches:
-            batches[0].quantity = payload.stock
-            for extra in batches[1:]:
-                extra.quantity = 0
-        else:
-            db.add(ProductBatch(
-                product_id=animal.product_id,
-                quantity=payload.stock,
-                purchase_price=animal.price_cost,
-            ))
-        # Stock en 0 = agotado (igual que cuando una venta vacía el lote);
-        # resurtir una cepa agotada la regresa a la venta.
-        # (si murió se queda como murió; resurtir una cepa muerta la reactiva)
-        if payload.stock == 0:
-            if animal.status != AnimalStatusEnum.DECEASED.value:
-                animal.status = AnimalStatusEnum.SOLD.value
-        elif animal.status in (AnimalStatusEnum.SOLD.value, AnimalStatusEnum.DECEASED.value):
-            animal.status = AnimalStatusEnum.AVAILABLE.value
+        set_animal_stock(db, animal, payload.stock)
 
     _validate_compare_at(animal.price, animal.compare_at_price)
 

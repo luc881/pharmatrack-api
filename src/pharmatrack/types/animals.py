@@ -16,6 +16,12 @@ class AnimalStatusEnum(str, Enum):
     DECEASED = "deceased"
 
 
+class AnimalPurposeEnum(str, Enum):
+    SALE = "sale"           # en venta
+    BREEDER = "breeder"     # pie de cría
+    GROWING = "growing"     # en crianza
+
+
 class SaleFormatEnum(str, Enum):
     INDIVIDUAL = "individual"   # ejemplar único con folio
     PACKAGE = "package"         # paquete de N (p. ej. isópodos x6)
