@@ -32,6 +32,12 @@ def SessionLocal() -> Session:
 def get_db() -> Session:
     db = _get_session_local()()
     try:
+        # La conexión se toma aquí, en el hilo donde FastAPI corre esta
+        # dependencia. Las rutas son async con SQLAlchemy síncrono: si la espera
+        # del pool lleno pasara dentro de la ruta, congelaría el event loop y con
+        # él a las peticiones que tienen las conexiones y las iban a soltar
+        # (2026-10-19: un borrado masivo dejó el API colgado varios minutos).
+        db.connection()
         yield db
     finally:
         db.close()
