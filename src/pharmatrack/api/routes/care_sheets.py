@@ -20,6 +20,7 @@ from ...models.care_sheets.schemas import (
 from ...utils.permissions import (
     CAN_CREATE_SPECIES, CAN_DELETE_SPECIES, CAN_READ_SPECIES, CAN_UPDATE_SPECIES,
 )
+from ...utils.animal_records import not_emptied
 from ...utils.slugify import slugify
 from pharmatrack.types.animals import AnimalStatusEnum
 
@@ -125,7 +126,7 @@ async def public_list_sheets(db: db_dependency):
         db.query(Animal.species_id, func.count(Animal.id))
         .filter(Animal.species_id.in_([s.species_id for s in sheets]),
                 Animal.status == AnimalStatusEnum.AVAILABLE.value,
-                Animal.purpose == "sale")
+                Animal.purpose == "sale", not_emptied())
         .group_by(Animal.species_id)
         .all()
     ) if sheets else {}

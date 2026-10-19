@@ -16,6 +16,7 @@ from ...models.animals.schemas import PublicAnimalResponse, AnimalGroupResponse
 from .animals import _animals_query, _query_with_relations
 from .animal_taxonomy import hidden_group_ids
 from pharmatrack.types.animals import AnimalStatusEnum
+from pharmatrack.utils.animal_records import not_emptied
 from pharmatrack.utils.pagination import paginate, PaginationParams, PaginatedResponse
 
 
@@ -55,14 +56,16 @@ async def public_list_animals(
         animal_status=None if include_unavailable else AnimalStatusEnum.AVAILABLE,
         exclude_group_ids=hidden_group_ids(db),
         exclude_hidden_taxa=True,
-    ).filter(Animal.status != AnimalStatusEnum.DECEASED.value, Animal.purpose == "sale")
+    ).filter(Animal.status != AnimalStatusEnum.DECEASED.value, Animal.purpose == "sale",
+             not_emptied())
     return paginate(query, pagination)
 
 
 @router.get("/{animal_id}", response_model=PublicAnimalResponse,
             summary="Public: animal detail")
 async def public_get_animal(animal_id: int, db: db_dependency):
-    animal = _query_with_relations(db).filter(Animal.id == animal_id).first()
+    # vaciado al mover (activo en 0): mismo 404 que si no existiera
+    animal = _query_with_relations(db).filter(Animal.id == animal_id, not_emptied()).first()
     # pie de cría y crianza no se anuncian: mismo 404 que un fallecido
     if not animal or animal.status == AnimalStatusEnum.DECEASED.value or animal.purpose != "sale":
         raise HTTPException(status_code=404, detail="Animal not found.")

@@ -72,3 +72,23 @@ def test_care_sheet_count_only_for_sale(auth_headers):
     res = client.post(SHEET_URL, json=_sheet(sp, published=True), headers=auth_headers)
     assert res.status_code == 201, res.text
     assert client.get(SHEET_PUB).json()[0]["available_count"] == 1
+
+
+def test_sale_record_emptied_by_move_is_not_announced(fake_google, auth_headers):  # noqa: F811
+    from .test_animal_move import _bulk_species, _move
+    sp = _bulk_species(auth_headers)
+    src = _create_animal(auth_headers, sp["id"], purpose="sale", stock=4)
+    _create_animal(auth_headers, sp["id"], purpose="growing", stock=1)
+    assert _move(auth_headers, src["id"], purpose="growing").status_code == 200
+    # el registro en venta queda activo en 0: no se anuncia ni se cuenta
+    items = client.get("/api/v1/public/animals", params={"species_id": sp["id"]}).json()["data"]
+    assert items == []
+    assert client.get(f"/api/v1/public/animals/{src['id']}").status_code == 404
+    res = client.post("/api/v1/shop/cart/validate", json={"items": [
+        {"key": f"s{sp['id']}-u", "qty": 1},
+    ]})
+    assert res.status_code == 200, res.text
+    assert res.json()["items"][0]["available"] is False
+    res = client.post(SHEET_URL, json=_sheet(sp, published=True), headers=auth_headers)
+    assert res.status_code == 201, res.text
+    assert client.get(SHEET_PUB).json()[0]["available_count"] == 0

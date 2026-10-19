@@ -36,6 +36,7 @@ from ...models.customers.schemas import (
     CartValidateResponse,
 )
 from ...models.products.orm import Product
+from ...utils.animal_records import not_emptied
 from ...utils.email import send_order_emails, send_order_paid_email
 from ...utils.google_auth import verify_google_id_token
 from ...utils.mx_address import MX_STATES, format_address
@@ -173,7 +174,7 @@ def _listing_animals(db, species_id: int, morph_id: Optional[int]):
     por morph, o los que no tienen morph cuando el listado es de especie."""
     query = db.query(Animal).filter(
         Animal.species_id == species_id, Animal.status == "available",
-        Animal.purpose == "sale",
+        Animal.purpose == "sale", not_emptied(),
     )
     if morph_id is not None:
         return query.join(animal_has_morphs).filter(

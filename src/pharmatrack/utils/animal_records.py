@@ -3,6 +3,7 @@ el CRUD de animales y el movimiento de destino."""
 import uuid
 
 from fastapi import HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..models.animals.orm import Species, Morph, Animal, AnimalPhoto
@@ -120,6 +121,16 @@ def set_animal_stock(db: Session, animal: Animal, quantity: int, closing: bool =
             animal.status = AnimalStatusEnum.SOLD.value
     elif animal.status in (AnimalStatusEnum.SOLD.value, AnimalStatusEnum.DECEASED.value):
         animal.status = AnimalStatusEnum.AVAILABLE.value
+
+
+def not_emptied():
+    """Filtro: fuera el registro activo que quedó en 0 al mover (sigue
+    `available` a propósito). Lo que se anuncia o cuenta como en venta lo usa;
+    apartados y vendidos pasan tal cual."""
+    return or_(
+        Animal.status != AnimalStatusEnum.AVAILABLE.value,
+        Animal.product.has(Product.batches.any(ProductBatch.quantity > 0)),
+    )
 
 
 def find_bulk_sibling(db: Session, animal_or_key, purpose: str,
