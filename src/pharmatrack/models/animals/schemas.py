@@ -368,6 +368,16 @@ class AnimalUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class AnimalMove(BaseModel):
+    """Mover a venta, pie de cría o crianza. quantity null = todo; en especies por
+    paquete se cuenta en paquetes cuando el origen o el destino es venta."""
+    purpose: AnimalPurposeEnum
+    quantity: Optional[int] = Field(None, ge=1)
+    price: Optional[float] = Field(None, gt=0)
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class PublicAnimalResponse(BaseModel):
     """Vista pública del catálogo: sin costos, producto gemelo ni documentación legal."""
     id: int

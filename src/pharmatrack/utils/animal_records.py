@@ -2,6 +2,7 @@
 el CRUD de animales y el movimiento de destino."""
 import uuid
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from ..models.animals.orm import Species, Morph, Animal, AnimalPhoto
@@ -144,3 +145,78 @@ def find_bulk_sibling(db: Session, animal_or_key, purpose: str,
         if frozenset(m.id for m in candidate.morphs) == morph_ids:
             return candidate
     return None
+
+
+def _apply_sale_price(animal: Animal, price) -> None:
+    """Precio del registro que queda en venta: el del request o el suyo; nunca 0."""
+    if price is not None:
+        animal.price = price
+    if not animal.price:
+        raise HTTPException(status_code=400, detail="Ponle precio para ponerlo en venta.")
+    animal.product.price_retail = animal.price
+
+
+def move_animal(db: Session, animal: Animal, purpose: str, quantity: int | None,
+                price: float | None) -> list[Animal]:
+    """Mueve un ejemplar, o unidades de una colonia/paquete, a otro destino.
+
+    No hace commit: si algo falla, la ruta descarta todo con rollback.
+    """
+    if animal.status != AnimalStatusEnum.AVAILABLE.value:
+        raise HTTPException(
+            status_code=400,
+            detail="Solo un animal activo (no apartado, vendido ni muerto) se puede mover.",
+        )
+    if purpose == animal.purpose:
+        raise HTTPException(status_code=400, detail="Ya está en ese destino.")
+
+    sale = AnimalPurposeEnum.SALE.value
+    species = animal.species
+    if species.sale_format == "individual":
+        animal.purpose = purpose
+        if purpose == sale:
+            _apply_sale_price(animal, price)
+        return [animal]
+
+    # Paquetes: fuera de venta se cuentan animales sueltos y en venta paquetes
+    stock = animal.stock or 0
+    size = (species.package_size or 1) if species.sale_format == "package" else 1
+    if animal.purpose == sale:  # venta → fuera: q paquetes salen, llegan q × size
+        q = stock if quantity is None else quantity
+        units_out, units_in = q, q * size
+    elif purpose == sale:       # fuera → venta: salen q × size, llegan q paquetes
+        q = stock // size if quantity is None else quantity
+        units_out, units_in = q * size, q
+    else:
+        q = stock if quantity is None else quantity
+        units_out, units_in = q, q
+    if units_out == 0 or units_out > stock:
+        raise HTTPException(status_code=400, detail=f"No alcanzan: hay {stock}.")
+
+    target = find_bulk_sibling(db, animal, purpose)
+    if units_out == stock and target is None:
+        # Todo se mueve y no hay a dónde sumarlo: el mismo registro cambia de
+        # destino y su historial viaja con los animales
+        animal.purpose = purpose
+        set_animal_stock(db, animal, units_in, closing=False)
+        if purpose == sale:
+            _apply_sale_price(animal, price)
+        return [animal]
+
+    if target is not None:
+        set_animal_stock(db, target, target.stock + units_in, closing=False)
+    else:
+        target = new_animal(
+            db, species, list(animal.morphs),
+            purpose=purpose, stock=units_in,
+            price=price if price is not None else animal.price, price_cost=animal.price_cost,
+            description=animal.description, image=animal.image,
+            photos=[p.url for p in animal.photos],
+            requires_legal_doc=animal.requires_legal_doc,
+            legal_doc=animal.legal_doc, legal_doc_url=animal.legal_doc_url,
+        )
+    if purpose == sale:
+        _apply_sale_price(target, price)
+    # Vaciado por mover queda disponible (en 0), aunque esté en venta
+    set_animal_stock(db, animal, stock - units_out, closing=False)
+    return [animal, target]

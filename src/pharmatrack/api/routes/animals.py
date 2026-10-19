@@ -8,7 +8,7 @@ from starlette import status
 
 from ...db.session import db_dependency
 from ...models.animals.orm import Genus, Species, Morph, Animal, AnimalPhoto
-from ...models.animals.schemas import AnimalCreate, AnimalUpdate, AnimalResponse
+from ...models.animals.schemas import AnimalCreate, AnimalUpdate, AnimalResponse, AnimalMove
 from .animal_taxonomy import descendant_group_ids, hidden_group_ids
 from ...models.products.orm import Product
 from ...models.sale_details.orm import SaleDetail
@@ -17,7 +17,7 @@ from ...utils.permissions import (
 )
 from pharmatrack.types.animals import AnimalStatusEnum, AnimalPurposeEnum
 from pharmatrack.utils.animal_records import (
-    new_animal, set_animal_stock, find_bulk_sibling, _animal_title,
+    new_animal, set_animal_stock, find_bulk_sibling, move_animal, _animal_title,
 )
 from pharmatrack.utils.pagination import paginate, PaginationParams, PaginatedResponse
 from pharmatrack.utils.slugify import slugify
@@ -281,6 +281,26 @@ async def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency
 
     db.commit()
     return _query_with_relations(db).filter(Animal.id == animal_id).first()
+
+
+# =========================================================
+# POST /{animal_id}/move
+# =========================================================
+@router.post("/{animal_id}/move", response_model=list[AnimalResponse],
+             summary="Mover a venta, pie de cría o crianza", dependencies=CAN_UPDATE_ANIMALS)
+async def move(animal_id: int, payload: AnimalMove, db: db_dependency):
+    animal = db.get(Animal, animal_id)
+    if not animal:
+        raise HTTPException(status_code=404, detail="Animal not found.")
+    try:
+        ids = [a.id for a in move_animal(db, animal, payload.purpose.value,
+                                         payload.quantity, payload.price)]
+        db.commit()
+    except Exception:
+        # move_animal pudo hacer flush de un registro nuevo antes de fallar
+        db.rollback()
+        raise
+    return [_query_with_relations(db).filter(Animal.id == i).first() for i in ids]
 
 
 # =========================================================
