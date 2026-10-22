@@ -318,6 +318,10 @@ class AnimalCreate(AnimalBase):
         1, ge=1,
         description="Unidades idénticas en venta (cepas/paquetes); individual siempre 1",
     )
+    count: int = Field(
+        1, ge=1, le=50,
+        description="Individuales: cuántos ejemplares iguales dar de alta de una vez (cada uno con su código)",
+    )
 
     model_config = ConfigDict(
         extra="forbid",

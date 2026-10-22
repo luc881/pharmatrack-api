@@ -180,6 +180,14 @@ async def create_animal(payload: AnimalCreate, db: db_dependency):
     _validate_stock(species, payload.stock)
     _validate_compare_at(payload.price, payload.compare_at_price)
 
+    if payload.count > 1:
+        if species.sale_format != "individual":
+            raise HTTPException(status_code=400,
+                                detail="Las cepas y paquetes ya llevan cantidad; usa el stock.")
+        if payload.code:
+            raise HTTPException(status_code=400,
+                                detail="Con varios ejemplares el código se genera solo; deja el código vacío.")
+
     if payload.code and db.query(Animal.id).filter(Animal.code == payload.code).first():
         raise HTTPException(status_code=400, detail="An animal with this code already exists.")
 
@@ -188,19 +196,24 @@ async def create_animal(payload: AnimalCreate, db: db_dependency):
     ):
         raise HTTPException(status_code=400, detail=BULK_DUPLICATE_MSG)
 
-    animal = new_animal(
-        db, species, morphs,
-        purpose=payload.purpose.value, stock=payload.stock,
-        price=payload.price, price_cost=payload.price_cost,
-        compare_at_price=payload.compare_at_price, code=payload.code,
-        sex=payload.sex.value, birth_date=payload.birth_date,
-        description=payload.description, image=payload.image, photos=payload.photos,
-        requires_legal_doc=payload.requires_legal_doc,
-        legal_doc=payload.legal_doc, legal_doc_url=payload.legal_doc_url,
-    )
+    # count > 1: ejemplares iguales en un solo commit (todos o ninguno); se
+    # responde el primero
+    created = [
+        new_animal(
+            db, species, morphs,
+            purpose=payload.purpose.value, stock=payload.stock,
+            price=payload.price, price_cost=payload.price_cost,
+            compare_at_price=payload.compare_at_price, code=payload.code,
+            sex=payload.sex.value, birth_date=payload.birth_date,
+            description=payload.description, image=payload.image, photos=payload.photos,
+            requires_legal_doc=payload.requires_legal_doc,
+            legal_doc=payload.legal_doc, legal_doc_url=payload.legal_doc_url,
+        )
+        for _ in range(payload.count)
+    ]
     db.commit()
 
-    return _query_with_relations(db).filter(Animal.id == animal.id).first()
+    return _query_with_relations(db).filter(Animal.id == created[0].id).first()
 
 
 # =========================================================
