@@ -229,7 +229,7 @@ def update_site_settings(body: SiteSettings, db: db_dependency):
 
 
 # =========================================================
-# Paginas tipo linktree: /gracias (QR del sticker) y /links (bio de IG)
+# Pagina tipo linktree /links (bio de IG, QR del ticket, tarjetas)
 # =========================================================
 # Un solo blob (app_settings key="link_pages") que el dashboard guarda
 # completo. Los defaults son el contenido con el que se publicaron; el sitio
@@ -255,18 +255,6 @@ LINK_PAGES_DEFAULTS = {
         {"name": "Cucarachas", "url": "", "sub": False},
     ],
     "pages": {
-        "gracias": {
-            "label": "Criadero · Ciudad de México",
-            "title": "Gracias por tu compra",
-            "lead": "Gracias por llevarte un pedacito de nuestro criadero. Aquí tienes todo para que tus animales estén bien.",
-            "footer": "Ciudad de México",
-            "buttons": [
-                {"label": "Ver catálogo", "url": "/catalogo", "primary": True},
-                {"label": "Instagram · @opuntia_den", "url": "https://www.instagram.com/opuntia_den/", "primary": False},
-                {"label": "WhatsApp · Ventas Opuntia", "url": "https://wa.me/525562292037", "primary": False},
-                {"label": "Sitio web", "url": "/", "primary": False},
-            ],
-        },
         "links": {
             "label": "Criadero · CDMX",
             "title": "Historia natural",
@@ -321,26 +309,33 @@ class LinkPage(BaseModel):
 class LinkPages(BaseModel):
     events: list[LinkEvent] = Field(default_factory=list, max_length=20)
     guides: list[LinkGuide] = Field(default_factory=list, max_length=30)
-    pages: dict[Literal["gracias", "links"], LinkPage]
+    # dict[str]: un dashboard viejo todavia manda "gracias"; se descarta al guardar
+    pages: dict[str, LinkPage]
 
 
 def get_link_pages(db) -> dict:
     row = db.query(AppSetting).filter(AppSetting.key == "link_pages").first()
-    return json.loads(row.value) if row else LINK_PAGES_DEFAULTS
+    if not row:
+        return LINK_PAGES_DEFAULTS
+    data = json.loads(row.value)
+    # /gracias ya no existe: lo guardado antes la trae y aqui se quita
+    data["pages"] = {"links": data["pages"]["links"]}
+    return data
 
 
-# Lectura publica (sin auth): el sitio la consulta para /gracias y /links
-@router.get("/link-pages", summary="Contenido de /gracias y /links")
+# Lectura publica (sin auth): el sitio la consulta para /links
+@router.get("/link-pages", summary="Contenido de /links")
 def read_link_pages(db: db_dependency):
     return get_link_pages(db)
 
 
 @router.put("/link-pages", dependencies=CAN_UPDATE_SETTINGS,
-            summary="Guardar contenido de /gracias y /links")
+            summary="Guardar contenido de /links")
 def update_link_pages(body: LinkPages, db: db_dependency):
-    if set(body.pages) != {"gracias", "links"}:
+    if "links" not in body.pages:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                            detail="Faltan paginas: se esperan gracias y links.")
+                            detail="Falta la pagina links.")
+    body.pages = {"links": body.pages["links"]}
     row = db.query(AppSetting).filter(AppSetting.key == "link_pages").first()
     if not row:
         row = AppSetting(key="link_pages", value="{}")

@@ -1,4 +1,4 @@
-"""Contenido de /gracias y /links: lectura publica, guardado validado."""
+"""Contenido de /links: lectura publica, guardado validado."""
 import copy
 
 from pharmatrack.api.routes.settings import LINK_PAGES_DEFAULTS
@@ -10,7 +10,7 @@ URL = "/api/v1/settings/link-pages"
 def test_lectura_publica_trae_los_defaults():
     data = client.get(URL).json()
     assert data["events"][0]["date"] == "2026-11-21"
-    assert set(data["pages"]) == {"gracias", "links"}
+    assert set(data["pages"]) == {"links"}
 
 
 def test_guardar_y_leer(auth_headers):
@@ -27,8 +27,15 @@ def test_guardar_y_leer(auth_headers):
 def test_rechaza_urls_peligrosas(auth_headers):
     for bad in ("javascript:alert(1)", "//evil.com", "data:text/html,x"):
         body = copy.deepcopy(LINK_PAGES_DEFAULTS)
-        body["pages"]["gracias"]["buttons"][0]["url"] = bad
+        body["pages"]["links"]["buttons"][0]["url"] = bad
         assert client.put(URL, json=body, headers=auth_headers).status_code == 422, bad
+
+
+def test_dashboard_viejo_con_gracias_se_guarda_sin_ella(auth_headers):
+    body = copy.deepcopy(LINK_PAGES_DEFAULTS)
+    body["pages"]["gracias"] = copy.deepcopy(body["pages"]["links"])
+    assert client.put(URL, json=body, headers=auth_headers).status_code == 200
+    assert set(client.get(URL).json()["pages"]) == {"links"}
 
 
 def test_sin_sesion_no_guarda():
