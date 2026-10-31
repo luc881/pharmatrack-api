@@ -144,3 +144,29 @@ def test_escribir_ajustes_rechaza_sin_settings_update(auth_headers_without_setti
 def test_escribir_ajustes_sin_token_es_rechazado():
     res = client.put("/api/v1/settings/site", json={"shipping_enabled": True})
     assert res.status_code in (401, 403)
+
+
+def test_ticker_trae_frases_por_defecto():
+    ticker = client.get("/api/v1/settings/site").json()["ticker"]
+    assert isinstance(ticker, list) and ticker
+    assert all(isinstance(t, str) and t for t in ticker)
+
+
+def test_ticker_se_guarda_limpio_y_vacio_lo_apaga(auth_headers):
+    res = client.put("/api/v1/settings/site",
+                     json={"ticker": ["  Nueva camada de Cubaris  ", "", "   "]},
+                     headers=auth_headers)
+    assert res.status_code == 200, res.text
+    assert res.json()["ticker"] == ["Nueva camada de Cubaris"]
+
+    # lista vacía = sin cinta (no vuelve a los defaults)
+    res = client.put("/api/v1/settings/site", json={"ticker": []}, headers=auth_headers)
+    assert res.json()["ticker"] == []
+    assert client.get("/api/v1/settings/site").json()["ticker"] == []
+
+
+def test_ticker_rechaza_frases_largas_o_demasiadas(auth_headers):
+    assert client.put("/api/v1/settings/site", json={"ticker": ["x" * 81]},
+                      headers=auth_headers).status_code == 422
+    assert client.put("/api/v1/settings/site", json={"ticker": ["frase"] * 9},
+                      headers=auth_headers).status_code == 422

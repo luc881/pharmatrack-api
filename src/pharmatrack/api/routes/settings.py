@@ -1,7 +1,7 @@
 import json
 
 from fastapi import APIRouter, HTTPException
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 from starlette import status
@@ -157,12 +157,22 @@ SITE_MEDIA_DEFAULTS = {
     "isopod_cubaris": "https://res.cloudinary.com/dnxavfqhj/image/upload/v1787115702/ko1qxvsltrlgb2d6ltjd.png",
 }
 
+# Cinta de novedades que corre en el sitio (antes del pie y en la seccion de
+# suscripcion). Frases que no caducan; las de temporada se ponen desde el
+# dashboard. Lista vacia = sin cinta.
+SITE_TICKER_DEFAULTS = [
+    "Entrega en persona en CDMX",
+    "Coordinamos por WhatsApp",
+    "Apartas con el 50%",
+]
+
 SITE_DEFAULTS = {
     "show_category_browse": True,  # seccion "Explora por grupo" en la home
     # Apagado: el sitio solo ofrece entrega personal en CDMX y la API rechaza
     # pedidos con envio (ver create_order en routes/shop.py)
     "shipping_enabled": True,
     "media": SITE_MEDIA_DEFAULTS,
+    "ticker": SITE_TICKER_DEFAULTS,
 }
 
 
@@ -194,6 +204,8 @@ class SiteSettings(BaseModel):
     show_category_browse: Optional[bool] = None
     shipping_enabled: Optional[bool] = None
     media: Optional[SiteMedia] = None
+    # hasta 8 frases de 80 caracteres; las vacias se descartan al guardar
+    ticker: Optional[list[Annotated[str, Field(max_length=80)]]] = Field(None, max_length=8)
 
 
 # Lectura publica (sin auth): el sitio la consulta para armar la home
@@ -222,6 +234,9 @@ def update_site_settings(body: SiteSettings, db: db_dependency):
             **stored.get("media", {}),
             **{k: v for k, v in patch["media"].items() if v is not None},
         }
+
+    if "ticker" in patch:
+        patch["ticker"] = [t.strip() for t in patch["ticker"] if t.strip()]
 
     row.value = json.dumps({**stored, **patch})
     db.commit()
