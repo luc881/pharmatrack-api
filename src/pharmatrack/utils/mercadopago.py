@@ -66,7 +66,7 @@ def _headers() -> dict:
 # usada la que decide si el cobro es real, no la URL a la que mandemos.
 
 
-def create_preference(order, notification_url: str) -> tuple[str, str]:
+def create_preference(order, notification_url: str, business_name: str = "") -> tuple[str, str]:
     """Crea la preferencia de pago. Devuelve (preference_id, url_de_pago).
 
     Los importes salen del pedido ya guardado, que a su vez los resolvió
@@ -95,7 +95,8 @@ def create_preference(order, notification_url: str) -> tuple[str, str]:
         "notification_url": notification_url,
         "back_urls": {"success": back, "failure": back, "pending": back},
         "auto_return": "approved",
-        "statement_descriptor": "OPUNTIA DEN",
+        # lo que sale en el estado de cuenta del cliente (MP corta a 22)
+        "statement_descriptor": business_name.upper()[:22] or None,
     }
 
     try:

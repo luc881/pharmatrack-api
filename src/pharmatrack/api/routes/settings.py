@@ -15,9 +15,23 @@ from ...utils.security import user_dependency
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
-# Defaults de la plantilla del correo de ticket; lo guardado los sobreescribe
+# Datos del negocio + plantilla de los correos (pantalla «Datos del negocio»).
+# Lo guardado sobreescribe estos defaults. Los defaults son los de Opuntia Den
+# para que su instalacion no cambie; otra instalacion los llena al montarse
+# (el dashboard avisa mientras no se hayan guardado: "saved": false).
 EMAIL_TICKET_DEFAULTS = {
     "business_name": "Opuntia Den",
+    # Encabezado y pie del ticket impreso, PDF de venta y bitacora
+    "tagline": "Criadero · CDMX · Entregas a convenir",
+    "website": "opuntiaden.com",
+    "instagram": "@opuntia_den",
+    "phone": "56 2157 8388",
+    "contact_email": "opuntiaden@gmail.com",
+    # Logo en blanco y negro para la termica; vacio = sin logo
+    "ticket_logo_url": "/brand/ticket/ticket-logo.svg",
+    # A donde lleva el QR del ticket; vacio = sin QR
+    "ticket_qr_url": "https://opuntiaden.com/links?src=ticket",
+    "folio_prefix": "OD",
     "intro_message": "",
     "footer_message": "Gracias por su compra.",
     # Logo y color de marca de TODOS los correos. El logo debe ser una URL
@@ -46,8 +60,19 @@ def get_email_ticket_template(db) -> dict:
     return {**EMAIL_TICKET_DEFAULTS, **stored}
 
 
+_D = EMAIL_TICKET_DEFAULTS
+
+
 class EmailTicketTemplate(BaseModel):
-    business_name: str = EMAIL_TICKET_DEFAULTS["business_name"]
+    business_name: str = Field(_D["business_name"], max_length=80)
+    tagline: str = Field(_D["tagline"], max_length=120)
+    website: str = Field(_D["website"], max_length=120)
+    instagram: str = Field(_D["instagram"], max_length=60)
+    phone: str = Field(_D["phone"], max_length=40)
+    contact_email: str = Field(_D["contact_email"], max_length=120)
+    ticket_logo_url: str = Field(_D["ticket_logo_url"], max_length=500)
+    ticket_qr_url: str = Field(_D["ticket_qr_url"], max_length=500)
+    folio_prefix: str = Field(_D["folio_prefix"], pattern=r"^[A-Za-z0-9]{0,6}$")
     intro_message: str = ""
     footer_message: str = EMAIL_TICKET_DEFAULTS["footer_message"]
     logo_url: str = EMAIL_TICKET_DEFAULTS["logo_url"]
@@ -57,10 +82,12 @@ class EmailTicketTemplate(BaseModel):
     paid_intro: str = EMAIL_TICKET_DEFAULTS["paid_intro"]
 
 
-@router.get("/email-ticket", dependencies=CAN_READ_SALES,
-            summary="Plantilla del correo de ticket")
-def read_email_ticket(db: db_dependency):
-    return get_email_ticket_template(db)
+# Cualquier usuario con sesion: el ticket, los PDF y la bitacora imprimen
+# estos datos, no solo quien ve ventas
+@router.get("/email-ticket", summary="Datos del negocio y plantilla de los correos")
+def read_email_ticket(db: db_dependency, _user: user_dependency):
+    saved = db.query(AppSetting).filter(AppSetting.key == "email_ticket").first() is not None
+    return {**get_email_ticket_template(db), "saved": saved}
 
 
 @router.put("/email-ticket", dependencies=CAN_UPDATE_SALES,
@@ -75,7 +102,7 @@ def update_email_ticket(body: EmailTicketTemplate, db: db_dependency):
         db.add(row)
     row.value = json.dumps(body.model_dump())
     db.commit()
-    return get_email_ticket_template(db)
+    return {**get_email_ticket_template(db), "saved": True}
 
 
 # =========================================================

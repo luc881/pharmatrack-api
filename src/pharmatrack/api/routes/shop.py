@@ -540,7 +540,8 @@ async def start_checkout(request: Request, order_id: int, db: db_dependency,
     db.commit()
 
     notification_url = f"{str(request.base_url).rstrip('/')}/api/v1/shop/payments/webhook"
-    _preference_id, payment_url = create_preference(order, notification_url)
+    business = get_email_ticket_template(db)["business_name"]
+    _preference_id, payment_url = create_preference(order, notification_url, business)
     return {"payment_url": payment_url}
 
 

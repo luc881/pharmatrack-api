@@ -56,3 +56,28 @@ def test_email_ticket_template_roundtrip(auth_headers):
     data = client.get("/api/v1/settings/email-ticket", headers=auth_headers).json()
     assert data["business_name"] == "Opuntia Den"
     assert data["footer_message"] == "Gracias, vuelve pronto!"
+    assert data["saved"] is True
+
+
+def test_datos_del_negocio_roundtrip(auth_headers):
+    res = client.put("/api/v1/settings/email-ticket", headers=auth_headers, json={
+        "business_name": "Otro Criadero",
+        "tagline": "Monterrey",
+        "instagram": "@otro",
+        "ticket_qr_url": "",
+        "folio_prefix": "OC",
+    })
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["tagline"] == "Monterrey"
+    assert data["ticket_qr_url"] == ""
+    assert data["folio_prefix"] == "OC"
+
+    res = client.put("/api/v1/settings/email-ticket", headers=auth_headers, json={
+        "business_name": "Otro Criadero", "folio_prefix": "OC-1",
+    })
+    assert res.status_code == 422, res.text
+
+
+def test_datos_del_negocio_piden_sesion():
+    assert client.get("/api/v1/settings/email-ticket").status_code == 401

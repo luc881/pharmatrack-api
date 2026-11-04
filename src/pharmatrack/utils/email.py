@@ -78,7 +78,7 @@ def send_test_email(to_email: str) -> dict:
         response = resend.Emails.send({
             "from": FROM_ADDRESS,
             "to": [to_email],
-            "subject": "Prueba de correo — Opuntia Den",
+            "subject": "Prueba de correo",
             "html": (
                 "<p>Si estás leyendo esto, el envío de correos funciona.</p>"
                 f"<p style='color:#6b7280'>Remitente configurado: {FROM_ADDRESS}</p>"
@@ -165,7 +165,7 @@ def send_ticket_email(to_email: str, sale_id: int, date_str: str, items: list[di
     )
 
     tpl = template or {}
-    business = tpl.get("business_name") or "Opuntia Den"
+    business = tpl.get("business_name") or ""
     intro = tpl.get("intro_message") or ""
     intro_html = (
         f'<p style="margin:0 0 16px;">{intro}</p>' if intro.strip() else ""
@@ -205,7 +205,7 @@ def _shell(tpl: dict, subtitle: str, content: str) -> str:
     tpl = tpl or {}
     accent = tpl.get("accent_color") or BRAND_ACCENT
     logo = tpl.get("logo_url") or ""
-    business = tpl.get("business_name") or "Opuntia Den"
+    business = tpl.get("business_name") or ""
     footer = tpl.get("footer_message") or ""
 
     header = (
@@ -316,7 +316,7 @@ def send_order_emails(order, customer, notify_email: str = "", template: dict | 
         else "Recibimos tu pedido. Te confirmamos disponibilidad, envío y total en breve."
     )
     try:
-        _send(customer.email, f"Pedido {order.code} recibido — Opuntia Den", intro)
+        _send(customer.email, f"Pedido {order.code} recibido — {tpl.get('business_name') or ''}".rstrip(" —"), intro)
     except Exception as exc:  # noqa: BLE001
         logger.error("Order %s: customer email failed: %s", order.id, exc)
 
