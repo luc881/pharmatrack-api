@@ -21,6 +21,19 @@ class Settings(BaseSettings):
     environment: str = "development"
 
     # =========================================================
+    # 🌱 Seeds del arranque
+    # =========================================================
+    # true = siembra el catálogo de Opuntia Den (categorías de farmacia,
+    # ~11k productos, insumos de terrario, grupos de animales y artículos).
+    # Otra instalación (otro cliente): SEED_CATALOG=false → solo permisos,
+    # roles, sucursal y admin.
+    seed_catalog: bool = True
+    # Admin que se crea en una BD vacía. Sin contraseña se genera una al azar
+    # y se imprime una vez en el log del arranque.
+    superuser_email: str = "admin@pharmatrack.com"
+    superuser_password: str = ""
+
+    # =========================================================
     # 🖼️ Caché local de imágenes (modo offline / convención)
     # =========================================================
     # Carpeta con las imágenes de Cloudinary descargadas por

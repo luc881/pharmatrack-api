@@ -15,6 +15,7 @@ from pharmatrack.seeds.seed_product_categories import seed_product_categories
 from pharmatrack.seeds.seed_superuser import seed_superuser
 from pharmatrack.seeds.seed_branches import seed_branches
 from pharmatrack.seeds.seed_animal_groups import seed_animal_groups
+from pharmatrack.config import settings
 
 
 def init_db():
@@ -38,6 +39,13 @@ def init_db():
 
         print("\n👤 Superusuario...")
         seed_superuser(db)
+
+        # Todo lo de abajo es el catálogo de Opuntia Den (categorías de farmacia,
+        # grupos de animales, productos, insumos, artículos). Otra instalación
+        # (otro cliente) arranca solo con lo de arriba.
+        if not settings.seed_catalog:
+            print("\n📦 SEED_CATALOG=false — catálogo de ejemplo omitido\n")
+            return
 
         # ── Catálogo ──────────────────────────────
         print("\n📂 Categorías de productos...")

@@ -3,6 +3,9 @@ from pharmatrack.models.users.orm import User
 from pharmatrack.models.roles.orm import Role
 from pharmatrack.db.session import SessionLocal
 from passlib.context import CryptContext
+import secrets
+
+from pharmatrack.config import settings
 
 # Configuración para hashear contraseñas
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -16,8 +19,7 @@ def seed_superuser(db: Session):
     Crea un usuario administrador principal (superuser) si no existe.
     """
 
-    SUPERUSER_EMAIL = "admin@pharmatrack.com"
-    SUPERUSER_PASSWORD = "1278972"
+    SUPERUSER_EMAIL = settings.superuser_email
     SUPERUSER_NAME = "Adm"
     SUPERUSER_SURNAME = "Principal"
 
@@ -32,6 +34,9 @@ def seed_superuser(db: Session):
     if existing_user:
         print(f"ℹ️ El usuario superadmin ya existe: {SUPERUSER_EMAIL}")
         return
+
+    # El repo es público: nunca una contraseña fija en el código
+    SUPERUSER_PASSWORD = settings.superuser_password or secrets.token_urlsafe(12)
 
     # Crear usuario
     superuser = User(
