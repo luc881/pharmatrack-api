@@ -205,6 +205,9 @@ def generate(destination: dict, package: dict, carrier: str, service: str) -> di
         logger.warning("Envia.com no generó la guía (%s %s): %s", carrier, service, res)
         error = res.get("error")
         reason = (error.get("message") or error.get("description")) if isinstance(error, dict) else error
+        if reason == "SERVICE_QUOTE_ONLY":
+            reason = ("este servicio solo se puede cotizar, no generar, con tu cuenta de Envia. "
+                      "Elige otra paquetería o servicio de la lista.")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Envia.com no generó la guía: {reason or json.dumps(res, ensure_ascii=False)[:300]}",
