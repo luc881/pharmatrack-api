@@ -7,22 +7,26 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import IntegrityError
+from starlette import status
 
 from ...db.session import db_dependency
+from ...models.customers.orm import Order
 from ...models.customers.schemas import ShippingLabelRequest, ShippingRateRequest
 from ...models.shipments.orm import Shipment
 from ...utils import envia
 from ...utils.logger import get_logger
 from ...utils.pagination import paginate, PaginationParams, PaginatedResponse
 from ...utils.permissions import CAN_READ_ORDERS, CAN_UPDATE_ORDERS
+from ...utils.rate_limit import limiter, shop_client_ip
 from ...utils.security import user_dependency
 
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/shipments", tags=["Shipments"])
+public_router = APIRouter(prefix="/public/tracking", tags=["Public"])
 
 
 class ShipmentCreate(ShippingLabelRequest):
@@ -99,3 +103,28 @@ def create_shipment(body: ShipmentCreate, db: db_dependency, token_data: user_de
     db.commit()
     db.refresh(shipment)
     return shipment
+
+
+@public_router.get("/{tracking_number}", summary="Public: rastrear una guía sin cuenta")
+@limiter.limit("20/minute", key_func=shop_client_ip)
+def track_public(request: Request, tracking_number: str, db: db_dependency):
+    """Solo guías generadas aquí (envíos sueltos o pedidos): no es un rastreador
+    de cualquier paquete. No devuelve nombre ni dirección: quien tenga el número
+    ve por dónde va el paquete, nada más."""
+    number = tracking_number.strip()
+    found = (
+        db.query(Shipment.carrier, Shipment.tracking_number, Shipment.tracking_url)
+        .filter(Shipment.tracking_number == number).first()
+        or db.query(Order.shipping_carrier, Order.tracking_number, Order.tracking_url)
+        .filter(Order.tracking_number == number).first()
+    ) if 4 <= len(number) <= 60 else None
+    if found is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="No encontramos esa guía. Revisa el número.")
+    carrier, number, tracking_url = found
+    try:
+        tracking = envia.track(number)
+    except HTTPException:
+        # La paquetería no responde: el sitio enseña el enlace directo
+        tracking = {"status": None, "status_label": None, "estimated_delivery": None, "events": []}
+    return {"carrier": carrier, "tracking_number": number, "tracking_url": tracking_url, **tracking}

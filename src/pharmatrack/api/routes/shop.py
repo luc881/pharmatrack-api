@@ -54,7 +54,7 @@ from ...utils.mercadopago import (
 from ...utils.logger import get_logger
 from ...utils.pagination import paginate, PaginationParams, PaginatedResponse
 from ...utils.permissions import CAN_READ_ORDERS, CAN_UPDATE_ORDERS
-from ...utils.rate_limit import limiter, LIMIT_AUTH
+from ...utils.rate_limit import limiter, customer_key, shop_client_ip, trusted_shop_ip
 from ...utils.security import create_customer_token, customer_dependency
 from .animal_taxonomy import hidden_group_ids
 from .settings import get_site_settings, get_email_ticket_template
@@ -74,7 +74,9 @@ orders_router = APIRouter(prefix="/orders", tags=["Orders"])
 # =========================================================
 @router.post("/auth/google", response_model=CustomerSession,
              summary="Public: iniciar sesion de cliente con Google")
-@limiter.limit(LIMIT_AUTH)
+# Llega desde el servidor del sitio (una IP para todos los clientes): el
+# freno real es la verificación del token de Google
+@limiter.limit("60/minute")
 def sign_in_with_google(request: Request, body: GoogleSignIn, db: db_dependency):
     info = verify_google_id_token(body.id_token)
 
@@ -98,10 +100,17 @@ def sign_in_with_google(request: Request, body: GoogleSignIn, db: db_dependency)
 
 def _current_customer(db, token_data: dict, lock: bool = False) -> Customer:
     customer = db.get(Customer, token_data["id"], with_for_update=lock)
-    if customer is None:
+    # Una cuenta eliminada conserva la fila (sus pedidos la referencian), pero
+    # el token que quedara vivo ya no entra
+    if customer is None or customer.email.endswith(DELETED_EMAIL_DOMAIN):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Invalid authentication")
     return customer
+
+
+DELETED_EMAIL_DOMAIN = "@eliminada.invalid"
+PERSONAL_FIELDS = ("name", "avatar", "phone", "address", "google_sub", "favorites", "cart",
+                   *ADDRESS_PARTS)
 
 
 # =========================================================
@@ -129,6 +138,32 @@ def update_me(body: CustomerUpdate, db: db_dependency, token_data: customer_depe
     db.commit()
     db.refresh(customer)
     return customer
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT,
+               summary="Public: eliminar mi cuenta y mis datos")
+@limiter.limit("5/minute", key_func=customer_key)
+def delete_me(request: Request, db: db_dependency, token_data: customer_dependency):
+    customer = _current_customer(db, token_data, lock=True)
+    orders = db.query(Order).filter(Order.customer_id == customer.id).all()
+    if any(order.status in ("paid", "confirmed") for order in orders):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Tienes un pedido en curso. Cuando lo entreguemos podrás eliminar tu "
+                   "cuenta; si lo necesitas antes, escríbenos por WhatsApp.",
+        )
+    # Los pedidos se conservan como registro de venta (folio, artículos, total),
+    # ya sin nada que identifique a la persona
+    for order in orders:
+        if order.status == "pending":
+            order.status = "cancelled"
+        order.contact_name = order.contact_phone = order.address = order.notes = None
+        order.client_ip = None
+    for field in PERSONAL_FIELDS:
+        setattr(customer, field, None)
+    customer.email = f"cuenta-{customer.id}{DELETED_EMAIL_DOMAIN}"
+    db.commit()
+    logger.info("Cuenta de cliente %s eliminada a petición suya", customer.id)
 
 
 @router.get("/mx-states", summary="Public: catalogo de estados de Mexico")
@@ -350,7 +385,7 @@ def check_stock(db, lines, exclude_order_id: Optional[int] = None) -> None:
 
 @router.post("/cart/validate", response_model=CartValidateResponse,
              summary="Public: revisar disponibilidad y precios del carrito")
-@limiter.limit("30/minute")
+@limiter.limit("30/minute", key_func=shop_client_ip)
 def validate_cart(request: Request, body: CartValidate, db: db_dependency):
     out = []
     for line in body.items:
@@ -381,6 +416,7 @@ def validate_cart(request: Request, body: CartValidate, db: db_dependency):
 # =========================================================
 @router.get("/orders", response_model=list[OrderResponse], summary="Public: mis pedidos")
 def list_my_orders(db: db_dependency, token_data: customer_dependency):
+    _expire_stale_orders(db, token_data["id"])
     return (
         db.query(Order)
         .options(selectinload(Order.items))
@@ -398,25 +434,48 @@ def list_my_orders(db: db_dependency, token_data: customer_dependency):
 #  - tope diario de creación (cuenta también los cancelados): sin esto, el
 #    bucle crear→cancelar→crear brincaría el tope de pendientes y cada
 #    creación te manda un correo
+#  - tope diario por red (IP del visitante, si el sitio la avaló): para quien
+#    abre varias cuentas. Holgado a propósito: los celulares comparten IP
+#  - un pendiente que nadie movió en PENDING_EXPIRE_DAYS se cancela solo, para
+#    que el cliente no quede atorado en el tope de pendientes
 MAX_PENDING_ORDERS = 3
 MAX_ORDERS_PER_DAY = 10
+MAX_ORDERS_PER_DAY_PER_IP = 20
+PENDING_EXPIRE_DAYS = 14
 
 
-def _reject_order_flood(db, customer_id: int, items) -> None:
+def _expire_stale_orders(db, customer_id: int) -> None:
+    """Sin cron: se revisa cuando el cliente abre sus pedidos o hace otro."""
+    expired = (
+        db.query(Order)
+        .filter(Order.customer_id == customer_id, Order.status == "pending",
+                Order.created_at < _now() - timedelta(days=PENDING_EXPIRE_DAYS))
+        .update({"status": "cancelled"}, synchronize_session=False)
+    )
+    if expired:
+        db.commit()
+        logger.info("Cliente %s: %s pedido(s) pendiente(s) caducaron", customer_id, expired)
+
+
+def _reject_order_flood(db, customer_id: int, items, ip: Optional[str] = None) -> None:
+    # created_at es naive-UTC en la BD (Postgres corre en UTC)
+    since = _now() - timedelta(hours=24)
+    too_many = HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="Has hecho demasiados pedidos en las últimas 24 horas. "
+               "Escríbenos por WhatsApp y te ayudamos directo.",
+    )
+    if ip and (db.query(Order).filter(Order.client_ip == ip, Order.created_at >= since).count()
+               >= MAX_ORDERS_PER_DAY_PER_IP):
+        raise too_many
+
     created_today = (
         db.query(Order)
-        .filter(Order.customer_id == customer_id,
-                # created_at es naive-UTC en la BD (Postgres corre en UTC)
-                Order.created_at >= datetime.now(timezone.utc).replace(tzinfo=None)
-                - timedelta(hours=24))
+        .filter(Order.customer_id == customer_id, Order.created_at >= since)
         .count()
     )
     if created_today >= MAX_ORDERS_PER_DAY:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Has hecho demasiados pedidos en las últimas 24 horas. "
-                   "Escríbenos por WhatsApp y te ayudamos directo.",
-        )
+        raise too_many
 
     pending = (
         db.query(Order)
@@ -442,19 +501,21 @@ def _reject_order_flood(db, customer_id: int, items) -> None:
 
 @router.post("/orders", response_model=OrderResponse, status_code=status.HTTP_201_CREATED,
              summary="Public: hacer un pedido")
-@limiter.limit("5/minute")
+@limiter.limit("5/minute", key_func=customer_key)
 def create_order(request: Request, body: OrderCreate, db: db_dependency,
                  token_data: customer_dependency):
     # Con candado en la fila del cliente: dos envíos simultáneos del mismo
     # pedido (doble clic, reintento) se forman; el segundo ya ve al primero
     # en _reject_order_flood y no se duplica.
+    _expire_stale_orders(db, token_data["id"])  # antes del candado: hace commit
     customer = _current_customer(db, token_data, lock=True)
     if customer.blocked:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tu cuenta no puede hacer pedidos por ahora. Escríbenos por WhatsApp.",
         )
-    _reject_order_flood(db, customer.id, body.items)
+    ip = trusted_shop_ip(request)
+    _reject_order_flood(db, customer.id, body.items, ip)
 
     if body.delivery_method == "shipping" and not get_site_settings(db)["shipping_enabled"]:
         raise HTTPException(
@@ -484,6 +545,7 @@ def create_order(request: Request, body: OrderCreate, db: db_dependency,
         address=body.address or customer.address,
         notes=body.notes,
         delivery_method=body.delivery_method,
+        client_ip=ip,
     )
 
     total = Decimal("0")
@@ -521,7 +583,7 @@ def create_order(request: Request, body: OrderCreate, db: db_dependency,
 
 @router.post("/orders/{order_id}/checkout", response_model=CheckoutSession,
              summary="Public: pagar en linea un pedido de entrega personal")
-@limiter.limit("10/minute")
+@limiter.limit("10/minute", key_func=customer_key)
 def start_checkout(request: Request, order_id: int, db: db_dependency,
                    token_data: customer_dependency):
     order = db.query(Order).filter(
@@ -613,7 +675,7 @@ def _apply_payment(db, order: Order, payment: dict) -> bool:
 
 @router.post("/orders/{order_id}/sync-payment", response_model=OrderResponse,
              summary="Public: reconciliar el pago de un pedido")
-@limiter.limit("20/minute")
+@limiter.limit("20/minute", key_func=customer_key)
 def sync_order_payment(request: Request, order_id: int, db: db_dependency,
                        token_data: customer_dependency):
     """Lo llama el sitio al volver de Mercado Pago. Red de seguridad por si el
@@ -688,7 +750,7 @@ def _process_webhook_payment(db, payment_id: str) -> None:
 
 
 @router.get("/orders/{order_id}/tracking", summary="Public: rastreo de mi pedido")
-@limiter.limit("20/minute")
+@limiter.limit("20/minute", key_func=customer_key)
 def track_my_order(request: Request, order_id: int, db: db_dependency,
                    token_data: customer_dependency):
     order = db.query(Order).filter(
@@ -711,7 +773,7 @@ def track_my_order(request: Request, order_id: int, db: db_dependency,
 
 @router.delete("/orders/{order_id}", response_model=OrderResponse,
                summary="Public: cancelar mi pedido pendiente")
-@limiter.limit("10/minute")
+@limiter.limit("10/minute", key_func=customer_key)
 def cancel_my_order(request: Request, order_id: int, db: db_dependency,
                     token_data: customer_dependency):
     # Sólo el dueño y sólo pendientes: un pedido confirmado ya se está

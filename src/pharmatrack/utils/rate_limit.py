@@ -1,3 +1,6 @@
+import hmac
+
+from jose import jwt, JWTError
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from starlette.requests import Request
@@ -15,6 +18,41 @@ def client_ip(request: Request) -> str:
     """
     real = request.headers.get("x-real-ip", "").strip()
     return real or get_remote_address(request)
+
+
+def shop_client_ip(request: Request) -> str:
+    """IP del visitante de la tienda.
+
+    El sitio público llama a la API desde su servidor, así que X-Real-IP es la
+    de ese servidor, igual para todos los clientes. El sitio manda la IP del
+    visitante en X-Client-IP, y solo se le cree si trae el secreto compartido.
+    """
+    secret = settings.shop_proxy_secret.strip()
+    sent = request.headers.get("x-proxy-secret", "")
+    forwarded = request.headers.get("x-client-ip", "").strip()
+    if secret and forwarded and hmac.compare_digest(sent.encode(), secret.encode()):
+        return forwarded
+    return client_ip(request)
+
+
+def trusted_shop_ip(request: Request) -> str | None:
+    """La IP del visitante solo cuando viene avalada por el sitio; si no, None."""
+    ip = shop_client_ip(request)
+    return ip if ip != client_ip(request) else None
+
+
+def customer_key(request: Request) -> str:
+    """Límite por cuenta de cliente (su token); sin token válido, por IP.
+    Así el exceso de un cliente no le cierra la puerta a los demás."""
+    auth = request.headers.get("authorization", "")
+    if auth.lower().startswith("bearer "):
+        try:
+            payload = jwt.decode(auth[7:], settings.secret_key, algorithms=[settings.algorithm])
+            if payload.get("id") is not None:
+                return f"customer:{payload['id']}"
+        except JWTError:
+            pass
+    return shop_client_ip(request)
 
 
 # =========================================================

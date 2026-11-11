@@ -191,3 +191,20 @@ def test_cliente_ve_el_rastreo_de_su_pedido(fake_google, auth_headers, fake_envi
     empty = client.get(url, headers=customer)
     assert empty.status_code == 200 and empty.json()["events"] == []
     assert empty.json()["tracking_url"].startswith("https://")
+
+
+def test_rastreo_publico_solo_de_guias_propias(auth_headers, fake_envia, monkeypatch):
+    body = {**BODY, "carrier": "fedex", "service": "ground", "idempotency_key": "clave-de-prueba-4"}
+    assert client.post("/api/v1/shipments", headers=auth_headers, json=body).status_code == 200
+    monkeypatch.setattr(envia, "_call", lambda *a, **k: {"data": [{"status": "Delivered"}]})
+
+    # sin sesión de ningún tipo
+    res = client.get("/api/v1/public/tracking/7520610403")
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["status_label"] == "Entregado" and data["carrier"] == "fedex"
+    # nada que identifique al destinatario
+    assert not {"recipient_name", "address", "recipient_phone", "note"} & data.keys()
+
+    # una guía que no generamos nosotros no se consulta
+    assert client.get("/api/v1/public/tracking/0000000000").status_code == 404

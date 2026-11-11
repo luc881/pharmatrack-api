@@ -112,6 +112,11 @@ class Settings(BaseSettings):
     # DSN del proyecto en sentry.io. Vacío = apagado.
     sentry_dsn: str = ""
 
+    # Secreto compartido con el sitio público (su variable SHOP_PROXY_SECRET).
+    # Con él, la API le cree al sitio la IP del visitante (X-Client-IP); sin él
+    # todas las peticiones de la tienda parecen venir del servidor del sitio.
+    shop_proxy_secret: str = ""
+
     # =========================================================
     # 📋 Logging
     # =========================================================

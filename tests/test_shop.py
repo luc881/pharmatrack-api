@@ -462,3 +462,82 @@ def test_order_text_is_capped(fake_google, auth_headers):
         "items": [{"key": f"s{sp['id']}-u", "qty": 1}],
         "delivery_method": "shipping", "notes": "x" * 1001})
     assert res.status_code == 422
+
+
+# =========================================================
+# Eliminar cuenta, pendientes que caducan, tope por red
+# =========================================================
+def test_delete_account_scrubs_personal_data(fake_google, auth_headers):
+    _group, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], price=250.0)
+    headers = _sign_in()
+    client.put("/api/v1/shop/me", headers=headers, json={"phone": "5512345678", "street": "Calle 1"})
+    order = client.post("/api/v1/shop/orders", headers=headers, json={
+        "items": [{"key": f"s{sp['id']}-u", "qty": 1}], "delivery_method": "pickup",
+        "contact_phone": "5512345678", "notes": "tocar el timbre"}).json()
+
+    assert client.delete("/api/v1/shop/me", headers=headers).status_code == 204
+    # el token viejo ya no entra
+    assert client.get("/api/v1/shop/me", headers=headers).status_code == 401
+
+    kept = client.get(f"/api/v1/orders/{order['id']}", headers=auth_headers).json()
+    assert kept["status"] == "cancelled" and kept["total"] == 250.0
+    assert kept["contact_phone"] is None and kept["notes"] is None
+    assert kept["customer_name"] is None and GOOGLE_PROFILE["email"] not in kept["customer_email"]
+
+    # volver a entrar con Google abre una cuenta nueva, vacía
+    again = client.get("/api/v1/shop/me", headers=_sign_in()).json()
+    assert again["phone"] is None and again["id"] != kept["customer_id"]
+
+
+def test_cannot_delete_account_with_order_in_progress(fake_google, auth_headers, db_session):
+    from pharmatrack.models.customers.orm import Order
+    _group, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], price=250.0)
+    headers = _sign_in()
+    order = client.post("/api/v1/shop/orders", headers=headers, json={
+        "items": [{"key": f"s{sp['id']}-u", "qty": 1}], "delivery_method": "pickup",
+        "contact_phone": "5512345678"}).json()
+    db_session.query(Order).filter(Order.id == order["id"]).update({"status": "paid"})
+    db_session.commit()
+    assert client.delete("/api/v1/shop/me", headers=headers).status_code == 409
+
+
+def test_stale_pending_orders_expire(fake_google, auth_headers, db_session):
+    from datetime import datetime, timedelta
+    from pharmatrack.models.customers.orm import Order
+    _group, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], price=250.0)
+    headers = _sign_in()
+    order = client.post("/api/v1/shop/orders", headers=headers, json={
+        "items": [{"key": f"s{sp['id']}-u", "qty": 1}], "delivery_method": "pickup",
+        "contact_phone": "5512345678"}).json()
+    assert client.get("/api/v1/shop/orders", headers=headers).json()[0]["status"] == "pending"
+
+    db_session.query(Order).filter(Order.id == order["id"]).update(
+        {"created_at": datetime.utcnow() - timedelta(days=15)})
+    db_session.commit()
+    assert client.get("/api/v1/shop/orders", headers=headers).json()[0]["status"] == "cancelled"
+
+
+def test_daily_cap_per_network_needs_the_site_secret(fake_google, auth_headers, monkeypatch):
+    from pharmatrack.api.routes import shop
+    from pharmatrack.config import settings
+    monkeypatch.setattr(settings, "shop_proxy_secret", "secreto-del-sitio")
+    monkeypatch.setattr(shop, "MAX_ORDERS_PER_DAY_PER_IP", 1)
+    _group, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], price=250.0)
+    headers = _sign_in()
+    body = {"items": [{"key": f"s{sp['id']}-u", "qty": 1}], "delivery_method": "pickup",
+            "contact_phone": "5512345678"}
+
+    # una IP que no viene avalada por el sitio no cuenta (cualquiera la inventaría)
+    forged = {**headers, "X-Client-IP": "203.0.113.9", "X-Proxy-Secret": "otro"}
+    assert client.post("/api/v1/shop/orders", headers=forged, json=body).status_code == 201
+
+    site = {**headers, "X-Client-IP": "203.0.113.9", "X-Proxy-Secret": "secreto-del-sitio"}
+    body["items"][0]["qty"] = 2
+    assert client.post("/api/v1/shop/orders", headers=site, json=body).status_code == 201
+    body["items"][0]["qty"] = 3
+    res = client.post("/api/v1/shop/orders", headers=site, json=body)
+    assert res.status_code == 409 and "24 horas" in res.json()["detail"]

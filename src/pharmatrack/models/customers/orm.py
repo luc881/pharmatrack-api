@@ -98,6 +98,10 @@ class Order(Base):
     # CHECKOUT_HOLD_MINUTES en la ruta shop.
     checkout_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=False), nullable=True)
 
+    # IP del visitante al pedir (solo si el sitio la avaló): tope diario por
+    # red, para quien abre muchas cuentas
+    client_ip: Mapped[Optional[str]] = mapped_column(String(45), nullable=True, index=True)
+
     # Guía de envío generada desde el dashboard (Envia.com). tracking_number
     # también sirve de candado: un pedido con guía no genera (ni cobra) otra.
     shipping_carrier: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
