@@ -10,7 +10,7 @@ $CacheDir  = Join-Path $RepoDir "image_cache"
 $LocalUrl  = "postgresql://postgres:postgres@localhost/pharmatrack"
 
 # pg_dump/pg_restore: usar el cliente mas nuevo instalado
-$PgBin = @("C:\Program Files\PostgreSQL\17\bin", "C:\Program Files\PostgreSQL\16\bin") |
+$PgBin = @("C:\Program Files\PostgreSQL\18\bin", "C:\Program Files\PostgreSQL\17\bin","C:\Program Files\PostgreSQL\16\bin") |
   Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $PgBin) { Write-Host "No se encontro PostgreSQL en Program Files" -ForegroundColor Red; exit 1 }
 

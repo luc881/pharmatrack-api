@@ -28,7 +28,7 @@ $Targets = Get-Content $EnvSync | ForEach-Object {
 }
 if (-not $Targets) { Log "ERROR: ninguna <NOMBRE>_DATABASE_URL con valor en .env.sync"; exit 1 }
 
-$PgBin = @("C:\Program Files\PostgreSQL\17\bin", "C:\Program Files\PostgreSQL\16\bin") |
+$PgBin = @("C:\Program Files\PostgreSQL\18\bin", "C:\Program Files\PostgreSQL\17\bin","C:\Program Files\PostgreSQL\16\bin") |
   Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $PgBin) { Log "ERROR: PostgreSQL no encontrado"; exit 1 }
 
