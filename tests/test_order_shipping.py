@@ -138,3 +138,18 @@ def test_envio_suelto_que_envia_rechaza_no_deja_registro(auth_headers, fake_envi
     body = {**BODY, "carrier": "fedex", "service": "ground", "idempotency_key": "clave-de-prueba-2"}
     assert client.post("/api/v1/shipments", headers=auth_headers, json=body).status_code == 502
     assert client.get("/api/v1/shipments", headers=auth_headers).json()["data"] == []
+
+
+def test_guia_rechazada_con_200_muestra_el_motivo(auth_headers, fake_envia, monkeypatch):
+    real = envia._call
+
+    def _call(method, url, **kwargs):
+        if url.endswith("/ship/generate/"):
+            return {"meta": "error", "error": {"code": 1125, "message": "Saldo insuficiente"}}
+        return real(method, url, **kwargs)
+
+    monkeypatch.setattr(envia, "_call", _call)
+    body = {**BODY, "carrier": "fedex", "service": "ground", "idempotency_key": "clave-de-prueba-3"}
+    res = client.post("/api/v1/shipments", headers=auth_headers, json=body)
+    assert res.status_code == 502
+    assert "Saldo insuficiente" in res.json()["detail"]

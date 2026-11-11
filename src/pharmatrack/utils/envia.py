@@ -197,10 +197,18 @@ def generate(destination: dict, package: dict, carrier: str, service: str) -> di
     """Genera (y cobra) la guía. Devuelve guía, rastreo, PDF y costo."""
     _require_configured()
     body = _payload(destination, package, carrier, service)
-    data = _call("POST", f"{_hosts()[0]}/ship/generate/", json=body).get("data") or []
-    if not data or not data[0].get("trackingNumber"):
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
-                            detail="Envia.com no devolvió una guía.")
+    res = _call("POST", f"{_hosts()[0]}/ship/generate/", json=body)
+    data = res.get("data") or []
+    if not isinstance(data, list) or not data or not data[0].get("trackingNumber"):
+        # Envia contesta 200 también cuando rechaza la guía (saldo, dirección,
+        # servicio): el motivo viene en el cuerpo y hay que enseñarlo
+        logger.warning("Envia.com no generó la guía (%s %s): %s", carrier, service, res)
+        error = res.get("error")
+        reason = (error.get("message") or error.get("description")) if isinstance(error, dict) else error
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Envia.com no generó la guía: {reason or json.dumps(res, ensure_ascii=False)[:300]}",
+        )
     label = data[0]
     return {
         "carrier": label.get("carrier") or carrier,
