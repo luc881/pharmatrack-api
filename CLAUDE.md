@@ -80,6 +80,10 @@ Every change to `product_batches.quantity` is recorded in `stock_movements` (del
 
 Internal dashboard tool, never customer-facing: `POST /orders/{id}/shipping/rates` quotes every carrier (Envia takes one carrier per request, so `utils/envia.py` fans out in threads) and `POST /orders/{id}/shipping/label` buys the label and stores carrier, tracking and PDF on the order. An order with `tracking_number` never buys a second label. Off (503) unless `ENVIA_API_TOKEN` and `ENVIA_ORIGIN` are set; `ENVIA_SANDBOX=true` by default. No tracking webhooks: order status is still changed by hand.
 
+### Backups
+
+`backup/` is a separate Railway service (root directory `/backup`, cron schedule, runs once and exits): `pg_dump` in custom format, uploaded with rclone to Cloudflare R2 under `<BACKUP_NAME>/`. It has its own variables (`DATABASE_URL` as a reference to the project's Postgres, `R2_*`, `BACKUP_NAME`) so the bucket keys never live in the API service. Retention is the bucket's lifecycle rule. `scripts/backup-prod.ps1` still keeps a local copy on the laptop.
+
 ### Product model
 
 Products support two sale modes controlled by `is_unit_sale`:
