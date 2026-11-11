@@ -82,7 +82,7 @@ Internal dashboard tool, never customer-facing: `POST /orders/{id}/shipping/rate
 
 ### Backups
 
-`backup/` is a separate Railway service (root directory `/backup`, cron schedule, runs once and exits): `pg_dump` in custom format, uploaded with rclone to Cloudflare R2 under `<BACKUP_NAME>/`. It has its own variables (`DATABASE_URL` as a reference to the project's Postgres, `R2_*`, `BACKUP_NAME`) so the bucket keys never live in the API service. Retention is the bucket's lifecycle rule. `scripts/backup-prod.ps1` still keeps a local copy on the laptop.
+Daily backups to Cloudflare R2 run from a separate repo and Railway service (`pharmatrack-backup`: `pg_dump` custom format + rclone, cron, one service per project), so the bucket keys never live in the API service. `scripts/backup-prod.ps1` keeps a local copy on the laptop.
 
 ### Product model
 

@@ -57,7 +57,7 @@ Get-ChildItem $BackupDir -Filter "*.dump" |
   Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
   ForEach-Object { Log "Retencion: borrando $($_.Name)"; Remove-Item $_.FullName -Force -Confirm:$false }
 
-# La copia a Cloudflare R2 no pasa por aqui: la hace el servicio backup/ en
+# La copia a Cloudflare R2 no pasa por aqui: la hace el repo pharmatrack-backup en
 # Railway. Esto solo deja la copia local.
 
 if ($Failed) { exit 1 }
