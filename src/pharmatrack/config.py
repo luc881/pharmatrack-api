@@ -94,6 +94,25 @@ class Settings(BaseSettings):
     mercadopago_webhook_secret: str = ""
 
     # =========================================================
+    # 📦 Guías de envío (Envia.com), solo desde el dashboard
+    # =========================================================
+    # Token de Developers > API Keys. Vacío = envíos apagados (503).
+    envia_api_token: str = ""
+    # true = ambiente de pruebas (guías sin valor, no cobra). El token de
+    # pruebas y el productivo son distintos: cambiar los dos juntos.
+    envia_sandbox: bool = True
+    # Remitente, como JSON en una línea:
+    # {"name":"...","phone":"5512345678","street":"...","number":"12",
+    #  "district":"colonia","city":"...","state":"CX","postalCode":"07000"}
+    envia_origin: str = ""
+
+    # =========================================================
+    # 🚨 Avisos de errores (Sentry)
+    # =========================================================
+    # DSN del proyecto en sentry.io. Vacío = apagado.
+    sentry_dsn: str = ""
+
+    # =========================================================
     # 📋 Logging
     # =========================================================
     log_level: str = "DEBUG"

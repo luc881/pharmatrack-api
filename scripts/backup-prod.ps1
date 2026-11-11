@@ -57,4 +57,27 @@ Get-ChildItem $BackupDir -Filter "*.dump" |
   Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
   ForEach-Object { Log "Retencion: borrando $($_.Name)"; Remove-Item $_.FullName -Force -Confirm:$false }
 
+# Copia fuera de la laptop (Cloudflare R2), si .env.sync trae sus cuatro R2_*.
+# rclone copy solo sube lo que falta; lo viejo lo borra la regla de ciclo de
+# vida del bucket, no este script.
+$R2 = @{}
+Get-Content $EnvSync | ForEach-Object { if ($_ -match "^(R2_[A-Z_]+)=(.+)$") { $R2[$Matches[1]] = $Matches[2] } }
+if ($R2.R2_ACCOUNT_ID -and $R2.R2_ACCESS_KEY_ID -and $R2.R2_SECRET_ACCESS_KEY -and $R2.R2_BUCKET) {
+  $Rclone = (Get-Command rclone -ErrorAction SilentlyContinue).Source
+  if (-not $Rclone) { $Rclone = Join-Path $env:LOCALAPPDATA "Microsoft\WinGet\Links\rclone.exe" }
+  if (-not (Test-Path $Rclone)) {
+    Log "ERROR: R2 configurado pero falta rclone (winget install Rclone.Rclone)"
+    $Failed = $true
+  } else {
+    $env:RCLONE_CONFIG_R2_TYPE = "s3"
+    $env:RCLONE_CONFIG_R2_PROVIDER = "Cloudflare"
+    $env:RCLONE_CONFIG_R2_ACCESS_KEY_ID = $R2.R2_ACCESS_KEY_ID
+    $env:RCLONE_CONFIG_R2_SECRET_ACCESS_KEY = $R2.R2_SECRET_ACCESS_KEY
+    $env:RCLONE_CONFIG_R2_ENDPOINT = "https://$($R2.R2_ACCOUNT_ID).r2.cloudflarestorage.com"
+    & $Rclone copy $BackupDir "r2:$($R2.R2_BUCKET)" --include "*.dump" --s3-no-check-bucket
+    if ($LASTEXITCODE -ne 0) { Log "ERROR: la copia a R2 fallo (exit $LASTEXITCODE)"; $Failed = $true }
+    else { Log "OK: respaldos copiados a R2 ($($R2.R2_BUCKET))" }
+  }
+}
+
 if ($Failed) { exit 1 }

@@ -76,6 +76,10 @@ The POS does not use steps 1–3 for new sales: `POST /sales/checkout` takes bra
 
 Every change to `product_batches.quantity` is recorded in `stock_movements` (delta, quantity after, user, route) by a session `after_flush` listener in `models/stock_movements/orm.py` — no per-route code. Bulk `query.update()` on batches and DB-level cascades bypass it.
 
+### Shipping labels (Envia.com)
+
+Internal dashboard tool, never customer-facing: `POST /orders/{id}/shipping/rates` quotes every carrier (Envia takes one carrier per request, so `utils/envia.py` fans out in threads) and `POST /orders/{id}/shipping/label` buys the label and stores carrier, tracking and PDF on the order. An order with `tracking_number` never buys a second label. Off (503) unless `ENVIA_API_TOKEN` and `ENVIA_ORIGIN` are set; `ENVIA_SANDBOX=true` by default. No tracking webhooks: order status is still changed by hand.
+
 ### Product model
 
 Products support two sale modes controlled by `is_unit_sale`:

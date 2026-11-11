@@ -13,6 +13,13 @@ logger = get_logger(__name__)
 from slowapi import _rate_limit_exceeded_handler
 from .utils.rate_limit import limiter
 
+if settings.sentry_dsn.strip():
+    import sentry_sdk
+
+    # Sin datos personales (send_default_pii=False): solo el error y la ruta
+    sentry_sdk.init(dsn=settings.sentry_dsn.strip(), environment=settings.environment,
+                    send_default_pii=False)
+
 tags_metadata = [
     {"name": "Auth",               "description": "Login, refresh token y logout."},
     {"name": "Users",              "description": "Gestion de usuarios del sistema."},
@@ -126,6 +133,7 @@ def health_check():
     # para verificar de un vistazo que un deploy quedo bien conectado.
     from .utils.google_auth import expected_client_id
     from .utils.mercadopago import is_configured as payments_configured
+    from .utils.envia import is_configured as shipping_configured
 
     return {
         "status": "ok",
@@ -139,6 +147,8 @@ def health_check():
             "webhook_signature": bool(settings.mercadopago_webhook_secret.strip()),
             "email": bool(settings.resend_api_key),
             "order_notify": bool(settings.order_notify_email.strip()),
+            "shipping_labels": shipping_configured(),
+            "error_alerts": bool(settings.sentry_dsn.strip()),
         },
     }
 

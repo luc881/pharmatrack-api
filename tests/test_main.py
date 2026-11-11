@@ -18,5 +18,5 @@ def test_health_check_reports_integrations_without_leaking_secrets():
     integrations = body["integrations"]
     # solo banderas booleanas: nunca el valor de las credenciales
     assert set(integrations) == {"google_sign_in", "payments", "webhook_signature",
-                                 "email", "order_notify"}
+                                 "email", "order_notify", "shipping_labels", "error_alerts"}
     assert all(isinstance(value, bool) for value in integrations.values())

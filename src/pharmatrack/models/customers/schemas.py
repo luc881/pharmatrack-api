@@ -129,6 +129,10 @@ class OrderResponse(BaseModel):
     notes: Optional[str] = None
     items: List[OrderItemResponse] = Field(default_factory=list)
     created_at: Optional[datetime] = None
+    # Guía de envío: el cliente ve paquetería y rastreo
+    shipping_carrier: Optional[str] = None
+    tracking_number: Optional[str] = None
+    tracking_url: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -138,6 +142,49 @@ class OrderAdminResponse(OrderResponse):
 
     customer_email: Optional[str] = None
     customer_name: Optional[str] = None
+    # Solo el dashboard: el PDF de la guía, lo que costó y la dirección por
+    # partes del cliente (para prellenar el destino al cotizar)
+    shipping_service: Optional[str] = None
+    label_url: Optional[str] = None
+    shipping_cost: Optional[float] = None
+    customer_address: Optional[dict] = None
+
+
+class ShippingDestination(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    phone: str = Field(..., min_length=10, max_length=20)
+    street: str = Field(..., min_length=1, max_length=200)
+    number: Optional[str] = Field(None, max_length=20)
+    district: Optional[str] = Field(None, max_length=150)
+    city: str = Field(..., min_length=1, max_length=150)
+    state: str = Field(..., min_length=2, max_length=60)
+    postal_code: str = Field(..., pattern=r"^\d{5}$")
+    reference: Optional[str] = Field(None, max_length=250)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ShippingPackage(BaseModel):
+    content: str = Field(..., min_length=1, max_length=100)
+    weight: float = Field(..., gt=0, le=70, description="kg")
+    length: float = Field(..., gt=0, le=200, description="cm")
+    width: float = Field(..., gt=0, le=200, description="cm")
+    height: float = Field(..., gt=0, le=200, description="cm")
+    declared_value: float = Field(0, ge=0)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ShippingRateRequest(BaseModel):
+    destination: ShippingDestination
+    package: ShippingPackage
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ShippingLabelRequest(ShippingRateRequest):
+    carrier: str = Field(..., min_length=1, max_length=40)
+    service: str = Field(..., min_length=1, max_length=60)
 
 
 class CartValidate(BaseModel):

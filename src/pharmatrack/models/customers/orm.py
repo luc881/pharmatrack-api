@@ -94,6 +94,15 @@ class Order(Base):
     # CHECKOUT_HOLD_MINUTES en la ruta shop.
     checkout_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=False), nullable=True)
 
+    # Guía de envío generada desde el dashboard (Envia.com). tracking_number
+    # también sirve de candado: un pedido con guía no genera (ni cobra) otra.
+    shipping_carrier: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    shipping_service: Mapped[Optional[str]] = mapped_column(String(60), nullable=True)
+    tracking_number: Mapped[Optional[str]] = mapped_column(String(60), nullable=True)
+    tracking_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    label_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    shipping_cost: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=False), server_default=func.now(), onupdate=func.now()

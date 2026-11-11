@@ -34,10 +34,13 @@ from ...models.customers.schemas import (
     CheckoutSession,
     OrderAdminResponse,
     OrderStatusUpdate,
+    ShippingRateRequest,
+    ShippingLabelRequest,
     CartValidateResponse,
 )
 from ...models.products.orm import Product
 from ...utils.animal_records import not_emptied
+from ...utils import envia
 from ...utils.email import send_order_emails, send_order_paid_email
 from ...utils.google_auth import verify_google_id_token
 from ...utils.mx_address import MX_STATES, format_address
@@ -709,6 +712,13 @@ def _admin_payload(order: Order) -> dict:
         **OrderResponse.model_validate(order).model_dump(),
         "customer_email": order.customer.email if order.customer else None,
         "customer_name": order.customer.name if order.customer else None,
+        "shipping_service": order.shipping_service,
+        "label_url": order.label_url,
+        "shipping_cost": float(order.shipping_cost) if order.shipping_cost is not None else None,
+        "customer_address": (
+            {part: getattr(order.customer, part) for part in ADDRESS_PARTS}
+            if order.customer else None
+        ),
     }
 
 
@@ -755,6 +765,54 @@ def update_order_status(order_id: int, body: OrderStatusUpdate, db: db_dependenc
                    "usa Confirmado.",
         )
     order.status = body.status
+    db.commit()
+    db.refresh(order)
+    return _admin_payload(order)
+
+
+# =========================================================
+# Guías de envío (Envia.com) — herramienta interna del dashboard
+# =========================================================
+def _order_or_404(db, order_id: int, lock: bool = False) -> Order:
+    order = db.get(Order, order_id, with_for_update=lock)
+    if order is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found.")
+    return order
+
+
+@orders_router.post("/{order_id}/shipping/rates", dependencies=CAN_UPDATE_ORDERS,
+                    summary="Cotizar el envío de un pedido con todas las paqueterías")
+def quote_order_shipping(order_id: int, body: ShippingRateRequest, db: db_dependency):
+    _order_or_404(db, order_id)
+    return {"rates": envia.rates(body.destination.model_dump(), body.package.model_dump())}
+
+
+@orders_router.post("/{order_id}/shipping/label", response_model=OrderAdminResponse,
+                    dependencies=CAN_UPDATE_ORDERS,
+                    summary="Generar la guía de un pedido (se cobra a la cuenta de Envia.com)")
+def create_order_label(order_id: int, body: ShippingLabelRequest, db: db_dependency):
+    # Candado en el pedido: dos clics en «Generar guía» no compran dos guías
+    order = _order_or_404(db, order_id, lock=True)
+    if order.tracking_number:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Este pedido ya tiene la guía {order.tracking_number}.",
+        )
+    if order.status == "cancelled":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail="El pedido está cancelado.")
+
+    label = envia.generate(body.destination.model_dump(), body.package.model_dump(),
+                           body.carrier, body.service)
+    # La guía ya se cobró: si guardar fallara, que al menos quede en el log
+    logger.info("Guía generada para el pedido %s: %s", order.code, label)
+
+    order.shipping_carrier = label["carrier"]
+    order.shipping_service = label["service"]
+    order.tracking_number = label["tracking_number"]
+    order.tracking_url = label["tracking_url"]
+    order.label_url = label["label_url"]
+    order.shipping_cost = Decimal(str(label["cost"])) if label["cost"] is not None else None
     db.commit()
     db.refresh(order)
     return _admin_payload(order)
