@@ -17,6 +17,7 @@ from fastapi import Depends, APIRouter, HTTPException, Request
 from sqlalchemy import or_, and_
 from sqlalchemy.orm import selectinload
 from starlette import status
+from starlette.concurrency import run_in_threadpool
 
 from ...config import settings
 from ...db.session import db_dependency
@@ -70,7 +71,7 @@ orders_router = APIRouter(prefix="/orders", tags=["Orders"])
 @router.post("/auth/google", response_model=CustomerSession,
              summary="Public: iniciar sesion de cliente con Google")
 @limiter.limit(LIMIT_AUTH)
-async def sign_in_with_google(request: Request, body: GoogleSignIn, db: db_dependency):
+def sign_in_with_google(request: Request, body: GoogleSignIn, db: db_dependency):
     info = verify_google_id_token(body.id_token)
 
     customer = db.query(Customer).filter(Customer.email == info["email"]).first()
@@ -91,8 +92,8 @@ async def sign_in_with_google(request: Request, body: GoogleSignIn, db: db_depen
     }
 
 
-def _current_customer(db, token_data: dict) -> Customer:
-    customer = db.get(Customer, token_data["id"])
+def _current_customer(db, token_data: dict, lock: bool = False) -> Customer:
+    customer = db.get(Customer, token_data["id"], with_for_update=lock)
     if customer is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Invalid authentication")
@@ -103,12 +104,12 @@ def _current_customer(db, token_data: dict) -> Customer:
 # Perfil, favoritos y carrito
 # =========================================================
 @router.get("/me", response_model=CustomerResponse, summary="Public: mi cuenta")
-async def read_me(db: db_dependency, token_data: customer_dependency):
+def read_me(db: db_dependency, token_data: customer_dependency):
     return _current_customer(db, token_data)
 
 
 @router.put("/me", response_model=CustomerResponse, summary="Public: guardar mi cuenta")
-async def update_me(body: CustomerUpdate, db: db_dependency, token_data: customer_dependency):
+def update_me(body: CustomerUpdate, db: db_dependency, token_data: customer_dependency):
     customer = _current_customer(db, token_data)
     # exclude_unset: el sitio manda solo lo que cambio (favoritos, carrito o perfil)
     changes = body.model_dump(exclude_unset=True)
@@ -127,7 +128,7 @@ async def update_me(body: CustomerUpdate, db: db_dependency, token_data: custome
 
 
 @router.get("/mx-states", summary="Public: catalogo de estados de Mexico")
-async def list_mx_states():
+def list_mx_states():
     """Público y sin auth: el formulario de dirección lo usa para el selector."""
     return list(MX_STATES)
 
@@ -346,7 +347,7 @@ def check_stock(db, lines, exclude_order_id: Optional[int] = None) -> None:
 @router.post("/cart/validate", response_model=CartValidateResponse,
              summary="Public: revisar disponibilidad y precios del carrito")
 @limiter.limit("30/minute")
-async def validate_cart(request: Request, body: CartValidate, db: db_dependency):
+def validate_cart(request: Request, body: CartValidate, db: db_dependency):
     out = []
     for line in body.items:
         try:
@@ -375,7 +376,7 @@ async def validate_cart(request: Request, body: CartValidate, db: db_dependency)
 # Pedidos del cliente
 # =========================================================
 @router.get("/orders", response_model=list[OrderResponse], summary="Public: mis pedidos")
-async def list_my_orders(db: db_dependency, token_data: customer_dependency):
+def list_my_orders(db: db_dependency, token_data: customer_dependency):
     return (
         db.query(Order)
         .options(selectinload(Order.items))
@@ -438,9 +439,12 @@ def _reject_order_flood(db, customer_id: int, items) -> None:
 @router.post("/orders", response_model=OrderResponse, status_code=status.HTTP_201_CREATED,
              summary="Public: hacer un pedido")
 @limiter.limit("5/minute")
-async def create_order(request: Request, body: OrderCreate, db: db_dependency,
-                       token_data: customer_dependency):
-    customer = _current_customer(db, token_data)
+def create_order(request: Request, body: OrderCreate, db: db_dependency,
+                 token_data: customer_dependency):
+    # Con candado en la fila del cliente: dos envíos simultáneos del mismo
+    # pedido (doble clic, reintento) se forman; el segundo ya ve al primero
+    # en _reject_order_flood y no se duplica.
+    customer = _current_customer(db, token_data, lock=True)
     _reject_order_flood(db, customer.id, body.items)
 
     if body.delivery_method == "shipping" and not get_site_settings(db)["shipping_enabled"]:
@@ -509,8 +513,8 @@ async def create_order(request: Request, body: OrderCreate, db: db_dependency,
 @router.post("/orders/{order_id}/checkout", response_model=CheckoutSession,
              summary="Public: pagar en linea un pedido de entrega personal")
 @limiter.limit("10/minute")
-async def start_checkout(request: Request, order_id: int, db: db_dependency,
-                         token_data: customer_dependency):
+def start_checkout(request: Request, order_id: int, db: db_dependency,
+                   token_data: customer_dependency):
     order = db.query(Order).filter(
         Order.id == order_id, Order.customer_id == token_data["id"]
     ).first()
@@ -550,6 +554,10 @@ def _apply_payment(db, order: Order, payment: dict) -> bool:
     algo. Mismas reglas para el webhook y para la reconciliación."""
     if not payment or payment.get("status") != "approved":
         return False
+
+    # Candado + relectura: el webhook y sync-payment pueden llegar a la vez con
+    # el mismo pago; el segundo espera y ya ve payment_id puesto (un solo correo).
+    db.refresh(order, with_for_update=True)
 
     payment_id = str(payment.get("id") or "")
     if not payment_id or order.payment_id == payment_id:
@@ -597,8 +605,8 @@ def _apply_payment(db, order: Order, payment: dict) -> bool:
 @router.post("/orders/{order_id}/sync-payment", response_model=OrderResponse,
              summary="Public: reconciliar el pago de un pedido")
 @limiter.limit("20/minute")
-async def sync_order_payment(request: Request, order_id: int, db: db_dependency,
-                             token_data: customer_dependency):
+def sync_order_payment(request: Request, order_id: int, db: db_dependency,
+                       token_data: customer_dependency):
     """Lo llama el sitio al volver de Mercado Pago. Red de seguridad por si el
     webhook no llegó: le pregunta a Mercado Pago si hay un pago aprobado para
     este pedido. Los parametros que trae el navegador no se usan para nada."""
@@ -647,9 +655,15 @@ async def mercadopago_webhook(request: Request, db: db_dependency):
         logger.warning("Webhook con firma inválida para el pago %s", payment_id)
         return {"received": True}
 
+    # La consulta a Mercado Pago y la BD son bloqueantes: fuera del event loop
+    await run_in_threadpool(_process_webhook_payment, db, payment_id)
+    return {"received": True}
+
+
+def _process_webhook_payment(db, payment_id: str) -> None:
     payment = get_payment(payment_id)
     if not payment:
-        return {"received": True}
+        return
     # el id de la consulta manda sobre el del cuerpo
     payment.setdefault("id", payment_id)
 
@@ -659,17 +673,16 @@ async def mercadopago_webhook(request: Request, db: db_dependency):
     if order is None:
         logger.warning("Pago %s aprobado sin pedido: ref=%s",
                        payment_id, payment.get("external_reference"))
-        return {"received": True}
+        return
 
     _apply_payment(db, order, payment)
-    return {"received": True}
 
 
 @router.delete("/orders/{order_id}", response_model=OrderResponse,
                summary="Public: cancelar mi pedido pendiente")
 @limiter.limit("10/minute")
-async def cancel_my_order(request: Request, order_id: int, db: db_dependency,
-                          token_data: customer_dependency):
+def cancel_my_order(request: Request, order_id: int, db: db_dependency,
+                    token_data: customer_dependency):
     # Sólo el dueño y sólo pendientes: un pedido confirmado ya se está
     # preparando — eso se habla por WhatsApp, no con un botón.
     order = db.query(Order).filter(
@@ -701,8 +714,8 @@ def _admin_payload(order: Order) -> dict:
 
 @orders_router.get("", response_model=PaginatedResponse[OrderAdminResponse],
                    dependencies=CAN_READ_ORDERS, summary="Listar pedidos del sitio")
-async def list_orders(db: db_dependency, order_status: Optional[str] = None,
-                      pagination: PaginationParams = Depends()):
+def list_orders(db: db_dependency, order_status: Optional[str] = None,
+                pagination: PaginationParams = Depends()):
     query = (
         db.query(Order)
         .options(selectinload(Order.items), selectinload(Order.customer))
@@ -717,7 +730,7 @@ async def list_orders(db: db_dependency, order_status: Optional[str] = None,
 
 @orders_router.get("/{order_id}", response_model=OrderAdminResponse,
                    dependencies=CAN_READ_ORDERS, summary="Detalle de un pedido")
-async def get_order(order_id: int, db: db_dependency):
+def get_order(order_id: int, db: db_dependency):
     order = db.get(Order, order_id)
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found.")
@@ -726,7 +739,7 @@ async def get_order(order_id: int, db: db_dependency):
 
 @orders_router.put("/{order_id}", response_model=OrderAdminResponse,
                    dependencies=CAN_UPDATE_ORDERS, summary="Cambiar el estado de un pedido")
-async def update_order_status(order_id: int, body: OrderStatusUpdate, db: db_dependency):
+def update_order_status(order_id: int, body: OrderStatusUpdate, db: db_dependency):
     order = db.get(Order, order_id)
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found.")

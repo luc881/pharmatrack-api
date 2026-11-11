@@ -82,18 +82,18 @@ def _dump(payload) -> dict:
 # =========================================================
 @router.get("", response_model=list[CareSheetSummary], dependencies=CAN_READ_SPECIES,
             summary="Fichas (incluye borradores)")
-async def list_sheets(db: db_dependency):
+def list_sheets(db: db_dependency):
     return [_summary(s) for s in _query(db).order_by(CareSheet.updated_at.desc()).all()]
 
 
 @router.get("/{sheet_id}", response_model=CareSheetResponse, dependencies=CAN_READ_SPECIES)
-async def get_sheet(sheet_id: int, db: db_dependency):
+def get_sheet(sheet_id: int, db: db_dependency):
     return _get(db, sheet_id)
 
 
 @router.post("", response_model=CareSheetResponse, status_code=status.HTTP_201_CREATED,
              dependencies=CAN_CREATE_SPECIES)
-async def create_sheet(payload: CareSheetCreate, db: db_dependency):
+def create_sheet(payload: CareSheetCreate, db: db_dependency):
     sheet = CareSheet()
     _save(db, sheet, _dump(payload), payload.published)
     db.add(sheet)
@@ -102,7 +102,7 @@ async def create_sheet(payload: CareSheetCreate, db: db_dependency):
 
 
 @router.put("/{sheet_id}", response_model=CareSheetResponse, dependencies=CAN_UPDATE_SPECIES)
-async def update_sheet(sheet_id: int, payload: CareSheetUpdate, db: db_dependency):
+def update_sheet(sheet_id: int, payload: CareSheetUpdate, db: db_dependency):
     sheet = _get(db, sheet_id)
     _save(db, sheet, _dump(payload), payload.published)
     db.commit()
@@ -110,7 +110,7 @@ async def update_sheet(sheet_id: int, payload: CareSheetUpdate, db: db_dependenc
 
 
 @router.delete("/{sheet_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=CAN_DELETE_SPECIES)
-async def delete_sheet(sheet_id: int, db: db_dependency):
+def delete_sheet(sheet_id: int, db: db_dependency):
     db.delete(_get(db, sheet_id))
     db.commit()
 
@@ -119,7 +119,7 @@ async def delete_sheet(sheet_id: int, db: db_dependency):
 # Público (sin auth): solo publicadas
 # =========================================================
 @public_router.get("", response_model=list[CareSheetSummary], summary="Fichas publicadas (índice)")
-async def public_list_sheets(db: db_dependency):
+def public_list_sheets(db: db_dependency):
     sheets = _query(db).filter(CareSheet.published_at.isnot(None)).all()
     # ejemplares disponibles por especie, para «en venta» en el índice
     counts = dict(
@@ -135,7 +135,7 @@ async def public_list_sheets(db: db_dependency):
 
 
 @public_router.get("/{slug}", response_model=CareSheetResponse, summary="Ficha publicada")
-async def public_get_sheet(slug: str, db: db_dependency):
+def public_get_sheet(slug: str, db: db_dependency):
     sheet: Optional[CareSheet] = (
         _query(db).filter(CareSheet.slug == slug, CareSheet.published_at.isnot(None)).first()
     )

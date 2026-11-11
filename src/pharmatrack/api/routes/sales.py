@@ -60,7 +60,7 @@ _SALE_ORDERING_MAP = {
     dependencies=CAN_READ_SALES,
 )
 @limiter.limit(LIMIT_READ)
-async def read_all(
+def read_all(
     request: Request,
     db: db_dependency,
     pagination: PaginationParams = Depends(),
@@ -253,7 +253,7 @@ def email_ticket(sale_id: int, body: EmailTicketRequest, db: db_dependency):
     status_code=status.HTTP_200_OK,
     dependencies=CAN_READ_SALES,
 )
-async def read_by_id(sale_id: int, db: db_dependency):
+def read_by_id(sale_id: int, db: db_dependency):
     sale = db.query(Sale).filter(Sale.id == sale_id).first()
     if not sale:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sale not found.")
@@ -270,7 +270,7 @@ async def read_by_id(sale_id: int, db: db_dependency):
     dependencies=CAN_CREATE_SALES,
 )
 @limiter.limit(LIMIT_WRITE)
-async def create(request: Request, sale: SaleCreate, db: db_dependency):
+def create(request: Request, sale: SaleCreate, db: db_dependency):
     if not db.query(User).filter_by(id=sale.user_id).first():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User ID does not exist.")
 
@@ -308,6 +308,9 @@ def complete_sale(sale_id: int, db: db_dependency):
         db.query(Sale)
         .options(joinedload(Sale.sale_details))
         .filter(Sale.id == sale_id)
+        # Candado: dos «completar» a la vez (doble clic, reintento) se forman y
+        # el segundo ya ve la venta completada; sin esto descontaban stock dos veces.
+        .with_for_update(of=Sale)
         .first()
     )
 
@@ -411,7 +414,7 @@ def complete_sale(sale_id: int, db: db_dependency):
     status_code=status.HTTP_200_OK,
     dependencies=CAN_UPDATE_SALES,
 )
-async def update(sale_id: int, sale: SaleUpdate, db: db_dependency):
+def update(sale_id: int, sale: SaleUpdate, db: db_dependency):
     existing_sale = db.query(Sale).filter(Sale.id == sale_id).first()
 
     if not existing_sale:
@@ -452,7 +455,7 @@ async def update(sale_id: int, sale: SaleUpdate, db: db_dependency):
     summary="Delete a sale",
     dependencies=CAN_DELETE_SALES,
 )
-async def delete(sale_id: int, db: db_dependency):
+def delete(sale_id: int, db: db_dependency):
     existing_sale = db.query(Sale).filter(Sale.id == sale_id).first()
 
     if not existing_sale:

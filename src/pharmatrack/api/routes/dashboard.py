@@ -59,7 +59,7 @@ class DashboardSummary(BaseModel):
     dependencies=CAN_READ_DASHBOARD,
 )
 @limiter.limit(LIMIT_READ)
-async def get_dashboard_summary(request: Request, db: db_dependency):
+def get_dashboard_summary(request: Request, db: db_dependency):
     today = date.today()
     first_of_month = today.replace(day=1)
     in_30_days = today + timedelta(days=30)

@@ -58,7 +58,7 @@ def _set_status(d: Delivery, new_status: str):
 
 
 @router.get("/summary", response_model=DeliverySummary, dependencies=CAN_READ_SALES)
-async def delivery_summary(db: db_dependency, date_from: Optional[date] = None, date_to: Optional[date] = None):
+def delivery_summary(db: db_dependency, date_from: Optional[date] = None, date_to: Optional[date] = None):
     """Cobrado por entregas en el rango (por fecha de la entrega, sin
     canceladas) y lo que falta por cobrar de todas las no canceladas."""
     active = db.query(Delivery).filter(Delivery.status != "cancelled")
@@ -85,7 +85,7 @@ async def delivery_summary(db: db_dependency, date_from: Optional[date] = None, 
 
 
 @router.get("", response_model=PaginatedResponse[DeliveryResponse], dependencies=CAN_READ_SALES)
-async def list_deliveries(
+def list_deliveries(
     db: db_dependency,
     status_: Optional[str] = Query(None, alias="status", pattern="^(pending|delivered|cancelled)$"),
     date_from: Optional[date] = None,
@@ -114,7 +114,7 @@ async def list_deliveries(
 
 
 @router.post("", response_model=DeliveryResponse, status_code=status.HTTP_201_CREATED, dependencies=CAN_CREATE_SALES)
-async def create_delivery(data: DeliveryCreate, db: db_dependency, user: user_dependency):
+def create_delivery(data: DeliveryCreate, db: db_dependency, user: user_dependency):
     _validate(db, data)
     d = Delivery(user_id=user["id"])
     _apply(d, data)
@@ -124,7 +124,7 @@ async def create_delivery(data: DeliveryCreate, db: db_dependency, user: user_de
 
 
 @router.put("/{delivery_id}", response_model=DeliveryResponse, dependencies=CAN_CREATE_SALES)
-async def update_delivery(delivery_id: int, data: DeliveryUpdate, db: db_dependency):
+def update_delivery(delivery_id: int, data: DeliveryUpdate, db: db_dependency):
     d = _get(db, delivery_id)
     _validate(db, data)
     _apply(d, data)
@@ -133,7 +133,7 @@ async def update_delivery(delivery_id: int, data: DeliveryUpdate, db: db_depende
 
 
 @router.put("/{delivery_id}/status", response_model=DeliveryResponse, dependencies=CAN_CREATE_SALES)
-async def update_delivery_status(delivery_id: int, data: DeliveryStatusUpdate, db: db_dependency):
+def update_delivery_status(delivery_id: int, data: DeliveryStatusUpdate, db: db_dependency):
     d = _get(db, delivery_id)
     _set_status(d, data.status)
     db.commit()
@@ -141,6 +141,6 @@ async def update_delivery_status(delivery_id: int, data: DeliveryStatusUpdate, d
 
 
 @router.delete("/{delivery_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=CAN_UPDATE_SALES)
-async def delete_delivery(delivery_id: int, db: db_dependency):
+def delete_delivery(delivery_id: int, db: db_dependency):
     db.delete(_get(db, delivery_id))
     db.commit()

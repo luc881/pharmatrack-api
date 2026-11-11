@@ -32,7 +32,7 @@ router = APIRouter(
             description="Retrieve all roles currently stored in the database.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_ROLES)
-async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
+def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
     query = db.query(Role).filter(Role.deleted_at.is_(None)).order_by(Role.id.asc())
     return paginate(query, pagination)
 
@@ -43,7 +43,7 @@ async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
             description="Retrieve all roles along with their associated permissions.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_ROLES)
-async def read_all_with_permissions(db: db_dependency, pagination: PaginationParams = Depends()):
+def read_all_with_permissions(db: db_dependency, pagination: PaginationParams = Depends()):
     query = db.query(Role).filter(Role.deleted_at.is_(None)).order_by(Role.id.asc())
     return paginate(query, pagination)
 
@@ -54,7 +54,7 @@ async def read_all_with_permissions(db: db_dependency, pagination: PaginationPar
             description="Retrieve a specific role by its ID, including associated permissions.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_ROLES)
-async def read_by_id_with_permissions(role_id: int, db: db_dependency):
+def read_by_id_with_permissions(role_id: int, db: db_dependency):
     role = db.query(Role).filter(Role.id == role_id, Role.deleted_at.is_(None)).first()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
@@ -67,7 +67,7 @@ async def read_by_id_with_permissions(role_id: int, db: db_dependency):
             summary="Create a new role with optional permissions",
             description="Adds a new role to the database. The role name must be unique. You can include permission IDs to associate them automatically.",
             dependencies=CAN_CREATE_ROLES)
-async def create_role(db: db_dependency, role_request: RoleCreate):
+def create_role(db: db_dependency, role_request: RoleCreate):
     role_found = db.query(Role).filter(Role.name.ilike(role_request.name)).first()
     if role_found:
         raise HTTPException(status_code=409, detail="Role name already exists")
@@ -108,7 +108,7 @@ async def create_role(db: db_dependency, role_request: RoleCreate):
             summary="Update an existing role (and optionally its permissions)",
             description="Updates the details of an existing role by ID. You can update the name and optionally reassign permissions.",
             dependencies=CAN_UPDATE_ROLES)
-async def update_role(role_id: int, db: db_dependency, role_request: RoleUpdate):
+def update_role(role_id: int, db: db_dependency, role_request: RoleUpdate):
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
@@ -153,7 +153,7 @@ async def update_role(role_id: int, db: db_dependency, role_request: RoleUpdate)
             summary="Bulk soft-delete roles",
             description="Soft-deletes multiple roles atomically. Fails if any ID does not exist or is already deleted.",
             dependencies=CAN_DELETE_ROLES)
-async def bulk_delete_roles(payload: BulkDeleteRequest, db: db_dependency):
+def bulk_delete_roles(payload: BulkDeleteRequest, db: db_dependency):
     roles = db.query(Role).filter(Role.id.in_(payload.ids), Role.deleted_at.is_(None)).all()
     found_ids = {r.id for r in roles}
     missing = [i for i in payload.ids if i not in found_ids]
@@ -171,7 +171,7 @@ async def bulk_delete_roles(payload: BulkDeleteRequest, db: db_dependency):
             summary="Soft-delete a role",
             description="Marks a role as deleted without removing it from the database.",
             dependencies=CAN_DELETE_ROLES)
-async def delete_role(role_id: int, db: db_dependency):
+def delete_role(role_id: int, db: db_dependency):
     role = db.query(Role).filter(Role.id == role_id, Role.deleted_at.is_(None)).one_or_none()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
@@ -184,7 +184,7 @@ async def delete_role(role_id: int, db: db_dependency):
             response_model=RoleWithPermissions,
             summary="Restore a soft-deleted role",
             dependencies=CAN_UPDATE_ROLES)
-async def restore_role(role_id: int, db: db_dependency):
+def restore_role(role_id: int, db: db_dependency):
     role = db.query(Role).filter(Role.id == role_id, Role.deleted_at.isnot(None)).one_or_none()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found or not deleted")

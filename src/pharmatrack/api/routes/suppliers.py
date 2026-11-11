@@ -36,7 +36,7 @@ router = APIRouter(prefix="/suppliers", tags=["Suppliers"])
     dependencies=CAN_READ_SUPPLIERS,
 )
 @limiter.limit(LIMIT_READ)
-async def read_all(request: Request, db: db_dependency, pagination: PaginationParams = Depends()):
+def read_all(request: Request, db: db_dependency, pagination: PaginationParams = Depends()):
     return paginate(db.query(Supplier).order_by(Supplier.id.asc()), pagination)
 
 
@@ -50,7 +50,7 @@ async def read_all(request: Request, db: db_dependency, pagination: PaginationPa
     status_code=status.HTTP_200_OK,
     dependencies=CAN_READ_SUPPLIERS,
 )
-async def read_one(supplier_id: int, db: db_dependency):
+def read_one(supplier_id: int, db: db_dependency):
     supplier = db.get(Supplier, supplier_id)
     if not supplier:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supplier not found")
@@ -68,7 +68,7 @@ async def read_one(supplier_id: int, db: db_dependency):
     dependencies=CAN_CREATE_SUPPLIERS,
 )
 @limiter.limit(LIMIT_WRITE)
-async def create(request: Request, payload: SupplierCreate, db: db_dependency):
+def create(request: Request, payload: SupplierCreate, db: db_dependency):
     if payload.email:
         if db.query(Supplier).filter(Supplier.email == payload.email).first():
             raise HTTPException(
@@ -98,7 +98,7 @@ async def create(request: Request, payload: SupplierCreate, db: db_dependency):
     dependencies=CAN_UPDATE_SUPPLIERS,
 )
 @limiter.limit(LIMIT_WRITE)
-async def update(request: Request, supplier_id: int, payload: SupplierUpdate, db: db_dependency):
+def update(request: Request, supplier_id: int, payload: SupplierUpdate, db: db_dependency):
     supplier = db.get(Supplier, supplier_id)
     if not supplier:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supplier not found")
@@ -131,7 +131,7 @@ async def update(request: Request, supplier_id: int, payload: SupplierUpdate, db
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=CAN_DELETE_SUPPLIERS,
 )
-async def delete(supplier_id: int, db: db_dependency):
+def delete(supplier_id: int, db: db_dependency):
     supplier = db.get(Supplier, supplier_id)
     if not supplier:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supplier not found")

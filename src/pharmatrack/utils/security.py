@@ -201,7 +201,7 @@ def revoke_refresh_token(db: Session, user_id: int) -> None:
 # 🔹 Permisos
 # =========================================================
 def require_permission(permission: str):
-    async def checker(
+    def checker(
         token_data: user_dependency,
         db: db_dependency
     ):

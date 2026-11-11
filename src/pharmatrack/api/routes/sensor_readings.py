@@ -37,7 +37,7 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED,
 )
 @limiter.limit(LIMIT_SENSOR)
-async def create_reading(request: Request, data: SensorReadingCreate, db: db_dependency):
+def create_reading(request: Request, data: SensorReadingCreate, db: db_dependency):
     reading = SensorReading(
         temperature=data.temperature,
         humidity=data.humidity,
@@ -63,7 +63,7 @@ async def create_reading(request: Request, data: SensorReadingCreate, db: db_dep
     status_code=status.HTTP_200_OK,
 )
 @limiter.limit(LIMIT_READ)
-async def get_latest(request: Request, db: db_dependency):
+def get_latest(request: Request, db: db_dependency):
     reading = (
         db.query(SensorReading)
         .order_by(SensorReading.recorded_at.desc())
@@ -87,6 +87,6 @@ async def get_latest(request: Request, db: db_dependency):
     dependencies=CAN_READ_SENSOR_READINGS,
 )
 @limiter.limit(LIMIT_READ)
-async def get_readings(request: Request, db: db_dependency, pagination: PaginationParams = Depends()):
+def get_readings(request: Request, db: db_dependency, pagination: PaginationParams = Depends()):
     query = db.query(SensorReading).order_by(SensorReading.recorded_at.desc())
     return paginate(query, pagination)

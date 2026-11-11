@@ -26,7 +26,7 @@ router = APIRouter(prefix="/public/animals", tags=["Public"])
 # Declarado antes de /{animal_id} para que "groups" no intente parsearse como int
 @router.get("/groups", response_model=list[AnimalGroupResponse],
             summary="Public: animal group hierarchy")
-async def public_list_groups(db: db_dependency):
+def public_list_groups(db: db_dependency):
     """Grupos visibles (con parent_id) para que el sitio arme las categorías raíz.
     Los grupos ocultos (y sus descendientes) no se exponen."""
     hidden = hidden_group_ids(db)
@@ -38,7 +38,7 @@ async def public_list_groups(db: db_dependency):
 
 @router.get("", response_model=PaginatedResponse[PublicAnimalResponse],
             summary="Public: list animals for sale")
-async def public_list_animals(
+def public_list_animals(
     db: db_dependency,
     species_id: Optional[int] = None,
     genus_id: Optional[int] = None,
@@ -63,7 +63,7 @@ async def public_list_animals(
 
 @router.get("/{animal_id}", response_model=PublicAnimalResponse,
             summary="Public: animal detail")
-async def public_get_animal(animal_id: int, db: db_dependency):
+def public_get_animal(animal_id: int, db: db_dependency):
     # vaciado al mover (activo en 0): mismo 404 que si no existiera
     animal = _query_with_relations(db).filter(Animal.id == animal_id, not_emptied()).first()
     # pie de cría y crianza no se anuncian: mismo 404 que un fallecido

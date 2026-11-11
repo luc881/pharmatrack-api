@@ -270,7 +270,7 @@ def status_rows(db: Session, species_id: Optional[int] = None) -> list[dict]:
 
 
 @router.get("/status", response_model=list[HusbandryStatus], dependencies=CAN_READ_ANIMALS)
-async def plan_status(db: db_dependency, species_id: Optional[int] = Query(None, gt=0)):
+def plan_status(db: db_dependency, species_id: Optional[int] = Query(None, gt=0)):
     return status_rows(db, species_id)
 
 
@@ -310,7 +310,7 @@ def remind_now(db: db_dependency):
 
 
 @router.get("", response_model=PaginatedResponse[HusbandryLogResponse], dependencies=CAN_READ_ANIMALS)
-async def list_logs(
+def list_logs(
     db: db_dependency,
     species_id: Optional[int] = Query(None, gt=0),
     morph_id: Optional[int] = Query(None, gt=0),
@@ -334,7 +334,7 @@ async def list_logs(
 
 
 @router.post("", response_model=HusbandryLogResponse, status_code=status.HTTP_201_CREATED, dependencies=CAN_UPDATE_ANIMALS)
-async def create_log(data: HusbandryLogCreate, db: db_dependency, user: user_dependency):
+def create_log(data: HusbandryLogCreate, db: db_dependency, user: user_dependency):
     _validate(db, data)
     repl = _check_replacement(db, data) if data.replacement_animal_id else None
     log = HusbandryLog(**data.model_dump(), user_id=user["id"])
@@ -347,7 +347,7 @@ async def create_log(data: HusbandryLogCreate, db: db_dependency, user: user_dep
 
 
 @router.put("/{log_id}", response_model=HusbandryLogResponse, dependencies=CAN_UPDATE_ANIMALS)
-async def update_log(log_id: int, data: HusbandryLogUpdate, db: db_dependency):
+def update_log(log_id: int, data: HusbandryLogUpdate, db: db_dependency):
     log = _get(db, log_id)
     _validate(db, data)
     if log.replacement_animal_id or data.replacement_animal_id:
@@ -371,7 +371,7 @@ async def update_log(log_id: int, data: HusbandryLogUpdate, db: db_dependency):
 
 
 @router.delete("/{log_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=CAN_UPDATE_ANIMALS)
-async def delete_log(log_id: int, db: db_dependency):
+def delete_log(log_id: int, db: db_dependency):
     log = _get(db, log_id)
     if log.replacement_animal_id:
         unswap(db, db.get(Animal, log.animal_id), log.replacement, log.prev_status, log.replaced_usage_id)

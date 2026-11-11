@@ -22,7 +22,7 @@ router = APIRouter(
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_BRANCHES
             )
-async def read_all(
+def read_all(
     db: db_dependency,
     include_deleted: bool = Query(False, description="Si es true, incluye sucursales eliminadas"),
 ):
@@ -38,7 +38,7 @@ async def read_all(
             description="Retrieve a specific branch by its ID.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_BRANCHES)
-async def read_by_id(branch_id: int, db: db_dependency):
+def read_by_id(branch_id: int, db: db_dependency):
     branch_model = db.query(Branch).filter(Branch.id == branch_id, Branch.deleted_at.is_(None)).first()
 
     if not branch_model:
@@ -53,7 +53,7 @@ async def read_by_id(branch_id: int, db: db_dependency):
             response_model=BranchWithUsersResponse,
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_BRANCHES)
-async def read_users_by_branch(branch_id: int, db: db_dependency):
+def read_users_by_branch(branch_id: int, db: db_dependency):
     branch_model = db.query(Branch).filter(Branch.id == branch_id, Branch.deleted_at.is_(None)).first()
 
     if not branch_model:
@@ -68,7 +68,7 @@ async def read_users_by_branch(branch_id: int, db: db_dependency):
             summary="Create a new branch",
             description="Adds a new branch to the database. The branch name must be unique.",
             dependencies=CAN_CREATE_BRANCHES)
-async def create_branch(db: db_dependency, branch_request: BranchBase):
+def create_branch(db: db_dependency, branch_request: BranchBase):
     branch_model = Branch(**branch_request.model_dump())
 
     branch_found = db.query(Branch).filter(Branch.name.ilike(branch_model.name), Branch.deleted_at.is_(None)).first()
@@ -88,7 +88,7 @@ async def create_branch(db: db_dependency, branch_request: BranchBase):
             summary="Update a branch",
             description="Updates an existing branch in the database.",
             dependencies=CAN_UPDATE_BRANCHES)
-async def update_branch(branch_id: int, db: db_dependency, branch_request: BranchUpdate):
+def update_branch(branch_id: int, db: db_dependency, branch_request: BranchUpdate):
     branch_model = db.query(Branch).filter(Branch.id == branch_id, Branch.deleted_at.is_(None)).first()
 
     if not branch_model:
@@ -107,7 +107,7 @@ async def update_branch(branch_id: int, db: db_dependency, branch_request: Branc
               response_model=BranchResponse,
               summary="Restore a soft-deleted branch",
               dependencies=CAN_UPDATE_BRANCHES)
-async def restore_branch(branch_id: int, db: db_dependency):
+def restore_branch(branch_id: int, db: db_dependency):
     branch_model = db.query(Branch).filter(Branch.id == branch_id, Branch.deleted_at.isnot(None)).first()
 
     if not branch_model:
@@ -124,7 +124,7 @@ async def restore_branch(branch_id: int, db: db_dependency):
             summary="Soft-delete a branch",
             description="Soft-deletes an existing branch from the database.",
             dependencies=CAN_DELETE_BRANCHES)
-async def delete_branch(branch_id: int, db: db_dependency):
+def delete_branch(branch_id: int, db: db_dependency):
     branch_model = db.query(Branch).filter(Branch.id == branch_id, Branch.deleted_at.is_(None)).first()
 
     if not branch_model:

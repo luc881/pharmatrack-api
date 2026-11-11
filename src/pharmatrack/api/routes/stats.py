@@ -103,7 +103,7 @@ def _cost_expr():
     dependencies=CAN_READ_DASHBOARD,
 )
 @limiter.limit(LIMIT_READ)
-async def get_dashboard_stats(request: Request, db: db_dependency):
+def get_dashboard_stats(request: Request, db: db_dependency):
     today = date.today()
 
     # ── sales_by_month ────────────────────────────────────────────────────────

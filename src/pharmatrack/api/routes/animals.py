@@ -124,7 +124,7 @@ def _animals_query(db, species_id=None, genus_id=None, group_id=None,
 
 @router.get("", response_model=PaginatedResponse[AnimalResponse],
             summary="List animals", dependencies=CAN_READ_ANIMALS)
-async def list_animals(
+def list_animals(
     db: db_dependency,
     species_id: Optional[int] = None,
     genus_id: Optional[int] = None,
@@ -144,7 +144,7 @@ async def list_animals(
 # =========================================================
 @router.get("/{animal_id}", response_model=AnimalResponse,
             summary="Get animal by ID", dependencies=CAN_READ_ANIMALS)
-async def get_animal(animal_id: int, db: db_dependency):
+def get_animal(animal_id: int, db: db_dependency):
     animal = _query_with_relations(db).filter(Animal.id == animal_id).first()
     if not animal:
         raise HTTPException(status_code=404, detail="Animal not found.")
@@ -156,7 +156,7 @@ async def get_animal(animal_id: int, db: db_dependency):
 # =========================================================
 @router.get("/{animal_id}/commitments", summary="Reserva, venta y entregas pendientes del ejemplar",
             dependencies=CAN_READ_ANIMALS)
-async def get_commitments(animal_id: int, db: db_dependency):
+def get_commitments(animal_id: int, db: db_dependency):
     from ...utils.animal_replacement import commitments
 
     animal = db.get(Animal, animal_id)
@@ -171,7 +171,7 @@ async def get_commitments(animal_id: int, db: db_dependency):
 @router.post("", response_model=AnimalResponse, status_code=status.HTTP_201_CREATED,
              summary="Create an animal (auto-creates its POS product)",
              dependencies=CAN_CREATE_ANIMALS)
-async def create_animal(payload: AnimalCreate, db: db_dependency):
+def create_animal(payload: AnimalCreate, db: db_dependency):
     species = db.get(Species, payload.species_id)
     if not species:
         raise HTTPException(status_code=400, detail="Species not found.")
@@ -221,7 +221,7 @@ async def create_animal(payload: AnimalCreate, db: db_dependency):
 # =========================================================
 @router.put("/{animal_id}", response_model=AnimalResponse,
             summary="Update an animal", dependencies=CAN_UPDATE_ANIMALS)
-async def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency):
+def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency):
     animal = db.get(Animal, animal_id)
     if not animal:
         raise HTTPException(status_code=404, detail="Animal not found.")
@@ -301,7 +301,7 @@ async def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency
 # =========================================================
 @router.post("/{animal_id}/move", response_model=list[AnimalResponse],
              summary="Mover a venta, pie de cría o crianza", dependencies=CAN_UPDATE_ANIMALS)
-async def move(animal_id: int, payload: AnimalMove, db: db_dependency):
+def move(animal_id: int, payload: AnimalMove, db: db_dependency):
     animal = db.get(Animal, animal_id)
     if not animal:
         raise HTTPException(status_code=404, detail="Animal not found.")
@@ -322,7 +322,7 @@ async def move(animal_id: int, payload: AnimalMove, db: db_dependency):
 @router.delete("/{animal_id}", status_code=status.HTTP_204_NO_CONTENT,
                summary="Delete an animal (and its POS product)",
                dependencies=CAN_DELETE_ANIMALS)
-async def delete_animal(animal_id: int, db: db_dependency):
+def delete_animal(animal_id: int, db: db_dependency):
     animal = db.get(Animal, animal_id)
     if not animal:
         raise HTTPException(status_code=404, detail="Animal not found.")

@@ -48,7 +48,7 @@ def _add_items(db, purchase, items):
     dependencies=CAN_READ_PURCHASES,
 )
 @limiter.limit(LIMIT_READ)
-async def read_all(request: Request, db: db_dependency, pagination: PaginationParams = Depends()):
+def read_all(request: Request, db: db_dependency, pagination: PaginationParams = Depends()):
     return paginate(db.query(Purchase).order_by(Purchase.id.desc()), pagination)
 
 
@@ -62,7 +62,7 @@ async def read_all(request: Request, db: db_dependency, pagination: PaginationPa
     status_code=status.HTTP_200_OK,
     dependencies=CAN_READ_PURCHASES,
 )
-async def read_one(purchase_id: int, db: db_dependency):
+def read_one(purchase_id: int, db: db_dependency):
     purchase = db.get(Purchase, purchase_id)
     if not purchase:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Purchase not found")
@@ -80,7 +80,7 @@ async def read_one(purchase_id: int, db: db_dependency):
     dependencies=CAN_CREATE_PURCHASES,
 )
 @limiter.limit(LIMIT_WRITE)
-async def create(request: Request, payload: PurchaseCreate, db: db_dependency):
+def create(request: Request, payload: PurchaseCreate, db: db_dependency):
     if not db.get(Supplier, payload.supplier_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supplier not found")
     if not db.get(User, payload.user_id):
@@ -105,7 +105,7 @@ async def create(request: Request, payload: PurchaseCreate, db: db_dependency):
     dependencies=CAN_UPDATE_PURCHASES,
 )
 @limiter.limit(LIMIT_WRITE)
-async def update(request: Request, purchase_id: int, payload: PurchaseUpdate, db: db_dependency):
+def update(request: Request, purchase_id: int, payload: PurchaseUpdate, db: db_dependency):
     purchase = db.get(Purchase, purchase_id)
     if not purchase:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Purchase not found")
@@ -140,7 +140,7 @@ async def update(request: Request, purchase_id: int, payload: PurchaseUpdate, db
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=CAN_DELETE_PURCHASES,
 )
-async def delete(purchase_id: int, db: db_dependency):
+def delete(purchase_id: int, db: db_dependency):
     purchase = db.get(Purchase, purchase_id)
     if not purchase:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Purchase not found")

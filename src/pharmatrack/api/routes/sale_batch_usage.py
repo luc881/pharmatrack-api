@@ -37,7 +37,7 @@ router = APIRouter(
     status_code=status.HTTP_200_OK,
     dependencies=CAN_READ_SALE_BATCH_USAGES,
 )
-async def read_all(db: db_dependency, sale_id: Optional[int] = None):
+def read_all(db: db_dependency, sale_id: Optional[int] = None):
     query = db.query(SaleBatchUsage)
     if sale_id is not None:
         query = (
@@ -59,7 +59,7 @@ async def read_all(db: db_dependency, sale_id: Optional[int] = None):
     status_code=status.HTTP_200_OK,
     dependencies=CAN_READ_SALE_BATCH_USAGES,
 )
-async def read_by_id(usage_id: int, db: db_dependency):
+def read_by_id(usage_id: int, db: db_dependency):
     usage = (
         db.query(SaleBatchUsage)
         .options(
@@ -89,7 +89,7 @@ async def read_by_id(usage_id: int, db: db_dependency):
     dependencies=CAN_CREATE_SALE_BATCH_USAGES,
 )
 @limiter.limit(LIMIT_WRITE)
-async def create(request: Request, payload: SaleBatchUsageCreate, db: db_dependency):
+def create(request: Request, payload: SaleBatchUsageCreate, db: db_dependency):
     if not db.get(SaleDetail, payload.sale_detail_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -117,7 +117,7 @@ async def create(request: Request, payload: SaleBatchUsageCreate, db: db_depende
     dependencies=CAN_DELETE_SALE_BATCH_USAGES,
 )
 @limiter.limit(LIMIT_WRITE)
-async def delete(request: Request, usage_id: int, db: db_dependency):
+def delete(request: Request, usage_id: int, db: db_dependency):
     usage = db.get(SaleBatchUsage, usage_id)
     if not usage:
         raise HTTPException(

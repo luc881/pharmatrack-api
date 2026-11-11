@@ -32,7 +32,7 @@ router = APIRouter(
             description="Retrieve all product masters currently stored in the database.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCT_MASTERS)
-async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
+def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
     query = db.query(ProductMaster).order_by(ProductMaster.name.asc())
     return paginate(query, pagination)
 
@@ -42,7 +42,7 @@ async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
             summary="Retrieve a product master by ID",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCT_MASTERS)
-async def read_product_master(master_id: int, db: db_dependency):
+def read_product_master(master_id: int, db: db_dependency):
     master = db.query(ProductMaster).filter(ProductMaster.id == master_id).first()
     if not master:
         raise HTTPException(
@@ -57,7 +57,7 @@ async def read_product_master(master_id: int, db: db_dependency):
              summary="Create a new product master",
              status_code=status.HTTP_201_CREATED,
              dependencies=CAN_CREATE_PRODUCT_MASTERS)
-async def create_product_master(payload: ProductMasterCreate, db: db_dependency):
+def create_product_master(payload: ProductMasterCreate, db: db_dependency):
     # Duplicate check via slug (handles case and accent variants)
     existing = db.query(ProductMaster).filter(
         ProductMaster.slug == payload.slug
@@ -83,7 +83,7 @@ async def create_product_master(payload: ProductMasterCreate, db: db_dependency)
             summary="Update an existing product master",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_UPDATE_PRODUCT_MASTERS)
-async def update_product_master(master_id: int, payload: ProductMasterUpdate, db: db_dependency):
+def update_product_master(master_id: int, payload: ProductMasterUpdate, db: db_dependency):
     master = db.query(ProductMaster).filter(ProductMaster.id == master_id).first()
     if not master:
         raise HTTPException(
@@ -120,7 +120,7 @@ async def update_product_master(master_id: int, payload: ProductMasterUpdate, db
                summary="Delete a product master",
                description="Deletes a product master by ID. Fails if products depend on it.",
                dependencies=CAN_DELETE_PRODUCT_MASTERS)
-async def delete_product_master(master_id: int, db: db_dependency):
+def delete_product_master(master_id: int, db: db_dependency):
     master = db.query(ProductMaster).filter(ProductMaster.id == master_id).first()
     if not master:
         raise HTTPException(

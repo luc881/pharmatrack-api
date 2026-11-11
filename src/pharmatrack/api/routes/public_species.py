@@ -31,7 +31,7 @@ class PublicSpeciesResponse(SpeciesResponse):
 
 @router.get("", response_model=List[PublicSpeciesResponse],
             summary="Especies visibles en el sitio, con o sin ejemplares")
-async def public_list_species(db: db_dependency):
+def public_list_species(db: db_dependency):
     hidden = hidden_group_ids(db)
 
     query = (

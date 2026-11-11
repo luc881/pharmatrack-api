@@ -39,7 +39,7 @@ router = APIRouter(prefix="/purchase-details", tags=["Purchase Details"])
     dependencies=CAN_READ_PURCHASE_DETAILS,
 )
 @limiter.limit(LIMIT_READ)
-async def read_all(
+def read_all(
     request: Request,
     db: db_dependency,
     pagination: PaginationParams = Depends(),
@@ -61,7 +61,7 @@ async def read_all(
     status_code=status.HTTP_200_OK,
     dependencies=CAN_READ_PURCHASE_DETAILS,
 )
-async def read_one(detail_id: int, db: db_dependency):
+def read_one(detail_id: int, db: db_dependency):
     detail = db.get(PurchaseDetail, detail_id)
     if not detail:
         raise HTTPException(
@@ -81,7 +81,7 @@ async def read_one(detail_id: int, db: db_dependency):
     dependencies=CAN_CREATE_PURCHASE_DETAILS,
 )
 @limiter.limit(LIMIT_WRITE)
-async def create(request: Request, payload: PurchaseDetailCreate, db: db_dependency):
+def create(request: Request, payload: PurchaseDetailCreate, db: db_dependency):
     if not db.get(Purchase, payload.purchase_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Purchase not found"
@@ -110,7 +110,7 @@ async def create(request: Request, payload: PurchaseDetailCreate, db: db_depende
     dependencies=CAN_UPDATE_PURCHASE_DETAILS,
 )
 @limiter.limit(LIMIT_WRITE)
-async def update(request: Request, detail_id: int, payload: PurchaseDetailUpdate, db: db_dependency):
+def update(request: Request, detail_id: int, payload: PurchaseDetailUpdate, db: db_dependency):
     detail = db.get(PurchaseDetail, detail_id)
     if not detail:
         raise HTTPException(
@@ -142,7 +142,7 @@ async def update(request: Request, detail_id: int, payload: PurchaseDetailUpdate
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=CAN_DELETE_PURCHASE_DETAILS,
 )
-async def delete(detail_id: int, db: db_dependency):
+def delete(detail_id: int, db: db_dependency):
     detail = db.get(PurchaseDetail, detail_id)
     if not detail:
         raise HTTPException(

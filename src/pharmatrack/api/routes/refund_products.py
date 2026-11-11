@@ -34,7 +34,9 @@ def validate_max_refund_quantity(db: Session, sale_detail_id: int, refund_id_to_
     Valida que la cantidad a refundir no supere la cantidad original de la venta.
     Retorna: (sale_detail, cantidad_disponible_para_refund)
     """
-    sale_detail = db.query(SaleDetail).filter(SaleDetail.id == sale_detail_id).first()
+    # Candado en la línea de venta: dos devoluciones simultáneas de la misma línea
+    # se forman; la segunda ya cuenta la primera y no se devuelve de más.
+    sale_detail = db.query(SaleDetail).filter(SaleDetail.id == sale_detail_id).with_for_update().first()
     if not sale_detail:
         raise HTTPException(status_code=404, detail="Sale detail not found")
 
@@ -140,7 +142,7 @@ def update_sale_status_after_refund(db: Session, sale_detail_id: int):
     status_code=status.HTTP_200_OK,
     dependencies=CAN_READ_REFUND_PRODUCTS
 )
-async def read_all(db: db_dependency):
+def read_all(db: db_dependency):
     return db.query(RefundProduct).all()
 
 
@@ -154,7 +156,7 @@ async def read_all(db: db_dependency):
     status_code=status.HTTP_201_CREATED,
     dependencies=CAN_CREATE_REFUND_PRODUCTS
 )
-async def create(refund_product: RefundProductCreate, db: db_dependency):
+def create(refund_product: RefundProductCreate, db: db_dependency):
     # Validar producto
     product = db.query(Product).filter(Product.id == refund_product.product_id).first()
     if not product:
@@ -259,7 +261,7 @@ async def create(refund_product: RefundProductCreate, db: db_dependency):
     status_code=status.HTTP_200_OK,
     dependencies=CAN_UPDATE_REFUND_PRODUCTS
 )
-async def update(id: int, refund_product: RefundProductUpdate, db: db_dependency):
+def update(id: int, refund_product: RefundProductUpdate, db: db_dependency):
     existing_refund = db.query(RefundProduct).filter(RefundProduct.id == id).first()
     if not existing_refund:
         raise HTTPException(status_code=404, detail="Refund product not found")
@@ -393,7 +395,7 @@ async def update(id: int, refund_product: RefundProductUpdate, db: db_dependency
     summary="Delete a refund product",
     dependencies=CAN_DELETE_REFUND_PRODUCTS
 )
-async def delete(id: int, db: db_dependency):
+def delete(id: int, db: db_dependency):
     existing_refund = db.query(RefundProduct).filter(RefundProduct.id == id).first()
     if not existing_refund:
         raise HTTPException(status_code=404, detail="Refund product not found")

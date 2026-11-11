@@ -42,7 +42,7 @@ router = APIRouter(
             response_model=UserDetailsResponse,
             summary="Get current authenticated user",
             status_code=status.HTTP_200_OK)
-async def get_me(db: db_dependency, token_data: user_dependency):
+def get_me(db: db_dependency, token_data: user_dependency):
     user = db.query(User).filter(User.id == token_data["id"], User.deleted_at.is_(None)).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
@@ -66,7 +66,7 @@ _USER_ORDERING_MAP = {
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_USERS)
 @limiter.limit(LIMIT_READ)
-async def read_all(
+def read_all(
     request: Request,
     db: db_dependency,
     pagination: PaginationParams = Depends(),
@@ -105,7 +105,7 @@ async def read_all(
             summary="Get user by ID",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_USERS)
-async def read_user_by_id(user_id: int, db: db_dependency):
+def read_user_by_id(user_id: int, db: db_dependency):
     user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -120,7 +120,7 @@ async def read_user_by_id(user_id: int, db: db_dependency):
             summary="Get detailed user info",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_USERS)
-async def read_user_details(user_id: int, db: db_dependency):
+def read_user_details(user_id: int, db: db_dependency):
     user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -135,7 +135,7 @@ async def read_user_details(user_id: int, db: db_dependency):
              status_code=status.HTTP_201_CREATED,
              dependencies=CAN_CREATE_USERS)
 @limiter.limit(LIMIT_WRITE)
-async def create_user(request: Request, user: UserCreate, db: db_dependency):
+def create_user(request: Request, user: UserCreate, db: db_dependency):
     plain_password = user.password.get_secret_value()
     hashed = bcrypt_context.hash(plain_password)
 
@@ -175,7 +175,7 @@ async def create_user(request: Request, user: UserCreate, db: db_dependency):
             summary="Update a user",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_UPDATE_USERS)
-async def update_user(user_id: int, user: UserUpdate, db: db_dependency):
+def update_user(user_id: int, user: UserUpdate, db: db_dependency):
     existing_user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
     if not existing_user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -213,7 +213,7 @@ async def update_user(user_id: int, user: UserUpdate, db: db_dependency):
             status_code=status.HTTP_200_OK,
             dependencies=CAN_UPDATE_USERS)
 @limiter.limit(LIMIT_WRITE)
-async def change_password(request: Request, user_id: int, data: ChangePasswordRequest, db: db_dependency, token_data: user_dependency):
+def change_password(request: Request, user_id: int, data: ChangePasswordRequest, db: db_dependency, token_data: user_dependency):
     if token_data["id"] != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot change another user's password")
 
@@ -254,7 +254,7 @@ async def change_password(request: Request, user_id: int, data: ChangePasswordRe
                description="Deletes multiple users atomically. Fails if any ID does not exist.",
                dependencies=CAN_DELETE_USERS)
 @limiter.limit(LIMIT_WRITE)
-async def bulk_delete_users(request: Request, payload: BulkDeleteRequest, db: db_dependency):
+def bulk_delete_users(request: Request, payload: BulkDeleteRequest, db: db_dependency):
     users = db.query(User).filter(User.id.in_(payload.ids), User.deleted_at.is_(None)).all()
     found_ids = {u.id for u in users}
     missing = [i for i in payload.ids if i not in found_ids]
@@ -275,7 +275,7 @@ async def bulk_delete_users(request: Request, payload: BulkDeleteRequest, db: db
                summary="Soft-delete a user",
                dependencies=CAN_DELETE_USERS)
 @limiter.limit(LIMIT_WRITE)
-async def delete_user(request: Request, user_id: int, db: db_dependency):
+def delete_user(request: Request, user_id: int, db: db_dependency):
     existing_user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
     if not existing_user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -293,7 +293,7 @@ async def delete_user(request: Request, user_id: int, db: db_dependency):
               response_model=UserResponse,
               summary="Restore a soft-deleted user",
               dependencies=CAN_UPDATE_USERS)
-async def restore_user(user_id: int, db: db_dependency):
+def restore_user(user_id: int, db: db_dependency):
     user = db.query(User).filter(User.id == user_id, User.deleted_at.isnot(None)).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found or not deleted")

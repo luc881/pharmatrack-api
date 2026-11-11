@@ -112,7 +112,7 @@ def _stock_of(db, product_id: int):
 
 @router.get("", response_model=list[PublicProductResponse],
             summary="Productos visibles en el sitio público")
-async def public_list_products(db: db_dependency):
+def public_list_products(db: db_dependency):
     rows = (
         db.query(Product, func.coalesce(func.sum(ProductBatch.quantity), 0))
         .outerjoin(ProductBatch, ProductBatch.product_id == Product.id)
@@ -133,7 +133,7 @@ async def public_list_products(db: db_dependency):
 
 @router.get("/{product_id}", response_model=PublicProductResponse,
             summary="Detalle público de un producto")
-async def public_get_product(product_id: int, db: db_dependency):
+def public_get_product(product_id: int, db: db_dependency):
     product = (
         db.query(Product)
         .options(joinedload(Product.category))

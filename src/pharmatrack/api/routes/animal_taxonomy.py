@@ -97,8 +97,8 @@ def hidden_group_ids(db) -> set[int]:
 
 @groups_router.get("", response_model=PaginatedResponse[AnimalGroupResponse],
                    summary="List animal groups", dependencies=CAN_READ_ANIMAL_GROUPS)
-async def list_groups(db: db_dependency, parent_id: Optional[int] = None,
-                      pagination: PaginationParams = Depends()):
+def list_groups(db: db_dependency, parent_id: Optional[int] = None,
+                pagination: PaginationParams = Depends()):
     query = db.query(AnimalGroup)
     if parent_id is not None:
         query = query.filter(AnimalGroup.parent_id == parent_id)
@@ -107,14 +107,14 @@ async def list_groups(db: db_dependency, parent_id: Optional[int] = None,
 
 @groups_router.get("/tree", response_model=list[AnimalGroupTreeResponse],
                    summary="Get full animal group tree", dependencies=CAN_READ_ANIMAL_GROUPS)
-async def get_group_tree(db: db_dependency):
+def get_group_tree(db: db_dependency):
     groups = db.query(AnimalGroup).order_by(AnimalGroup.name.asc()).all()
     return _build_group_tree(groups)
 
 
 @groups_router.get("/{group_id}", response_model=AnimalGroupResponse,
                    summary="Get animal group by ID", dependencies=CAN_READ_ANIMAL_GROUPS)
-async def get_group(group_id: int, db: db_dependency):
+def get_group(group_id: int, db: db_dependency):
     group = db.get(AnimalGroup, group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Animal group not found.")
@@ -123,7 +123,7 @@ async def get_group(group_id: int, db: db_dependency):
 
 @groups_router.post("", response_model=AnimalGroupResponse, status_code=status.HTTP_201_CREATED,
                     summary="Create an animal group", dependencies=CAN_CREATE_ANIMAL_GROUPS)
-async def create_group(payload: AnimalGroupCreate, db: db_dependency):
+def create_group(payload: AnimalGroupCreate, db: db_dependency):
     if payload.parent_id is not None and not db.get(AnimalGroup, payload.parent_id):
         raise HTTPException(status_code=400, detail="Parent animal group not found.")
     conflict = db.query(AnimalGroup).filter(
@@ -140,7 +140,7 @@ async def create_group(payload: AnimalGroupCreate, db: db_dependency):
 
 @groups_router.put("/{group_id}", response_model=AnimalGroupResponse,
                    summary="Update an animal group", dependencies=CAN_UPDATE_ANIMAL_GROUPS)
-async def update_group(group_id: int, payload: AnimalGroupUpdate, db: db_dependency):
+def update_group(group_id: int, payload: AnimalGroupUpdate, db: db_dependency):
     group = db.get(AnimalGroup, group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Animal group not found.")
@@ -171,7 +171,7 @@ async def update_group(group_id: int, payload: AnimalGroupUpdate, db: db_depende
 
 @groups_router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT,
                       summary="Delete an animal group", dependencies=CAN_DELETE_ANIMAL_GROUPS)
-async def delete_group(group_id: int, db: db_dependency):
+def delete_group(group_id: int, db: db_dependency):
     group = db.get(AnimalGroup, group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Animal group not found.")
@@ -188,8 +188,8 @@ async def delete_group(group_id: int, db: db_dependency):
 # =========================================================
 @genera_router.get("", response_model=PaginatedResponse[GenusResponse],
                    summary="List genera", dependencies=CAN_READ_GENERA)
-async def list_genera(db: db_dependency, group_id: Optional[int] = None,
-                      pagination: PaginationParams = Depends()):
+def list_genera(db: db_dependency, group_id: Optional[int] = None,
+                pagination: PaginationParams = Depends()):
     query = db.query(Genus)
     if group_id is not None:
         query = query.filter(Genus.group_id.in_(descendant_group_ids(db, group_id)))
@@ -198,7 +198,7 @@ async def list_genera(db: db_dependency, group_id: Optional[int] = None,
 
 @genera_router.get("/{genus_id}", response_model=GenusResponse,
                    summary="Get genus by ID", dependencies=CAN_READ_GENERA)
-async def get_genus(genus_id: int, db: db_dependency):
+def get_genus(genus_id: int, db: db_dependency):
     genus = db.get(Genus, genus_id)
     if not genus:
         raise HTTPException(status_code=404, detail="Genus not found.")
@@ -207,7 +207,7 @@ async def get_genus(genus_id: int, db: db_dependency):
 
 @genera_router.post("", response_model=GenusResponse, status_code=status.HTTP_201_CREATED,
                     summary="Create a genus", dependencies=CAN_CREATE_GENERA)
-async def create_genus(payload: GenusCreate, db: db_dependency):
+def create_genus(payload: GenusCreate, db: db_dependency):
     if not db.get(AnimalGroup, payload.group_id):
         raise HTTPException(status_code=400, detail="Animal group not found.")
     if db.query(Genus).filter(Genus.name == payload.name).first():
@@ -221,7 +221,7 @@ async def create_genus(payload: GenusCreate, db: db_dependency):
 
 @genera_router.put("/{genus_id}", response_model=GenusResponse,
                    summary="Update a genus", dependencies=CAN_UPDATE_GENERA)
-async def update_genus(genus_id: int, payload: GenusUpdate, db: db_dependency):
+def update_genus(genus_id: int, payload: GenusUpdate, db: db_dependency):
     genus = db.get(Genus, genus_id)
     if not genus:
         raise HTTPException(status_code=404, detail="Genus not found.")
@@ -243,7 +243,7 @@ async def update_genus(genus_id: int, payload: GenusUpdate, db: db_dependency):
 
 @genera_router.delete("/{genus_id}", status_code=status.HTTP_204_NO_CONTENT,
                       summary="Delete a genus", dependencies=CAN_DELETE_GENERA)
-async def delete_genus(genus_id: int, db: db_dependency):
+def delete_genus(genus_id: int, db: db_dependency):
     genus = db.get(Genus, genus_id)
     if not genus:
         raise HTTPException(status_code=404, detail="Genus not found.")
@@ -258,8 +258,8 @@ async def delete_genus(genus_id: int, db: db_dependency):
 # =========================================================
 @species_router.get("", response_model=PaginatedResponse[SpeciesAdminResponse],
                     summary="List species", dependencies=CAN_READ_SPECIES)
-async def list_species(db: db_dependency, genus_id: Optional[int] = None,
-                       pagination: PaginationParams = Depends()):
+def list_species(db: db_dependency, genus_id: Optional[int] = None,
+                 pagination: PaginationParams = Depends()):
     query = db.query(Species)
     if genus_id is not None:
         query = query.filter(Species.genus_id == genus_id)
@@ -268,7 +268,7 @@ async def list_species(db: db_dependency, genus_id: Optional[int] = None,
 
 @species_router.get("/{species_id}", response_model=SpeciesAdminResponse,
                     summary="Get species by ID", dependencies=CAN_READ_SPECIES)
-async def get_species(species_id: int, db: db_dependency):
+def get_species(species_id: int, db: db_dependency):
     species = db.get(Species, species_id)
     if not species:
         raise HTTPException(status_code=404, detail="Species not found.")
@@ -277,7 +277,7 @@ async def get_species(species_id: int, db: db_dependency):
 
 @species_router.post("", response_model=SpeciesAdminResponse, status_code=status.HTTP_201_CREATED,
                      summary="Create a species", dependencies=CAN_CREATE_SPECIES)
-async def create_species(payload: SpeciesCreate, db: db_dependency):
+def create_species(payload: SpeciesCreate, db: db_dependency):
     if not db.get(Genus, payload.genus_id):
         raise HTTPException(status_code=400, detail="Genus not found.")
     conflict = db.query(Species).filter(
@@ -294,7 +294,7 @@ async def create_species(payload: SpeciesCreate, db: db_dependency):
 
 @species_router.put("/{species_id}", response_model=SpeciesAdminResponse,
                     summary="Update a species", dependencies=CAN_UPDATE_SPECIES)
-async def update_species(species_id: int, payload: SpeciesUpdate, db: db_dependency):
+def update_species(species_id: int, payload: SpeciesUpdate, db: db_dependency):
     species = db.get(Species, species_id)
     if not species:
         raise HTTPException(status_code=404, detail="Species not found.")
@@ -321,7 +321,7 @@ async def update_species(species_id: int, payload: SpeciesUpdate, db: db_depende
 
 @species_router.delete("/{species_id}", status_code=status.HTTP_204_NO_CONTENT,
                        summary="Delete a species", dependencies=CAN_DELETE_SPECIES)
-async def delete_species(species_id: int, db: db_dependency):
+def delete_species(species_id: int, db: db_dependency):
     species = db.get(Species, species_id)
     if not species:
         raise HTTPException(status_code=404, detail="Species not found.")
@@ -338,8 +338,8 @@ async def delete_species(species_id: int, db: db_dependency):
 # =========================================================
 @morphs_router.get("", response_model=PaginatedResponse[MorphAdminResponse],
                    summary="List morphs", dependencies=CAN_READ_MORPHS)
-async def list_morphs(db: db_dependency, species_id: Optional[int] = None,
-                      pagination: PaginationParams = Depends()):
+def list_morphs(db: db_dependency, species_id: Optional[int] = None,
+                pagination: PaginationParams = Depends()):
     query = db.query(Morph)
     if species_id is not None:
         query = query.filter(Morph.species_id == species_id)
@@ -348,7 +348,7 @@ async def list_morphs(db: db_dependency, species_id: Optional[int] = None,
 
 @morphs_router.get("/{morph_id}", response_model=MorphAdminResponse,
                    summary="Get morph by ID", dependencies=CAN_READ_MORPHS)
-async def get_morph(morph_id: int, db: db_dependency):
+def get_morph(morph_id: int, db: db_dependency):
     morph = db.get(Morph, morph_id)
     if not morph:
         raise HTTPException(status_code=404, detail="Morph not found.")
@@ -357,7 +357,7 @@ async def get_morph(morph_id: int, db: db_dependency):
 
 @morphs_router.post("", response_model=MorphAdminResponse, status_code=status.HTTP_201_CREATED,
                     summary="Create a morph", dependencies=CAN_CREATE_MORPHS)
-async def create_morph(payload: MorphCreate, db: db_dependency):
+def create_morph(payload: MorphCreate, db: db_dependency):
     if not db.get(Species, payload.species_id):
         raise HTTPException(status_code=400, detail="Species not found.")
     conflict = db.query(Morph).filter(
@@ -374,7 +374,7 @@ async def create_morph(payload: MorphCreate, db: db_dependency):
 
 @morphs_router.put("/{morph_id}", response_model=MorphAdminResponse,
                    summary="Update a morph", dependencies=CAN_UPDATE_MORPHS)
-async def update_morph(morph_id: int, payload: MorphUpdate, db: db_dependency):
+def update_morph(morph_id: int, payload: MorphUpdate, db: db_dependency):
     morph = db.get(Morph, morph_id)
     if not morph:
         raise HTTPException(status_code=404, detail="Morph not found.")
@@ -401,7 +401,7 @@ async def update_morph(morph_id: int, payload: MorphUpdate, db: db_dependency):
 
 @morphs_router.delete("/{morph_id}", status_code=status.HTTP_204_NO_CONTENT,
                       summary="Delete a morph", dependencies=CAN_DELETE_MORPHS)
-async def delete_morph(morph_id: int, db: db_dependency):
+def delete_morph(morph_id: int, db: db_dependency):
     morph = db.get(Morph, morph_id)
     if not morph:
         raise HTTPException(status_code=404, detail="Morph not found.")

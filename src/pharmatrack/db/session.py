@@ -17,7 +17,8 @@ def _get_engine():
         if not database_url:
             from pharmatrack.config import settings
             database_url = settings.database_url
-        _engine = create_engine(database_url)
+        # pool_pre_ping: una conexión que Railway cerró se repone sola en vez de dar 500
+        _engine = create_engine(database_url, pool_pre_ping=True)
     return _engine
 
 def _get_session_local():

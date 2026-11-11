@@ -29,7 +29,7 @@ router = APIRouter(
             description="Retrieve all permissions currently stored in the database.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PERMISSIONS)
-async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
+def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
     query = db.query(Permission).order_by(Permission.id.asc())
     return paginate(query, pagination)
 
@@ -41,7 +41,7 @@ async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PERMISSIONS)
 @limiter.limit(LIMIT_READ)
-async def read_all_no_pagination(request: Request, db: db_dependency):
+def read_all_no_pagination(request: Request, db: db_dependency):
     return db.query(Permission).order_by(Permission.name.asc()).all()
 
 
@@ -51,7 +51,7 @@ async def read_all_no_pagination(request: Request, db: db_dependency):
             description="Retrieve a specific permission by its ID.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PERMISSIONS)
-async def read_permission(permission_id: int, db: db_dependency):
+def read_permission(permission_id: int, db: db_dependency):
     permission = db.get(Permission, permission_id)
     if not permission:
         raise HTTPException(status_code=404, detail="Permission not found")
@@ -64,7 +64,7 @@ async def read_permission(permission_id: int, db: db_dependency):
             description="Retrieve a specific permission by its ID, including associated roles.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PERMISSIONS)
-async def read_permission_with_roles(permission_id: int, db: db_dependency):
+def read_permission_with_roles(permission_id: int, db: db_dependency):
     permission = db.get(Permission, permission_id)
     if not permission:
         raise HTTPException(status_code=404, detail="Permission not found")
@@ -77,7 +77,7 @@ async def read_permission_with_roles(permission_id: int, db: db_dependency):
             summary="Create a new permission",
             description="Adds a new permission to the database. The permission name must be unique.",
             dependencies=CAN_CREATE_PERMISSIONS)
-async def create_permission(db: db_dependency, permission_request: PermissionCreate):
+def create_permission(db: db_dependency, permission_request: PermissionCreate):
     existing = db.query(Permission).filter(Permission.name.ilike(permission_request.name)).first()
     if existing:
         raise HTTPException(status_code=409, detail="Permission already exists")
@@ -94,7 +94,7 @@ async def create_permission(db: db_dependency, permission_request: PermissionCre
             summary="Update an existing permission",
             description="Updates the details of an existing permission by ID.",
             dependencies=CAN_UPDATE_PERMISSIONS)
-async def update_permission(permission_id: int, db: db_dependency, permission_request: PermissionUpdate):
+def update_permission(permission_id: int, db: db_dependency, permission_request: PermissionUpdate):
     permission = db.get(Permission, permission_id)
     if not permission:
         raise HTTPException(status_code=404, detail="Permission not found")
@@ -117,7 +117,7 @@ async def update_permission(permission_id: int, db: db_dependency, permission_re
             summary="Delete a permission",
             description="Deletes a permission by ID.",
             dependencies=CAN_DELETE_PERMISSIONS)
-async def delete_permission(permission_id: int, db: db_dependency):
+def delete_permission(permission_id: int, db: db_dependency):
     permission = db.query(Permission).filter(Permission.id == permission_id).first()
     if not permission:
         raise HTTPException(status_code=404, detail="Permission not found")

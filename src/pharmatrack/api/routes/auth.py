@@ -67,7 +67,7 @@ router = APIRouter(
 # =========================================================
 @router.post("/token")
 @limiter.limit(LIMIT_AUTH)
-async def login_user(request: Request, form_data: auth_dependency, db: db_dependency):
+def login_user(request: Request, form_data: auth_dependency, db: db_dependency):
     user = authenticate_user(db, form_data.username, form_data.password)
     if not user:
         logger.warning("Failed login attempt for email=%s", form_data.username)
@@ -104,7 +104,7 @@ async def login_user(request: Request, form_data: auth_dependency, db: db_depend
 # =========================================================
 @router.post("/refresh")
 @limiter.limit(LIMIT_WRITE)
-async def refresh_access_token(request: Request, payload: RefreshTokenRequest, db: db_dependency):
+def refresh_access_token(request: Request, payload: RefreshTokenRequest, db: db_dependency):
     user = validate_refresh_token(db, payload.refresh_token)
 
     permissions = [p.name for p in user.role.permissions] if user.role else []
@@ -130,7 +130,7 @@ async def refresh_access_token(request: Request, payload: RefreshTokenRequest, d
 # =========================================================
 @router.post("/logout")
 @limiter.limit(LIMIT_WRITE)
-async def logout(request: Request, token_data: user_dependency, db: db_dependency):
+def logout(request: Request, token_data: user_dependency, db: db_dependency):
     revoke_refresh_token(db, token_data["id"])
     logger.info("User logged out id=%s", token_data["id"])
     return {"message": "Successfully logged out"}
@@ -147,7 +147,7 @@ _FORGOT_RESPONSE = {"message": "Si el correo existe recibirás un link para rest
     summary="Solicitar reset de contraseña",
 )
 @limiter.limit(LIMIT_AUTH)
-async def forgot_password(request: Request, payload: ForgotPasswordRequest, db: db_dependency):
+def forgot_password(request: Request, payload: ForgotPasswordRequest, db: db_dependency):
     from ...utils.email import send_password_reset_email
 
     user = db.query(User).filter(
@@ -189,7 +189,7 @@ async def forgot_password(request: Request, payload: ForgotPasswordRequest, db: 
     summary="Restablecer contraseña con token",
 )
 @limiter.limit(LIMIT_AUTH)
-async def reset_password(request: Request, payload: ResetPasswordRequest, db: db_dependency):
+def reset_password(request: Request, payload: ResetPasswordRequest, db: db_dependency):
     reset_token = db.query(PasswordResetToken).filter(
         PasswordResetToken.token == hash_token(payload.token),
     ).first()

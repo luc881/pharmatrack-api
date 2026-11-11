@@ -24,7 +24,7 @@ router = APIRouter(
     status_code=status.HTTP_200_OK,
     dependencies=CAN_READ_SALE_PAYMENTS
 )
-async def read_all(db: db_dependency, sale_id: Optional[int] = None):
+def read_all(db: db_dependency, sale_id: Optional[int] = None):
     query = db.query(SalePayment).filter(SalePayment.deleted_at.is_(None))
     if sale_id is not None:
         query = query.filter(SalePayment.sale_id == sale_id)
@@ -38,7 +38,7 @@ async def read_all(db: db_dependency, sale_id: Optional[int] = None):
     status_code=status.HTTP_201_CREATED,
     dependencies=CAN_CREATE_SALE_PAYMENTS
 )
-async def create(sale_payment: SalePaymentCreate, db: db_dependency):
+def create(sale_payment: SalePaymentCreate, db: db_dependency):
     # Check if the associated sale exists
     sale = db.query(Sale).filter(Sale.id == sale_payment.sale_id).first()
     if not sale:
@@ -58,7 +58,7 @@ async def create(sale_payment: SalePaymentCreate, db: db_dependency):
     status_code=status.HTTP_200_OK,
     dependencies=CAN_UPDATE_SALE_PAYMENTS
 )
-async def update(sale_payment_id: int, sale_payment: SalePaymentUpdate, db: db_dependency):
+def update(sale_payment_id: int, sale_payment: SalePaymentUpdate, db: db_dependency):
     existing_sale_payment = db.query(SalePayment).filter(SalePayment.id == sale_payment_id).first()
     if not existing_sale_payment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sale payment not found")
@@ -83,7 +83,7 @@ async def update(sale_payment_id: int, sale_payment: SalePaymentUpdate, db: db_d
     description="Soft delete a sale payment by its ID.",
     dependencies=CAN_DELETE_SALE_PAYMENTS
 )
-async def delete(sale_payment_id: int, db: db_dependency):
+def delete(sale_payment_id: int, db: db_dependency):
     existing_sale_payment = db.query(SalePayment).filter(SalePayment.id == sale_payment_id).first()
     if not existing_sale_payment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sale payment not found")

@@ -28,7 +28,7 @@ router = APIRouter(
             description="Retrieve all ingredients currently stored in the database.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_INGREDIENTS)
-async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
+def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
     query = db.query(Ingredient).order_by(Ingredient.name.asc())
     return paginate(query, pagination)
 
@@ -39,7 +39,7 @@ async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
             description="Create a new ingredient with the provided details.",
             status_code=status.HTTP_201_CREATED,
             dependencies=CAN_CREATE_INGREDIENTS)
-async def create(ingredient: IngredientCreate, db: db_dependency):
+def create(ingredient: IngredientCreate, db: db_dependency):
     # Check duplicates by slug (handles accent/case variants)
     existing = db.query(Ingredient).filter(Ingredient.slug == ingredient.slug).first()
     if existing:
@@ -64,7 +64,7 @@ async def create(ingredient: IngredientCreate, db: db_dependency):
             description="Update the details of an existing ingredient by its ID.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_UPDATE_INGREDIENTS)
-async def update(ingredient_id: int, ingredient: IngredientUpdate, db: db_dependency):
+def update(ingredient_id: int, ingredient: IngredientUpdate, db: db_dependency):
     db_ingredient = db.query(Ingredient).filter(Ingredient.id == ingredient_id).first()
     if not db_ingredient:
         raise HTTPException(
@@ -101,7 +101,7 @@ async def update(ingredient_id: int, ingredient: IngredientUpdate, db: db_depend
             description="Delete an existing ingredient by its ID.",
             status_code=status.HTTP_204_NO_CONTENT,
             dependencies=CAN_DELETE_INGREDIENTS)
-async def delete(ingredient_id: int, db: db_dependency):
+def delete(ingredient_id: int, db: db_dependency):
     db_ingredient = db.query(Ingredient).filter(Ingredient.id == ingredient_id).first()
     if not db_ingredient:
         raise HTTPException(

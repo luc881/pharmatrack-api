@@ -42,7 +42,7 @@ class CalendarEvent(BaseModel):
     dependencies=CAN_READ_PRODUCT_BATCHES,
 )
 @limiter.limit(LIMIT_READ)
-async def get_calendar_events(
+def get_calendar_events(
     request: Request,
     db: db_dependency,
     start: Optional[date] = None,

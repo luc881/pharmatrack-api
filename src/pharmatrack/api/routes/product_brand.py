@@ -30,7 +30,7 @@ router = APIRouter(
             description="Retrieve all product brands currently stored in the database.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCT_BRANDS)
-async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
+def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
     query = db.query(ProductBrand).order_by(ProductBrand.name.asc())
     return paginate(query, pagination)
 
@@ -41,7 +41,7 @@ async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
             description="Retrieve a product brand using its ID.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCT_BRANDS)
-async def read_brand(brand_id: int, db: db_dependency):
+def read_brand(brand_id: int, db: db_dependency):
     brand = db.query(ProductBrand).filter(ProductBrand.id == brand_id).first()
     if not brand:
         raise HTTPException(
@@ -57,7 +57,7 @@ async def read_brand(brand_id: int, db: db_dependency):
              description="Create a new product brand using the provided data.",
              status_code=status.HTTP_201_CREATED,
              dependencies=CAN_CREATE_PRODUCT_BRANDS)
-async def create_brand(payload: ProductBrandCreate, db: db_dependency):
+def create_brand(payload: ProductBrandCreate, db: db_dependency):
     existing = db.query(ProductBrand).filter(
         ProductBrand.slug == payload.slug
     ).first()
@@ -83,7 +83,7 @@ async def create_brand(payload: ProductBrandCreate, db: db_dependency):
             description="Update an existing product brand with the provided data.",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_UPDATE_PRODUCT_BRANDS)
-async def update_brand(brand_id: int, payload: ProductBrandUpdate, db: db_dependency):
+def update_brand(brand_id: int, payload: ProductBrandUpdate, db: db_dependency):
     brand = db.query(ProductBrand).filter(ProductBrand.id == brand_id).first()
     if not brand:
         raise HTTPException(
@@ -119,7 +119,7 @@ async def update_brand(brand_id: int, payload: ProductBrandUpdate, db: db_depend
                description="Remove a product brand from the database.",
                status_code=status.HTTP_204_NO_CONTENT,
                dependencies=CAN_DELETE_PRODUCT_BRANDS)
-async def delete_brand(brand_id: int, db: db_dependency):
+def delete_brand(brand_id: int, db: db_dependency):
     brand = db.query(ProductBrand).filter(ProductBrand.id == brand_id).first()
     if not brand:
         raise HTTPException(

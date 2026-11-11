@@ -37,7 +37,7 @@ router = APIRouter(
             summary="List all product categories",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCT_CATEGORIES)
-async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
+def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
     query = db.query(ProductCategory).order_by(ProductCategory.name.asc())
     return paginate(query, pagination)
 
@@ -49,7 +49,7 @@ async def read_all(db: db_dependency, pagination: PaginationParams = Depends()):
             response_model=list[ProductCategoryTreeResponse],
             summary="Get full category tree",
             dependencies=CAN_READ_PRODUCT_CATEGORIES)
-async def get_category_tree(db: db_dependency):
+def get_category_tree(db: db_dependency):
     categories = db.query(ProductCategory).all()
     return build_category_tree(categories)
 
@@ -61,7 +61,7 @@ async def get_category_tree(db: db_dependency):
             response_model=PaginatedResponse[ProductCategoryResponse],
             summary="Get root categories",
             dependencies=CAN_READ_PRODUCT_CATEGORIES)
-async def get_root_categories(db: db_dependency, pagination: PaginationParams = Depends()):
+def get_root_categories(db: db_dependency, pagination: PaginationParams = Depends()):
     query = db.query(ProductCategory).filter(
         ProductCategory.parent_id.is_(None)
     ).order_by(ProductCategory.name.asc())
@@ -76,7 +76,7 @@ async def get_root_categories(db: db_dependency, pagination: PaginationParams = 
             summary="Get category by ID",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCT_CATEGORIES)
-async def read_one(category_id: int, db: db_dependency):
+def read_one(category_id: int, db: db_dependency):
     category = db.get(ProductCategory, category_id)
     if not category:
         raise HTTPException(status_code=404, detail="Category not found.")
@@ -90,7 +90,7 @@ async def read_one(category_id: int, db: db_dependency):
             response_model=ProductCategoryTreeResponse,
             summary="Get subtree from a category",
             dependencies=CAN_READ_PRODUCT_CATEGORIES)
-async def get_subtree(category_id: int, db: db_dependency):
+def get_subtree(category_id: int, db: db_dependency):
     root = db.get(ProductCategory, category_id)
     if not root:
         raise HTTPException(status_code=404, detail="Category not found.")
@@ -117,7 +117,7 @@ async def get_subtree(category_id: int, db: db_dependency):
              summary="Create a new product category",
              status_code=status.HTTP_201_CREATED,
              dependencies=CAN_CREATE_PRODUCT_CATEGORIES)
-async def create(product_category: ProductCategoryCreate, db: db_dependency):
+def create(product_category: ProductCategoryCreate, db: db_dependency):
     if product_category.parent_id is not None:
         parent = db.get(ProductCategory, product_category.parent_id)
         if not parent:
@@ -149,7 +149,7 @@ async def create(product_category: ProductCategoryCreate, db: db_dependency):
             summary="Update an existing product category",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_UPDATE_PRODUCT_CATEGORIES)
-async def update(category_id: int, product_category: ProductCategoryUpdate, db: db_dependency):
+def update(category_id: int, product_category: ProductCategoryUpdate, db: db_dependency):
     existing_category = db.get(ProductCategory, category_id)
     if not existing_category:
         raise HTTPException(status_code=404, detail="Product category not found.")
@@ -207,7 +207,7 @@ async def update(category_id: int, product_category: ProductCategoryUpdate, db: 
                status_code=status.HTTP_204_NO_CONTENT,
                summary="Delete a product category",
                dependencies=CAN_DELETE_PRODUCT_CATEGORIES)  # ✅ faltaba
-async def delete(category_id: int, db: db_dependency):
+def delete(category_id: int, db: db_dependency):
     category = db.get(ProductCategory, category_id)
     if not category:
         raise HTTPException(status_code=404, detail="Product category not found.")

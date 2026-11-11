@@ -61,7 +61,7 @@ _ORDERING_MAP = {
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCTS)
 @limiter.limit(LIMIT_READ)
-async def read_all(
+def read_all(
     request: Request,
     db: db_dependency,
     pagination: PaginationParams = Depends(),
@@ -121,7 +121,7 @@ async def read_all(
             summary="Get product details",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_READ_PRODUCTS)
-async def read_product(product_id: int, db: db_dependency):
+def read_product(product_id: int, db: db_dependency):
     product = db.query(Product).filter(Product.id == product_id, Product.deleted_at.is_(None)).first()
     if not product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
@@ -137,7 +137,7 @@ async def read_product(product_id: int, db: db_dependency):
              status_code=status.HTTP_201_CREATED,
              dependencies=CAN_CREATE_PRODUCTS)
 @limiter.limit(LIMIT_WRITE)
-async def create_product(request: Request, product: ProductCreate, db: db_dependency):
+def create_product(request: Request, product: ProductCreate, db: db_dependency):
     # normalize_units modifica en-place (no retorna nada)
     normalize_units(product)
     validate_units_schema(product)
@@ -204,7 +204,7 @@ async def create_product(request: Request, product: ProductCreate, db: db_depend
             summary="Update a product",
             status_code=status.HTTP_200_OK,
             dependencies=CAN_UPDATE_PRODUCTS)
-async def update_product(product_id: int, product_request: ProductUpdate, db: db_dependency):
+def update_product(product_id: int, product_request: ProductUpdate, db: db_dependency):
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
@@ -293,7 +293,7 @@ async def update_product(product_id: int, product_request: ProductUpdate, db: db
               response_model=ProductDetailsResponse,
               summary="Toggle product availability",
               dependencies=CAN_UPDATE_PRODUCTS)
-async def toggle_product_active(product_id: int, db: db_dependency):
+def toggle_product_active(product_id: int, db: db_dependency):
     product = db.query(Product).filter(Product.id == product_id, Product.deleted_at.is_(None)).first()
     if not product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
@@ -314,7 +314,7 @@ async def toggle_product_active(product_id: int, db: db_dependency):
               response_model=ProductDetailsResponse,
               summary="Toggle product visibility on the public site",
               dependencies=CAN_UPDATE_PRODUCTS)
-async def toggle_product_online(product_id: int, db: db_dependency):
+def toggle_product_online(product_id: int, db: db_dependency):
     product = db.query(Product).filter(Product.id == product_id, Product.deleted_at.is_(None)).first()
     if not product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
@@ -335,7 +335,7 @@ async def toggle_product_online(product_id: int, db: db_dependency):
                description="Deletes multiple products atomically. Fails if any ID does not exist.",
                dependencies=CAN_DELETE_PRODUCTS)
 @limiter.limit(LIMIT_WRITE)
-async def bulk_delete_products(request: Request, payload: BulkDeleteRequest, db: db_dependency):
+def bulk_delete_products(request: Request, payload: BulkDeleteRequest, db: db_dependency):
     products = db.query(Product).filter(Product.id.in_(payload.ids), Product.deleted_at.is_(None)).all()
     found_ids = {p.id for p in products}
     missing = [i for i in payload.ids if i not in found_ids]
@@ -356,7 +356,7 @@ async def bulk_delete_products(request: Request, payload: BulkDeleteRequest, db:
                summary="Soft-delete a product",
                dependencies=CAN_DELETE_PRODUCTS)
 @limiter.limit(LIMIT_WRITE)
-async def delete_product(request: Request, product_id: int, db: db_dependency):
+def delete_product(request: Request, product_id: int, db: db_dependency):
     existing_product = db.query(Product).filter(Product.id == product_id, Product.deleted_at.is_(None)).first()
     if not existing_product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
@@ -374,7 +374,7 @@ async def delete_product(request: Request, product_id: int, db: db_dependency):
               response_model=ProductDetailsResponse,
               summary="Restore a soft-deleted product",
               dependencies=CAN_UPDATE_PRODUCTS)
-async def restore_product(product_id: int, db: db_dependency):
+def restore_product(product_id: int, db: db_dependency):
     product = db.query(Product).filter(Product.id == product_id, Product.deleted_at.isnot(None)).first()
     if not product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found or not deleted")
@@ -394,7 +394,7 @@ from ...models.products.schemas import BundleItemIn, BundleItemOut  # noqa: E402
             response_model=list[BundleItemOut],
             summary="Componentes del paquete",
             dependencies=CAN_READ_PRODUCTS)
-async def list_bundle_items(product_id: int, db: db_dependency):
+def list_bundle_items(product_id: int, db: db_dependency):
     if not db.get(Product, product_id):
         raise HTTPException(status_code=404, detail="Product not found")
     from sqlalchemy.orm import selectinload
@@ -410,7 +410,7 @@ async def list_bundle_items(product_id: int, db: db_dependency):
             response_model=list[BundleItemOut],
             summary="Reemplaza los componentes del paquete (replace-all)",
             dependencies=CAN_UPDATE_PRODUCTS)
-async def set_bundle_items(product_id: int, items: list[BundleItemIn], db: db_dependency):
+def set_bundle_items(product_id: int, items: list[BundleItemIn], db: db_dependency):
     bundle = db.get(Product, product_id)
     if not bundle:
         raise HTTPException(status_code=404, detail="Product not found")
