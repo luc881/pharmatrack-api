@@ -57,7 +57,8 @@ def _origin() -> dict:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="ENVIA_ORIGIN debe ser un JSON con: " + ", ".join(ORIGIN_REQUIRED) + ".",
         )
-    return {"country": "MX", **origin}
+    # el estado puede venir con nombre («Jalisco») o con el código de Envia («JA»)
+    return {"country": "MX", **origin, "state": state_code(origin["state"])}
 
 
 def _call(method: str, url: str, **kwargs) -> dict:
