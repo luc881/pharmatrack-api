@@ -24,3 +24,8 @@ def test_health_check_reports_integrations_without_leaking_secrets():
 def test_health_check_accepts_head():
     # UptimeRobot pregunta con HEAD; un 405 lo marcaba como caído
     assert client.head("/healthcheck").status_code == 200
+
+
+def test_api_is_not_indexable():
+    assert "noindex" in client.get("/healthcheck").headers["x-robots-tag"]
+    assert "noindex" in client.get("/no-existe").headers["x-robots-tag"]

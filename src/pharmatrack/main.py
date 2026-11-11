@@ -91,6 +91,14 @@ from .api.routes.image_cache import ImageCacheRewriteMiddleware  # noqa: E402
 app.add_middleware(ImageCacheRewriteMiddleware)
 
 
+@app.middleware("http")
+async def no_index(request: Request, call_next):
+    """La API no es contenido para buscadores: que ninguna respuesta se indexe."""
+    response = await call_next(request)
+    response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return response
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = []
