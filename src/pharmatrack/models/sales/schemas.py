@@ -4,6 +4,7 @@ from decimal import Decimal
 from pydantic import BaseModel, Field, ConfigDict
 
 from pharmatrack.models.products.schemas import PaginatedResponse, PaginationParams
+from pharmatrack.models.sale_payments.schemas import SalePaymentBase
 from pharmatrack.types.sales import SaleStatusEnum
 
 
@@ -45,6 +46,28 @@ class SaleCreate(BaseModel):
             }
         }
     )
+
+
+# =========================================================
+# 🟢 Checkout: la venta completa en una sola petición
+# =========================================================
+class SaleCheckoutItem(BaseModel):
+    product_id: int = Field(..., gt=0)
+    quantity: Decimal = Field(..., gt=0)
+    discount: Decimal = Field(0, ge=0)
+    description: Optional[str] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class SaleCheckout(BaseModel):
+    branch_id: int = Field(..., gt=0)
+    description: Optional[str] = None
+    items: List[SaleCheckoutItem] = Field(..., min_length=1)
+    payments: List[SalePaymentBase] = Field(default_factory=list)
+    idempotency_key: Optional[str] = Field(None, min_length=8, max_length=64)
+
+    model_config = ConfigDict(extra="forbid")
 
 
 # =========================================================
@@ -145,6 +168,7 @@ if TYPE_CHECKING:
 __all__ = [
     "SaleBase",
     "SaleCreate",
+    "SaleCheckout",
     "SaleUpdate",
     "SaleResponse",
     "SaleDetailResponse",

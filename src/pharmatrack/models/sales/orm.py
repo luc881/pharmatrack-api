@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    BigInteger, TIMESTAMP, ForeignKey, Text, Numeric, Enum as SAEnum
+    BigInteger, TIMESTAMP, ForeignKey, String, Text, Numeric, Enum as SAEnum
 )
 from sqlalchemy.sql import func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -35,6 +35,10 @@ class Sale(Base):
     )
 
     description: Mapped[str] = mapped_column(Text, nullable=True)
+
+    # La genera el punto de venta, una por cobro: si la respuesta se pierde y
+    # se reintenta, POST /sales/checkout devuelve esta venta en vez de otra.
+    idempotency_key: Mapped[str] = mapped_column(String(64), nullable=True, unique=True)
 
     date_sale: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=False), server_default=func.now()

@@ -70,6 +70,12 @@ Sales follow a state machine: `draft → completed` (or `cancelled`, `refunded`,
    - `recalc_sale_totals` (`utils/sales_calculations.py`) — recomputes subtotal, tax, discount, total on the `Sale`
 4. Refunds set status to `refunded` or `partially_refunded` automatically via the refund system; these values cannot be set manually via `PUT /sales`.
 
+The POS does not use steps 1–3 for new sales: `POST /sales/checkout` takes branch, items and payments and does all of it in one transaction (all or nothing; the seller comes from the token). An optional `idempotency_key` (unique column on `sales`) makes a retried request return the sale already made. The step-by-step endpoints remain for editing drafts.
+
+### Stock history
+
+Every change to `product_batches.quantity` is recorded in `stock_movements` (delta, quantity after, user, route) by a session `after_flush` listener in `models/stock_movements/orm.py` — no per-route code. Bulk `query.update()` on batches and DB-level cascades bypass it.
+
 ### Product model
 
 Products support two sale modes controlled by `is_unit_sale`:

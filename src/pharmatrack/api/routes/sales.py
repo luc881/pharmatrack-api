@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException, APIRouter, Request
 from typing import Annotated, Optional
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 from ...db.session import get_db, db_dependency
 from starlette import status
@@ -10,8 +11,10 @@ from pydantic import BaseModel, EmailStr
 from ...models.sales.orm import Sale
 from ...models.users.orm import User
 from ...models.branches.orm import Branch
+from ...models.sale_payments.orm import SalePayment
 from ...models.sales.schemas import (
     SaleCreate,
+    SaleCheckout,
     SaleUpdate,
     SaleResponse,
     PaginatedResponse,
@@ -25,6 +28,8 @@ from pharmatrack.utils.pagination import paginate
 from pharmatrack.utils.sales_stock import allocate_batches_for_sale_detail
 from pharmatrack.utils.sales_calculations import recalc_sale_totals
 from ...utils.rate_limit import limiter, LIMIT_READ, LIMIT_WRITE
+from ...utils.security import user_dependency
+from .sale_details import build_sale_detail
 from ...utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -320,6 +325,17 @@ def complete_sale(sale_id: int, db: db_dependency):
     if sale.status != SaleStatusEnum.DRAFT:
         raise HTTPException(status_code=400, detail="Only draft sales can be completed")
 
+    _complete(db, sale)
+    db.commit()
+    db.refresh(sale)
+
+    logger.info("Sale completed id=%s total=%s", sale.id, sale.total)
+    return sale
+
+
+def _complete(db, sale: Sale) -> None:
+    """Valida, descuenta stock y deja la venta COMPLETED, sin commit. La usan
+    POST /{id}/complete y POST /checkout."""
     if not sale.sale_details:
         raise HTTPException(status_code=400, detail="Cannot complete an empty sale")
 
@@ -397,10 +413,66 @@ def complete_sale(sale_id: int, db: db_dependency):
             Animal.status != AnimalStatusEnum.DECEASED.value,
         ).update({Animal.status: AnimalStatusEnum.SOLD.value}, synchronize_session=False)
 
+
+# =========================================================
+# POST /checkout — la venta completa en una transacción
+# =========================================================
+@router.post(
+    "/checkout",
+    response_model=SaleResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Registrar y completar una venta en una sola petición",
+    dependencies=CAN_CREATE_SALES + CAN_UPDATE_SALES,
+)
+@limiter.limit(LIMIT_WRITE)
+def checkout(request: Request, body: SaleCheckout, db: db_dependency, token_data: user_dependency):
+    """Venta, líneas, pagos y descuento de stock: todo o nada. Si algo falla
+    no queda ni un borrador. Con `idempotency_key`, repetir la petición (doble
+    clic, respuesta perdida) devuelve la venta ya hecha en vez de cobrar otra."""
+    key = body.idempotency_key
+
+    def already_done():
+        return db.query(Sale).filter(Sale.idempotency_key == key).first() if key else None
+
+    existing = already_done()
+    if existing:
+        return existing
+
+    if not db.query(Branch).filter_by(id=body.branch_id).first():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Branch ID does not exist.")
+
+    sale = Sale(
+        user_id=token_data["id"],
+        branch_id=body.branch_id,
+        description=body.description,
+        status=SaleStatusEnum.DRAFT,
+        subtotal=0, tax=0, discount=0, total=0,
+        idempotency_key=key,
+    )
+    db.add(sale)
+    try:
+        db.flush()
+    except IntegrityError:
+        # Otra petición con la misma llave ganó la carrera: el índice único la
+        # hizo esperar a que la primera terminara. Se devuelve esa venta.
+        db.rollback()
+        existing = already_done()
+        if existing:
+            return existing
+        raise
+
+    for line in body.items:
+        build_sale_detail(db, sale, line)
+    for payment in body.payments:
+        db.add(SalePayment(sale_id=sale.id, **payment.model_dump()))
+    db.flush()
+    db.expire(sale, ["sale_details"])
+
+    _complete(db, sale)
     db.commit()
     db.refresh(sale)
 
-    logger.info("Sale completed id=%s total=%s", sale.id, sale.total)
+    logger.info("Sale checkout id=%s total=%s", sale.id, sale.total)
     return sale
 
 

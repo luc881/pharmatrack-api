@@ -42,6 +42,37 @@ from ...utils.sales_calculations import recalc_sale_totals
 from pharmatrack.utils.pagination import paginate
 
 
+def build_sale_detail(db, sale: Sale, line) -> SaleDetail:
+    """Arma la línea (precio, impuesto y total salen del producto) y la agrega
+    a la sesión, sin commit. `line` trae product_id, quantity, discount y
+    description. La usan POST /saledetails y POST /sales/checkout."""
+    product = db.query(Product).filter(Product.id == line.product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Associated product not found")
+
+    _check_max_discount(product, line.quantity, line.discount or 0)
+
+    price_unit = Decimal(product.price_retail)
+    line_subtotal = (price_unit * Decimal(line.quantity)) - Decimal(line.discount or 0)
+
+    tax = Decimal(0)
+    if product.tax_percentage:
+        tax = (line_subtotal * Decimal(product.tax_percentage)) / Decimal(100)
+
+    new_detail = SaleDetail(
+        sale_id=sale.id,
+        product_id=product.id,
+        quantity=line.quantity,
+        price_unit=price_unit,
+        discount=line.discount or 0,
+        tax=tax,
+        total=line_subtotal + tax,
+        description=line.description,
+    )
+    db.add(new_detail)
+    return new_detail
+
+
 router = APIRouter(
     prefix="/saledetails",
     tags=["Sale Details"]
@@ -85,35 +116,7 @@ def create(sale_detail: SaleDetailCreate, db: db_dependency):
             detail="Cannot add details to a non-draft sale",
         )
 
-    product = db.query(Product).filter(Product.id == sale_detail.product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Associated product not found")
-
-    _check_max_discount(product, sale_detail.quantity, sale_detail.discount or 0)
-
-    price_unit = Decimal(product.price_retail)
-    line_subtotal = (price_unit * Decimal(sale_detail.quantity)) - Decimal(
-        sale_detail.discount or 0
-    )
-
-    tax = Decimal(0)
-    if product.tax_percentage:
-        tax = (line_subtotal * Decimal(product.tax_percentage)) / Decimal(100)
-
-    total = line_subtotal + tax
-
-    new_detail = SaleDetail(
-        sale_id=sale.id,
-        product_id=product.id,
-        quantity=sale_detail.quantity,
-        price_unit=price_unit,
-        discount=sale_detail.discount or 0,
-        tax=tax,
-        total=total,
-        description=sale_detail.description,
-    )
-
-    db.add(new_detail)
+    new_detail = build_sale_detail(db, sale, sale_detail)
     db.flush()
     recalc_sale_totals(db, sale)
     db.commit()

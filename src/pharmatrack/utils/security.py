@@ -1,7 +1,8 @@
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from starlette import status
 from ..models.users.orm import User
 from ..models.roles.orm import Role
+from ..models.stock_movements.orm import actor
 from typing import Annotated
 from sqlalchemy.orm import Session, selectinload
 from ..db.session import get_db, db_dependency
@@ -65,7 +66,7 @@ def create_jwt_token(
     return jwt.encode(encode, settings.secret_key, algorithm=settings.algorithm)
 
 
-async def decode_jwt_token(token: oauth2_dependency):
+async def decode_jwt_token(token: oauth2_dependency, request: Request):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid authentication",
@@ -82,6 +83,8 @@ async def decode_jwt_token(token: oauth2_dependency):
         user_role: str = payload.get("role")
         if username is None or user_id is None:
             raise credentials_exception
+        # Quién y desde dónde, para el historial de stock (stock_movements)
+        actor.set((user_id, f"{request.method} {request.url.path}"[:120]))
         return {"username": username, "id": user_id, "user_role": user_role}
     except JWTError:
         raise credentials_exception
