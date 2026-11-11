@@ -29,6 +29,7 @@ from ...models.customers.schemas import (
     CartValidate,
     OrderResponse,
     CustomerUpdate,
+    CustomerBlock,
     CustomerSession,
     CustomerResponse,
     CheckoutSession,
@@ -448,6 +449,11 @@ def create_order(request: Request, body: OrderCreate, db: db_dependency,
     # pedido (doble clic, reintento) se forman; el segundo ya ve al primero
     # en _reject_order_flood y no se duplica.
     customer = _current_customer(db, token_data, lock=True)
+    if customer.blocked:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tu cuenta no puede hacer pedidos por ahora. Escríbenos por WhatsApp.",
+        )
     _reject_order_flood(db, customer.id, body.items)
 
     if body.delivery_method == "shipping" and not get_site_settings(db)["shipping_enabled"]:
@@ -681,6 +687,28 @@ def _process_webhook_payment(db, payment_id: str) -> None:
     _apply_payment(db, order, payment)
 
 
+@router.get("/orders/{order_id}/tracking", summary="Public: rastreo de mi pedido")
+@limiter.limit("20/minute")
+def track_my_order(request: Request, order_id: int, db: db_dependency,
+                   token_data: customer_dependency):
+    order = db.query(Order).filter(
+        Order.id == order_id, Order.customer_id == token_data["id"]
+    ).first()
+    if order is None or not order.tracking_number:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found.")
+    try:
+        tracking = envia.track(order.tracking_number)
+    except HTTPException:
+        # La paquetería no responde: el sitio enseña el enlace directo
+        tracking = {"status": None, "status_label": None, "estimated_delivery": None, "events": []}
+    return {
+        "carrier": order.shipping_carrier,
+        "tracking_number": order.tracking_number,
+        "tracking_url": order.tracking_url,
+        **tracking,
+    }
+
+
 @router.delete("/orders/{order_id}", response_model=OrderResponse,
                summary="Public: cancelar mi pedido pendiente")
 @limiter.limit("10/minute")
@@ -710,6 +738,8 @@ def cancel_my_order(request: Request, order_id: int, db: db_dependency,
 def _admin_payload(order: Order) -> dict:
     return {
         **OrderResponse.model_validate(order).model_dump(),
+        "customer_id": order.customer_id,
+        "customer_blocked": bool(order.customer and order.customer.blocked),
         "customer_email": order.customer.email if order.customer else None,
         "customer_name": order.customer.name if order.customer else None,
         "shipping_service": order.shipping_service,
@@ -773,6 +803,18 @@ def update_order_status(order_id: int, body: OrderStatusUpdate, db: db_dependenc
 # =========================================================
 # Guías de envío (Envia.com) — herramienta interna del dashboard
 # =========================================================
+@orders_router.put("/customers/{customer_id}/block", dependencies=CAN_UPDATE_ORDERS,
+                   summary="Bloquear o desbloquear a un cliente para hacer pedidos")
+def block_customer(customer_id: int, body: CustomerBlock, db: db_dependency):
+    customer = db.get(Customer, customer_id)
+    if customer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found.")
+    customer.blocked = body.blocked
+    db.commit()
+    logger.info("Cliente %s %s", customer.id, "bloqueado" if body.blocked else "desbloqueado")
+    return {"customer_id": customer.id, "blocked": customer.blocked}
+
+
 def _order_or_404(db, order_id: int, lock: bool = False) -> Order:
     order = db.get(Order, order_id, with_for_update=lock)
     if order is None:

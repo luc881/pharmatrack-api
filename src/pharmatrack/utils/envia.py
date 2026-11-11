@@ -221,3 +221,66 @@ def generate(destination: dict, package: dict, carrier: str, service: str) -> di
         "label_url": label.get("label"),
         "cost": label.get("totalPrice"),
     }
+
+
+# Estados de rastreo de Envia (su «Catalog of statuses») en palabras del cliente
+TRACKING_STATUS = {
+    "created": "Guía generada",
+    "pending": "Guía generada",
+    "information": "Guía generada",
+    "picked up": "Recolectado",
+    "out for pickup": "En camino a recolectarlo",
+    "shipped": "En camino",
+    "partially shipped": "En camino",
+    "out for delivery": "En reparto",
+    "pickup at office": "Listo para recoger en sucursal",
+    "delivered": "Entregado",
+    "partially delivered": "Entregado en parte",
+    "delivery attempt": "Intento de entrega",
+    "1 delivery attempt": "Intento de entrega",
+    "2 delivery attempts": "Segundo intento de entrega",
+    "3 delivery attempts": "Tercer intento de entrega",
+    "delayed": "Con retraso",
+    "address error": "Problema con la dirección",
+    "undeliverable": "No se pudo entregar",
+    "rejected": "Rechazado",
+    "returned": "Devuelto",
+    "delivered at origin": "Devuelto al remitente",
+    "redirected": "Redirigido",
+    "canceled": "Cancelado",
+    "lost": "Extraviado",
+    "damaged": "Dañado",
+}
+
+
+def track(tracking_number: str) -> dict:
+    """Estado y movimientos de una guía, en tiempo real desde la paquetería.
+
+    ponytail: la documentación de Envia no describe la respuesta; se leen los
+    campos conocidos y, si no vienen, se devuelve vacío y queda en el log para
+    ajustar. El sitio cae entonces al enlace de la paquetería.
+    """
+    if not settings.envia_api_token.strip():
+        return {"status": None, "status_label": None, "estimated_delivery": None, "events": []}
+    res = _call("POST", f"{_hosts()[0]}/ship/generaltrack/",
+                json={"trackingNumbers": [tracking_number]})
+    data = res.get("data")
+    info = data[0] if isinstance(data, list) and data and isinstance(data[0], dict) else {}
+    history = info.get("eventHistory")
+    if not info.get("status") and not history:
+        logger.warning("Envia.com: rastreo sin datos reconocibles de %s: %s", tracking_number, res)
+    raw_status = str(info.get("status") or "").strip()
+    return {
+        "status": raw_status or None,
+        "status_label": TRACKING_STATUS.get(raw_status.lower(), raw_status or None),
+        "estimated_delivery": info.get("estimatedDelivery") or None,
+        "events": [
+            {
+                "date": event.get("date"),
+                "description": event.get("description") or event.get("event"),
+                "location": event.get("location") or None,
+            }
+            for event in (history if isinstance(history, list) else [])
+            if isinstance(event, dict) and (event.get("description") or event.get("event"))
+        ],
+    }

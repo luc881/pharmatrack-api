@@ -12,7 +12,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import JSON, Text, String, Integer, Numeric, BigInteger, TIMESTAMP, ForeignKey
+from sqlalchemy import JSON, Text, String, Boolean, Integer, Numeric, BigInteger, TIMESTAMP, ForeignKey
 from sqlalchemy.orm import Mapped, relationship, mapped_column
 from sqlalchemy.sql import func
 
@@ -54,6 +54,10 @@ class Customer(Base):
 
     favorites: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     cart: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+
+    # Lo pone el dashboard a una cuenta que abusa: puede entrar y ver sus
+    # pedidos, pero no hacer nuevos
+    blocked: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
 
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

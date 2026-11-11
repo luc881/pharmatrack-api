@@ -153,3 +153,41 @@ def test_guia_rechazada_con_200_muestra_el_motivo(auth_headers, fake_envia, monk
     res = client.post("/api/v1/shipments", headers=auth_headers, json=body)
     assert res.status_code == 502
     assert "Saldo insuficiente" in res.json()["detail"]
+
+
+# ── Rastreo para el cliente ──────────────────────────────────────────────────
+
+def test_cliente_ve_el_rastreo_de_su_pedido(fake_google, auth_headers, fake_envia, monkeypatch):  # noqa: F811
+    _group, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], price=500.0)
+    customer = _sign_in()
+    order = client.post("/api/v1/shop/orders", headers=customer,
+                        json={"items": [{"key": f"s{sp['id']}-u", "qty": 1}]}).json()
+    url = f"/api/v1/shop/orders/{order['id']}/tracking"
+    # sin guía todavía no hay nada que rastrear
+    assert client.get(url, headers=customer).status_code == 404
+
+    client.post(f"/api/v1/orders/{order['id']}/shipping/label", headers=auth_headers,
+                json={**BODY, "carrier": "fedex", "service": "ground"})
+    real = envia._call
+
+    def _call(method, target, **kwargs):
+        if target.endswith("/ship/generaltrack/"):
+            assert kwargs["json"] == {"trackingNumbers": ["7520610403"]}
+            return {"data": [{"trackingNumber": "7520610403", "status": "Out for Delivery",
+                              "estimatedDelivery": "2026-11-14",
+                              "eventHistory": [{"event": "En ruta", "description": "Salió a reparto",
+                                                "location": "Puebla, PUE", "date": "2026-11-13 08:10:00"}]}]}
+        return real(method, target, **kwargs)
+
+    monkeypatch.setattr(envia, "_call", _call)
+    data = client.get(url, headers=customer).json()
+    assert data["status_label"] == "En reparto"
+    assert data["events"] == [{"date": "2026-11-13 08:10:00", "description": "Salió a reparto",
+                               "location": "Puebla, PUE"}]
+
+    # Envia caído o con otra forma de respuesta: el sitio recibe vacío, no un error
+    monkeypatch.setattr(envia, "_call", lambda *a, **k: {"meta": "otra cosa"})
+    empty = client.get(url, headers=customer)
+    assert empty.status_code == 200 and empty.json()["events"] == []
+    assert empty.json()["tracking_url"].startswith("https://")

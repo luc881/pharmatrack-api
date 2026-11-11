@@ -425,3 +425,40 @@ def test_checkout_hold_reserves_then_expires(fake_google, auth_headers, db_sessi
     db_session.commit()
     freed = client.post(f"/api/v1/shop/orders/{b['id']}/checkout", headers=headers)
     assert freed.status_code == 200, freed.text
+
+
+# =========================================================
+# Cuentas que abusan
+# =========================================================
+def test_blocked_customer_cannot_order_until_unblocked(fake_google, auth_headers):
+    _group, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], price=250.0)
+    headers = _sign_in()
+    body = {"items": [{"key": f"s{sp['id']}-u", "qty": 1}],
+            "delivery_method": "pickup", "contact_phone": "5512345678"}
+    first = client.post("/api/v1/shop/orders", headers=headers, json=body)
+    assert first.status_code == 201, first.text
+
+    listed = client.get("/api/v1/orders", headers=auth_headers).json()["data"][0]
+    assert listed["customer_blocked"] is False
+    url = f"/api/v1/orders/customers/{listed['customer_id']}/block"
+    assert client.put(url, headers=auth_headers, json={"blocked": True}).status_code == 200
+
+    body["items"][0]["qty"] = 2
+    res = client.post("/api/v1/shop/orders", headers=headers, json=body)
+    assert res.status_code == 403
+    # sigue pudiendo entrar y ver lo que ya pidió
+    assert len(client.get("/api/v1/shop/orders", headers=headers).json()) == 1
+    assert client.get("/api/v1/orders", headers=auth_headers).json()["data"][0]["customer_blocked"] is True
+
+    client.put(url, headers=auth_headers, json={"blocked": False})
+    assert client.post("/api/v1/shop/orders", headers=headers, json=body).status_code == 201
+
+
+def test_order_text_is_capped(fake_google, auth_headers):
+    _group, _sub, _genus, sp, _morph = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], price=250.0)
+    res = client.post("/api/v1/shop/orders", headers=_sign_in(), json={
+        "items": [{"key": f"s{sp['id']}-u", "qty": 1}],
+        "delivery_method": "shipping", "notes": "x" * 1001})
+    assert res.status_code == 422

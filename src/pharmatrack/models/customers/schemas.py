@@ -23,7 +23,7 @@ class AddressFields(BaseModel):
     zip_code: Optional[str] = Field(None, max_length=5)
     city: Optional[str] = Field(None, max_length=150)
     state: Optional[str] = Field(None, max_length=60)
-    address_notes: Optional[str] = None
+    address_notes: Optional[str] = Field(None, max_length=500)
 
     @field_validator("zip_code")
     @classmethod
@@ -91,13 +91,14 @@ class OrderItemIn(BaseModel):
 
 
 class OrderCreate(BaseModel):
-    items: List[OrderItemIn] = Field(..., min_length=1)
+    # Acotado todo lo que escribe el cliente: se guarda y se manda por correo
+    items: List[OrderItemIn] = Field(..., min_length=1, max_length=100)
     # pickup = entrega personal en CDMX (se puede pagar en linea de una vez)
     delivery_method: DeliveryMethod = "shipping"
     contact_name: Optional[str] = Field(None, max_length=255)
     contact_phone: Optional[str] = Field(None, max_length=50)
-    address: Optional[str] = None
-    notes: Optional[str] = None
+    address: Optional[str] = Field(None, max_length=600)
+    notes: Optional[str] = Field(None, max_length=1000)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -140,6 +141,8 @@ class OrderResponse(BaseModel):
 class OrderAdminResponse(OrderResponse):
     """Igual, más quién lo hizo — solo para el dashboard."""
 
+    customer_id: Optional[int] = None
+    customer_blocked: bool = False
     customer_email: Optional[str] = None
     customer_name: Optional[str] = None
     # Solo el dashboard: el PDF de la guía, lo que costó y la dirección por
@@ -148,6 +151,12 @@ class OrderAdminResponse(OrderResponse):
     label_url: Optional[str] = None
     shipping_cost: Optional[float] = None
     customer_address: Optional[dict] = None
+
+
+class CustomerBlock(BaseModel):
+    blocked: bool
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class ShippingDestination(BaseModel):
