@@ -6,7 +6,7 @@ from .routes import (
     purchase_details, product_batch, sale_batch_usage,
     product_master, product_brand, ingredients, stats, sensor_readings, dashboard, calendar,
     animal_taxonomy, animals, husbandry_logs, deliveries, public_animals, public_species, public_products, image_cache, articles, care_sheets,
-    settings, shop,
+    settings, shop, shipments,
 )
 
 api_v1_router = APIRouter(prefix="/api/v1")
@@ -52,3 +52,4 @@ api_v1_router.include_router(care_sheets.public_router)
 api_v1_router.include_router(public_products.router)
 api_v1_router.include_router(shop.router)
 api_v1_router.include_router(shop.orders_router)
+api_v1_router.include_router(shipments.router)

@@ -104,3 +104,37 @@ def test_estado_desconocido(order, auth_headers, fake_envia):
     body = {**BODY, "destination": {**BODY["destination"], "state": "Narnia"}}
     res = client.post(f"/api/v1/orders/{order['id']}/shipping/rates", headers=auth_headers, json=body)
     assert res.status_code == 422
+
+
+# ── Envíos sueltos (sin pedido del sitio) ────────────────────────────────────
+
+def test_envio_suelto_cotiza_y_genera_sin_pedido(auth_headers, fake_envia):
+    rates = client.post("/api/v1/shipments/rates", headers=auth_headers, json=BODY)
+    assert rates.status_code == 200, rates.text
+    assert rates.json()["rates"][0]["carrier"] == "fedex"
+
+    body = {**BODY, "carrier": "fedex", "service": "ground",
+            "idempotency_key": "clave-de-prueba-1", "note": "WhatsApp: Juan"}
+    res = client.post("/api/v1/shipments", headers=auth_headers, json=body)
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["tracking_number"] == "7520610403"
+    assert data["cost"] == 120.0
+    assert "04530" in data["address"]
+
+    # segundo clic con la misma clave: devuelve el mismo envío y no compra otra guía
+    again = client.post("/api/v1/shipments", headers=auth_headers, json=body)
+    assert again.status_code == 200 and again.json()["id"] == data["id"]
+    assert sum(1 for url, _ in fake_envia if url.endswith("/ship/generate/")) == 1
+
+    listed = client.get("/api/v1/shipments", headers=auth_headers).json()
+    assert [s["note"] for s in listed["data"]] == ["WhatsApp: Juan"]
+
+
+def test_envio_suelto_que_envia_rechaza_no_deja_registro(auth_headers, fake_envia, monkeypatch):
+    def boom(*args, **kwargs):
+        raise HTTPException(status_code=502, detail="Envia.com rechazó la solicitud")
+    monkeypatch.setattr(envia, "generate", boom)
+    body = {**BODY, "carrier": "fedex", "service": "ground", "idempotency_key": "clave-de-prueba-2"}
+    assert client.post("/api/v1/shipments", headers=auth_headers, json=body).status_code == 502
+    assert client.get("/api/v1/shipments", headers=auth_headers).json()["data"] == []

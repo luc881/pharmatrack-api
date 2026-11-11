@@ -48,6 +48,7 @@ from .purchase_details.orm import PurchaseDetail
 from .product_batch.orm import ProductBatch
 from .sale_batch_usage.orm import SaleBatchUsage
 from .stock_movements.orm import StockMovement
+from .shipments.orm import Shipment
 from .product_master.orm import ProductMaster
 from .product_brand.orm import ProductBrand
 from .ingredients.orm import Ingredient
