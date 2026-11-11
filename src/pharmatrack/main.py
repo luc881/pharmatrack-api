@@ -127,7 +127,8 @@ def root():
     return {"message": "PharmaTrack API", "version": "1.0.0", "status": "ok"}
 
 
-@app.get("/healthcheck", tags=["Health Check"])
+# HEAD además de GET: los monitores de disponibilidad (UptimeRobot) preguntan con HEAD
+@app.api_route("/healthcheck", methods=["GET", "HEAD"], tags=["Health Check"])
 def health_check():
     # Banderas de configuracion (nunca el valor de las credenciales): sirven
     # para verificar de un vistazo que un deploy quedo bien conectado.

@@ -20,3 +20,7 @@ def test_health_check_reports_integrations_without_leaking_secrets():
     assert set(integrations) == {"google_sign_in", "payments", "webhook_signature",
                                  "email", "order_notify", "shipping_labels", "error_alerts"}
     assert all(isinstance(value, bool) for value in integrations.values())
+
+def test_health_check_accepts_head():
+    # UptimeRobot pregunta con HEAD; un 405 lo marcaba como caído
+    assert client.head("/healthcheck").status_code == 200
