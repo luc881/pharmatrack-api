@@ -1,5 +1,5 @@
 from typing import Optional, List, TYPE_CHECKING
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from decimal import Decimal
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
@@ -73,16 +73,15 @@ class SaleCheckout(BaseModel):
 
     @field_validator("sold_at")
     @classmethod
-    def sold_at_utc_not_future(cls, v):
+    def sold_at_utc_capped_at_now(cls, v):
         if v is None:
             return v
         # La base guarda UTC sin zona; sin zona se asume que ya viene en UTC
         if v.tzinfo is not None:
             v = v.astimezone(timezone.utc).replace(tzinfo=None)
-        # Margen por relojes desfasados entre el dispositivo y el servidor
-        if v > datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=5):
-            raise ValueError("sold_at no puede estar en el futuro")
-        return v
+        # Reloj del dispositivo adelantado: se recorta a la hora del servidor.
+        # Rechazarla dejaría sin registrar una venta que ya se cobró.
+        return min(v, datetime.now(timezone.utc).replace(tzinfo=None))
 
 
 # =========================================================

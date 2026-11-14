@@ -87,12 +87,17 @@ def test_checkout_convierte_sold_at_a_utc(auth_headers, test_branch, test_produc
     assert res.json()["date_sale"].startswith("2026-11-13T18:30:00")
 
 
-def test_checkout_rechaza_sold_at_futuro(auth_headers, test_branch, test_product, test_product_batch):
+def test_checkout_con_reloj_adelantado_usa_la_hora_del_servidor(auth_headers, test_branch, test_product, test_product_batch):
+    """Un equipo con el reloj adelantado no puede dejar sin registrar una venta
+    ya cobrada: la hora se recorta a la del servidor."""
     from datetime import datetime, timedelta, timezone
 
-    future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    future = (datetime.now(timezone.utc) + timedelta(hours=3)).isoformat()
     res = client.post(URL, json=_body(test_branch, test_product, sold_at=future), headers=auth_headers)
-    assert res.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert res.status_code == status.HTTP_201_CREATED, res.text
+    sold = datetime.fromisoformat(res.json()["date_sale"])
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    assert abs(now - sold) < timedelta(minutes=5)
 
 
 def test_checkout_sin_sold_at_usa_la_hora_actual(auth_headers, test_branch, test_product, test_product_batch):
