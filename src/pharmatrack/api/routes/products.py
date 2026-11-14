@@ -16,9 +16,11 @@ from ...models.products.schemas import (
     PaginationParams,
     PaginatedResponse,
     BulkDeleteRequest,
+    QuickSaleItem,
+    QuickSaleComponent,
     _product_slug,
 )
-from ...utils.permissions import CAN_READ_PRODUCTS, CAN_CREATE_PRODUCTS, CAN_UPDATE_PRODUCTS, CAN_DELETE_PRODUCTS
+from ...utils.permissions import CAN_CREATE_SALES, CAN_READ_PRODUCTS, CAN_CREATE_PRODUCTS, CAN_UPDATE_PRODUCTS, CAN_DELETE_PRODUCTS
 from pharmatrack.models.product_has_ingredients.orm import ProductHasIngredient
 from pharmatrack.models.ingredients.orm import Ingredient
 from pharmatrack.utils.validators import (
@@ -114,6 +116,99 @@ def read_all(
     query = query.order_by(order_clause, Product.id.desc())
 
     return paginate(query, pagination)
+
+
+# =========================================================
+# GET /quick-sale — catálogo de la venta rápida
+# =========================================================
+# Va antes de /{product_id}: si no, "quick-sale" se leería como un id.
+@router.get("/quick-sale",
+            response_model=list[QuickSaleItem],
+            summary="Productos marcados para venta rápida, con stock y bloqueos",
+            status_code=status.HTTP_200_OK,
+            dependencies=CAN_CREATE_SALES)
+@limiter.limit(LIMIT_READ)
+def read_quick_sale(request: Request, db: db_dependency):
+    """Una sola petición con todo lo que la pantalla necesita para vender,
+    también sin internet: el dispositivo la guarda antes de salir."""
+    from sqlalchemy import func
+    from ...models.animals.orm import Animal
+    from ...models.animals.schemas import AnimalResponse
+    from ...models.product_batch.orm import ProductBatch
+    from ...models.product_categories.orm import ProductCategory
+    from pharmatrack.types.animals import AnimalStatusEnum
+
+    rows = (
+        db.query(Product, ProductCategory.name)
+        .outerjoin(ProductCategory, ProductCategory.id == Product.product_category_id)
+        .filter(
+            Product.quick_sale.is_(True),
+            Product.is_active.is_(True),
+            Product.deleted_at.is_(None),
+        )
+        .order_by(ProductCategory.name, Product.title, Product.id)
+        .all()
+    )
+    ids = [p.id for p, _ in rows]
+    if not ids:
+        return []
+
+    bundle_items: dict[int, list[BundleItem]] = {}
+    for item in db.query(BundleItem).filter(BundleItem.bundle_product_id.in_(ids)).all():
+        bundle_items.setdefault(item.bundle_product_id, []).append(item)
+    component_ids = {i.component_product_id for items in bundle_items.values() for i in items}
+    all_ids = set(ids) | component_ids
+
+    # Una consulta para el stock de todo (productos y componentes)
+    stock = dict(
+        db.query(ProductBatch.product_id, func.coalesce(func.sum(ProductBatch.quantity), 0))
+        .filter(ProductBatch.product_id.in_(all_ids))
+        .group_by(ProductBatch.product_id)
+        .all()
+    )
+    tracks = dict(db.query(Product.id, Product.tracks_batches).filter(Product.id.in_(all_ids)).all())
+    animals = {a.product_id: a for a in db.query(Animal).filter(Animal.product_id.in_(all_ids)).all()}
+
+    def stock_of(pid: int):
+        return float(stock.get(pid, 0)) if tracks.get(pid) else None
+
+    def blocked(pids: list[int]):
+        # Mismo orden que _complete en sales.py
+        found = [animals[pid] for pid in pids if pid in animals]
+        if any(a.status == AnimalStatusEnum.RESERVED.value for a in found):
+            return "reserved"
+        if any(a.status == AnimalStatusEnum.DECEASED.value for a in found):
+            return "deceased"
+        if any(a.purpose != "sale" for a in found):
+            return "not_for_sale"
+        return None
+
+    result = []
+    for product, category in rows:
+        components = bundle_items.get(product.id, [])
+        animal = animals.get(product.id)
+        result.append(QuickSaleItem(
+            id=product.id,
+            title=product.title,
+            image=product.image,
+            category=category,
+            price_retail=product.price_retail,
+            tax_percentage=product.tax_percentage,
+            max_discount=product.max_discount,
+            stock=None if components else stock_of(product.id),
+            is_bundle=bool(components),
+            components=[
+                QuickSaleComponent(
+                    product_id=c.component_product_id,
+                    quantity=c.quantity,
+                    stock=stock_of(c.component_product_id),
+                )
+                for c in components
+            ],
+            blocked_reason=blocked([c.component_product_id for c in components] or [product.id]),
+            animal=AnimalResponse.model_validate(animal).model_dump(mode="json") if animal else None,
+        ))
+    return result
 
 
 # =========================================================

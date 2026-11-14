@@ -1,5 +1,6 @@
-from typing import Optional, List, TYPE_CHECKING
+from typing import Any, Literal, Optional, List, TYPE_CHECKING
 from datetime import datetime
+from decimal import Decimal
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
 from ..product_has_ingredients.schemas import ProductIngredientCreate, ProductIngredientAmount
@@ -352,3 +353,30 @@ class BundleItemOut(BaseModel):
     component: Optional[BundleComponentInfo] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# =========================================================
+# ⚡ Venta rápida (GET /products/quick-sale)
+# =========================================================
+class QuickSaleComponent(BaseModel):
+    product_id: int
+    quantity: int
+    stock: Optional[float] = None  # None = componente sin control de lotes
+
+
+class QuickSaleItem(BaseModel):
+    """Todo lo que la pantalla de venta rápida necesita de un producto para
+    vender sin internet: precio e impuesto para calcular el total igual que
+    el servidor, existencias y, si es un animal, por qué no se puede vender."""
+    id: int
+    title: str
+    image: Optional[str] = None
+    category: Optional[str] = None
+    price_retail: Decimal
+    tax_percentage: Optional[float] = None
+    max_discount: Optional[float] = None
+    stock: Optional[float] = None  # None = sin control de lotes, o paquete
+    is_bundle: bool = False
+    components: List[QuickSaleComponent] = Field(default_factory=list)
+    blocked_reason: Optional[Literal["reserved", "deceased", "not_for_sale"]] = None
+    animal: Optional[Any] = None  # AnimalResponse del gemelo (nombre científico del ticket)

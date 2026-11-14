@@ -22,3 +22,75 @@ def test_list_filters_by_quick_sale(auth_headers, test_product_category):
 
     res = client.get("/api/v1/products?quick_sale=true", headers=auth_headers)
     assert [p["id"] for p in res.json()["data"]] == [a["id"]]
+
+
+def test_quick_sale_catalog_stock_and_bundle(auth_headers, test_product_category, db_session):
+    cueva = _make_product(auth_headers, test_product_category.id, sku="C1", quick_sale=True,
+                          max_discount=10)
+    # El impuesto no se captura por el API (columna heredada); se fija directo
+    from pharmatrack.models.products.orm import Product
+    db_session.query(Product).filter_by(id=cueva["id"]).update({"tax_percentage": 16})
+    db_session.commit()
+    _add_batch(db_session, cueva["id"], 5)
+    _add_batch(db_session, cueva["id"], 3)
+    pack = _make_product(auth_headers, test_product_category.id, sku="P1", title="3 cuevas",
+                         quick_sale=True, tracks_batches=False, price_retail=200)
+    res = client.put(f"/api/v1/products/{pack['id']}/bundle-items",
+                     json=[{"component_product_id": cueva["id"], "quantity": 3}],
+                     headers=auth_headers)
+    assert res.status_code == status.HTTP_200_OK, res.text
+    _make_product(auth_headers, test_product_category.id, sku="X1", title="No marcado")
+
+    res = client.get(CATALOG, headers=auth_headers)
+    assert res.status_code == status.HTTP_200_OK, res.text
+    items = {i["id"]: i for i in res.json()}
+
+    assert set(items) == {cueva["id"], pack["id"]}
+    c = items[cueva["id"]]
+    assert c["stock"] == 8
+    assert c["max_discount"] == 10
+    assert c["tax_percentage"] == 16
+    assert float(c["price_retail"]) == 80
+    assert c["category"] == test_product_category.name
+    assert c["is_bundle"] is False and c["components"] == []
+    assert c["blocked_reason"] is None and c["animal"] is None
+
+    p = items[pack["id"]]
+    assert p["is_bundle"] is True and p["stock"] is None
+    assert p["components"] == [{"product_id": cueva["id"], "quantity": 3, "stock": 8}]
+
+
+def test_quick_sale_catalog_skips_inactive(auth_headers, test_product_category):
+    p = _make_product(auth_headers, test_product_category.id, sku="I1", quick_sale=True)
+    client.patch(f"/api/v1/products/{p['id']}/toggle-active", headers=auth_headers)
+    assert client.get(CATALOG, headers=auth_headers).json() == []
+
+
+def test_quick_sale_catalog_untracked_product_has_no_stock(auth_headers, test_product_category):
+    p = _make_product(auth_headers, test_product_category.id, sku="G1", quick_sale=True,
+                      tracks_batches=False)
+    item = client.get(CATALOG, headers=auth_headers).json()[0]
+    assert item["id"] == p["id"] and item["stock"] is None and item["is_bundle"] is False
+
+
+def test_quick_sale_catalog_blocks_reserved_animal(auth_headers):
+    from .test_animals import _make_taxonomy, _create_animal, animals_put
+
+    *_, sp, _morph = _make_taxonomy(auth_headers)
+    animal = _create_animal(auth_headers, sp["id"])
+    client.patch(f"/api/v1/products/{animal['product_id']}/toggle-quick-sale", headers=auth_headers)
+
+    item = client.get(CATALOG, headers=auth_headers).json()[0]
+    assert item["blocked_reason"] is None
+    assert item["animal"]["id"] == animal["id"]
+    assert item["animal"]["species"]["name"] == sp["name"]
+    assert item["stock"] == 1
+
+    res = animals_put(str(animal["id"]), json={"status": "reserved"}, headers=auth_headers)
+    assert res.status_code == status.HTTP_200_OK, res.text
+    item = client.get(CATALOG, headers=auth_headers).json()[0]
+    assert item["blocked_reason"] == "reserved"
+
+
+def test_quick_sale_catalog_requires_login():
+    assert client.get(CATALOG).status_code in (401, 403)
