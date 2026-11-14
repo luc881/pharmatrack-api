@@ -107,3 +107,47 @@ def test_checkout_sin_sold_at_usa_la_hora_actual(auth_headers, test_branch, test
     sold = datetime.fromisoformat(res.json()["date_sale"])
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     assert abs(now - sold) < timedelta(minutes=5)
+
+
+# =========================================================
+# Lo que la venta rápida da por hecho al calcular su total
+# =========================================================
+def test_checkout_redondea_el_impuesto_por_linea(auth_headers, test_branch,
+                                                     test_product_category, db_session):
+    """Dos líneas de $10.03 al 16 %: 1.60 + 1.60 = 3.20 (no 3.2096 → 3.21).
+    quick-sale-math.js del dashboard redondea igual."""
+    from pharmatrack.models.products.orm import Product
+    from .test_bundles import _make_product, _add_batch
+
+    ids = []
+    for sku in ("T1", "T2"):
+        p = _make_product(auth_headers, test_product_category.id, sku=sku, price_retail=10.03)
+        _add_batch(db_session, p["id"], 5)
+        ids.append(p["id"])
+    db_session.query(Product).filter(Product.id.in_(ids)).update(
+        {"tax_percentage": 16}, synchronize_session=False)
+    db_session.commit()
+
+    res = client.post(URL, headers=auth_headers, json={
+        "branch_id": test_branch.id,
+        "items": [{"product_id": i, "quantity": "1"} for i in ids],
+        "payments": [{"method_payment": "cash", "amount": "23.26"}],
+    })
+    assert res.status_code == status.HTTP_201_CREATED, res.text
+    data = res.json()
+    assert float(data["subtotal"]) == 20.06
+    assert float(data["tax"]) == 3.20
+    assert float(data["total"]) == 23.26
+
+
+def test_checkout_de_cero_pesos_va_sin_pagos(auth_headers, test_branch, test_product,
+                                             test_product_batch, db_session):
+    """Descuento del 100 %: no hay pago que mandar (un pago debe ser > 0)."""
+    price = float(test_product.price_retail)
+    res = client.post(URL, headers=auth_headers, json={
+        "branch_id": test_branch.id,
+        "items": [{"product_id": test_product.id, "quantity": "1", "discount": price}],
+        "payments": [],
+    })
+    assert res.status_code == status.HTTP_201_CREATED, res.text
+    assert float(res.json()["total"]) == 0

@@ -94,3 +94,38 @@ def test_quick_sale_catalog_blocks_reserved_animal(auth_headers):
 
 def test_quick_sale_catalog_requires_login():
     assert client.get(CATALOG).status_code in (401, 403)
+
+
+def test_quick_sale_catalog_no_consulta_por_animal(auth_headers, db_session):
+    """El número de consultas no crece con los animales marcados."""
+    from sqlalchemy import event
+    from .utils import engine
+    from .test_animals import _make_taxonomy, _create_animal
+
+    *_, sp, morph = _make_taxonomy(auth_headers)
+
+    def add_animal():
+        animal = _create_animal(auth_headers, sp["id"], morph_ids=[morph["id"]])
+        client.patch(f"/api/v1/products/{animal['product_id']}/toggle-quick-sale",
+                     headers=auth_headers)
+
+    def queries():
+        db_session.expunge_all()
+        seen = []
+        listener = lambda *args: seen.append(args[2])  # noqa: E731
+        event.listen(engine, "before_cursor_execute", listener)
+        try:
+            res = client.get(CATALOG, headers=auth_headers)
+        finally:
+            event.remove(engine, "before_cursor_execute", listener)
+        assert res.status_code == status.HTTP_200_OK, res.text
+        return len(seen), len(res.json())
+
+    add_animal()
+    one, count = queries()
+    assert count == 1
+    add_animal()
+    add_animal()
+    three, count = queries()
+    assert count == 3
+    assert three == one

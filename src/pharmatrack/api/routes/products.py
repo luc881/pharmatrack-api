@@ -167,7 +167,10 @@ def read_quick_sale(request: Request, db: db_dependency):
         .all()
     )
     tracks = dict(db.query(Product.id, Product.tracks_batches).filter(Product.id.in_(all_ids)).all())
-    animals = {a.product_id: a for a in db.query(Animal).filter(Animal.product_id.in_(all_ids)).all()}
+    # Con sus relaciones ya cargadas: sin esto cada animal costaba 3 consultas
+    from .animals import _query_with_relations
+    animals = {a.product_id: a
+               for a in _query_with_relations(db).filter(Animal.product_id.in_(all_ids)).all()}
 
     def stock_of(pid: int):
         return float(stock.get(pid, 0)) if tracks.get(pid) else None
