@@ -69,3 +69,36 @@ def test_checkout_sin_lineas(auth_headers, test_branch):
 def test_checkout_sin_auth(test_branch, test_product):
     response = client.post(URL, json=_body(test_branch, test_product))
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+# =========================================================
+# sold_at: la hora real de una venta que se sube después
+# =========================================================
+def test_checkout_guarda_sold_at(auth_headers, test_branch, test_product, test_product_batch):
+    body = _body(test_branch, test_product, sold_at="2026-11-13T18:30:00Z")
+    res = client.post(URL, json=body, headers=auth_headers)
+    assert res.status_code == status.HTTP_201_CREATED, res.text
+    assert res.json()["date_sale"].startswith("2026-11-13T18:30:00")
+
+
+def test_checkout_convierte_sold_at_a_utc(auth_headers, test_branch, test_product, test_product_batch):
+    body = _body(test_branch, test_product, sold_at="2026-11-13T12:30:00-06:00")
+    res = client.post(URL, json=body, headers=auth_headers)
+    assert res.json()["date_sale"].startswith("2026-11-13T18:30:00")
+
+
+def test_checkout_rechaza_sold_at_futuro(auth_headers, test_branch, test_product, test_product_batch):
+    from datetime import datetime, timedelta, timezone
+
+    future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    res = client.post(URL, json=_body(test_branch, test_product, sold_at=future), headers=auth_headers)
+    assert res.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_checkout_sin_sold_at_usa_la_hora_actual(auth_headers, test_branch, test_product, test_product_batch):
+    from datetime import datetime, timedelta, timezone
+
+    res = client.post(URL, json=_body(test_branch, test_product), headers=auth_headers)
+    sold = datetime.fromisoformat(res.json()["date_sale"])
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    assert abs(now - sold) < timedelta(minutes=5)

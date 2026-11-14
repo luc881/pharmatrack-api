@@ -1,7 +1,7 @@
 from typing import Optional, List, TYPE_CHECKING
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from pharmatrack.models.products.schemas import PaginatedResponse, PaginationParams
 from pharmatrack.models.sale_payments.schemas import SalePaymentBase
@@ -66,8 +66,23 @@ class SaleCheckout(BaseModel):
     items: List[SaleCheckoutItem] = Field(..., min_length=1)
     payments: List[SalePaymentBase] = Field(default_factory=list)
     idempotency_key: Optional[str] = Field(None, min_length=8, max_length=64)
+    # Hora real de la venta cuando se sube después (venta rápida sin internet)
+    sold_at: Optional[datetime] = None
 
     model_config = ConfigDict(extra="forbid")
+
+    @field_validator("sold_at")
+    @classmethod
+    def sold_at_utc_not_future(cls, v):
+        if v is None:
+            return v
+        # La base guarda UTC sin zona; sin zona se asume que ya viene en UTC
+        if v.tzinfo is not None:
+            v = v.astimezone(timezone.utc).replace(tzinfo=None)
+        # Margen por relojes desfasados entre el dispositivo y el servidor
+        if v > datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=5):
+            raise ValueError("sold_at no puede estar en el futuro")
+        return v
 
 
 # =========================================================

@@ -449,6 +449,8 @@ def checkout(request: Request, body: SaleCheckout, db: db_dependency, token_data
         subtotal=0, tax=0, discount=0, total=0,
         idempotency_key=key,
     )
+    if body.sold_at:
+        sale.date_sale = body.sold_at
     db.add(sale)
     try:
         db.flush()
