@@ -3,7 +3,7 @@ from typing import Annotated, Optional
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime
+from datetime import date, datetime
 from ...db.session import get_db, db_dependency
 from starlette import status
 from pydantic import BaseModel, EmailStr
@@ -17,6 +17,8 @@ from ...models.sales.schemas import (
     SaleCheckout,
     SaleUpdate,
     SaleResponse,
+    OwnerCut,
+    OwnerCutProduct,
     PaginatedResponse,
     PaginationParams,
 )
@@ -246,6 +248,57 @@ def email_ticket(sale_id: int, body: EmailTicketRequest, db: db_dependency):
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
                             detail="No se pudo enviar el correo.")
     return {"sent": True}
+
+
+# =========================================================
+# GET /report/by-owner — cuánto vendió cada dueño
+# =========================================================
+# Va antes de /{sale_id}: si no, "report" se leería como un id.
+@router.get(
+    "/report/by-owner",
+    response_model=list[OwnerCut],
+    summary="Corte por dueño: productos propios y de cada proveedor en consigna",
+    status_code=status.HTTP_200_OK,
+    dependencies=CAN_READ_SALES,
+)
+@limiter.limit(LIMIT_READ)
+def report_by_owner(request: Request, db: db_dependency, date_from: date, date_to: date,
+                    branch_id: Optional[int] = None):
+    """Se reparte por línea (su total ya trae descuento e impuesto), así que
+    un ticket mezclado se separa solo. No reparte por forma de pago."""
+    from datetime import time, timedelta
+    from ...models.products.orm import Product
+    from ...models.sale_details.orm import SaleDetail
+    from ...models.suppliers.orm import Supplier
+
+    # Los días son los de México (UTC-6, sin horario de verano); date_sale va en UTC
+    start = datetime.combine(date_from, time.min) + timedelta(hours=6)
+    end = datetime.combine(date_to, time.min) + timedelta(days=1, hours=6)
+
+    query = (
+        db.query(Product.consignor_id, Supplier.name, Product.id, Product.title,
+                 func.sum(SaleDetail.quantity), func.sum(SaleDetail.total))
+        .join(SaleDetail, SaleDetail.product_id == Product.id)
+        .join(Sale, Sale.id == SaleDetail.sale_id)
+        .outerjoin(Supplier, Supplier.id == Product.consignor_id)
+        .filter(Sale.status == SaleStatusEnum.COMPLETED,
+                Sale.date_sale >= start, Sale.date_sale < end)
+        .group_by(Product.consignor_id, Supplier.name, Product.id, Product.title)
+        .order_by(Product.title, Product.id)
+    )
+    if branch_id is not None:
+        query = query.filter(Sale.branch_id == branch_id)
+
+    owners: dict = {}
+    for consignor_id, name, product_id, title, units, amount in query.all():
+        cut = owners.setdefault(consignor_id, OwnerCut(
+            consignor_id=consignor_id, owner=name or "Propio", units=0, amount=0, products=[]))
+        cut.units += float(units)
+        cut.amount += amount
+        cut.products.append(OwnerCutProduct(product_id=product_id, title=title,
+                                            units=float(units), amount=amount))
+    # Propio primero; después por nombre
+    return sorted(owners.values(), key=lambda c: (c.consignor_id is not None, c.owner.lower()))
 
 
 # =========================================================

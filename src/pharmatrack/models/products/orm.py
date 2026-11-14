@@ -63,6 +63,16 @@ class Product(Base):
     show_online: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")
     # Botón en la pantalla de venta rápida (convenciones)
     quick_sale: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")
+    # Creado al vuelo desde la venta rápida; pendiente de revisar. client_key
+    # es la llave que le puso el equipo (repetir el alta no lo duplica)
+    provisional: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")
+    client_key: Mapped[str] = mapped_column(String(64), nullable=True, unique=True)
+    # Se prepara al momento: la venta rápida imprime un talón de orden
+    needs_prep: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")
+    # De quién es: proveedor en consigna; null = propio
+    consignor_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("suppliers.id", ondelete="SET NULL"), nullable=True
+    )
 
     # --- Unidades / fraccionamiento ---
     is_unit_sale: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")

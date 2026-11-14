@@ -85,6 +85,24 @@ class SaleCheckout(BaseModel):
 
 
 # =========================================================
+# 🔹 Corte por dueño (productos propios y en consigna)
+# =========================================================
+class OwnerCutProduct(BaseModel):
+    product_id: int
+    title: str
+    units: float
+    amount: Decimal
+
+
+class OwnerCut(BaseModel):
+    consignor_id: Optional[int] = None  # None = propio
+    owner: str
+    units: float
+    amount: Decimal
+    products: List[OwnerCutProduct]
+
+
+# =========================================================
 # 🟡 Update
 # =========================================================
 class SaleUpdate(BaseModel):

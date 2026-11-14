@@ -18,6 +18,8 @@ from ...models.products.schemas import (
     BulkDeleteRequest,
     QuickSaleItem,
     QuickSaleComponent,
+    ProvisionalCreate,
+    ProvisionalReview,
     _product_slug,
 )
 from ...utils.permissions import CAN_CREATE_SALES, CAN_READ_PRODUCTS, CAN_CREATE_PRODUCTS, CAN_UPDATE_PRODUCTS, CAN_DELETE_PRODUCTS
@@ -74,6 +76,7 @@ def read_all(
     is_active: bool | None = None,
     show_online: bool | None = None,
     quick_sale: bool | None = None,
+    provisional: bool | None = None,
     ordering: str | None = None,
     exclude_animal_twins: bool = False,
     only_bundles: bool = False,
@@ -107,6 +110,8 @@ def read_all(
         query = query.filter(Product.show_online == show_online)
     if quick_sale is not None:
         query = query.filter(Product.quick_sale == quick_sale)
+    if provisional is not None:
+        query = query.filter(Product.provisional == provisional)
 
     order_clause = _ORDERING_MAP.get(ordering) if ordering else None
     if order_clause is None:
@@ -131,6 +136,19 @@ def read_all(
 def read_quick_sale(request: Request, db: db_dependency):
     """Una sola petición con todo lo que la pantalla necesita para vender,
     también sin internet: el dispositivo la guarda antes de salir."""
+    return _quick_sale_items(db)
+
+
+def _check_consignor(db, consignor_id) -> None:
+    from ...models.suppliers.orm import Supplier
+    if consignor_id is not None and not db.query(Supplier.id).filter_by(id=consignor_id).first():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="El proveedor (dueño) no existe.")
+
+
+def _quick_sale_items(db, only_id: int | None = None) -> list[QuickSaleItem]:
+    """El catálogo de la venta rápida; con `only_id`, ese producto tal cual
+    (aunque esté desactivado o desmarcado)."""
     from sqlalchemy import func
     from ...models.animals.orm import Animal
     from ...models.animals.schemas import AnimalResponse
@@ -142,9 +160,8 @@ def read_quick_sale(request: Request, db: db_dependency):
         db.query(Product, ProductCategory.name)
         .outerjoin(ProductCategory, ProductCategory.id == Product.product_category_id)
         .filter(
-            Product.quick_sale.is_(True),
-            Product.is_active.is_(True),
-            Product.deleted_at.is_(None),
+            Product.id == only_id if only_id is not None else
+            (Product.quick_sale.is_(True) & Product.is_active.is_(True) & Product.deleted_at.is_(None))
         )
         .order_by(ProductCategory.name, Product.title, Product.id)
         .all()
@@ -209,9 +226,109 @@ def read_quick_sale(request: Request, db: db_dependency):
                 for c in components
             ],
             blocked_reason=blocked([c.component_product_id for c in components] or [product.id]),
+            needs_prep=product.needs_prep,
+            provisional=product.provisional,
+            client_key=product.client_key,
+            consignor_id=product.consignor_id,
             animal=AnimalResponse.model_validate(animal).model_dump(mode="json") if animal else None,
         ))
     return result
+
+
+# =========================================================
+# /provisional — productos dados de alta al vuelo en la venta rápida
+# =========================================================
+PROVISIONAL_CATEGORY = "De último momento"
+
+
+@router.post("/provisional",
+             response_model=QuickSaleItem,
+             summary="Alta de un producto provisional desde la venta rápida",
+             status_code=status.HTTP_201_CREATED,
+             dependencies=CAN_CREATE_SALES)
+@limiter.limit(LIMIT_WRITE)
+def create_provisional(request: Request, body: ProvisionalCreate, db: db_dependency):
+    """El equipo lo creó sin internet y lo sube antes que sus ventas. Con la
+    misma `client_key`, repetir devuelve el que ya existe."""
+    from sqlalchemy.exc import IntegrityError
+    from ...models.product_categories.orm import ProductCategory
+    from pharmatrack.utils.slugify import slugify
+
+    def existing():
+        return db.query(Product).filter(Product.client_key == body.client_key).first()
+
+    product = existing()
+    if not product:
+        _check_consignor(db, body.consignor_id)
+        category = db.query(ProductCategory).filter_by(slug=slugify(PROVISIONAL_CATEGORY)).first()
+        if not category:
+            category = ProductCategory(name=PROVISIONAL_CATEGORY, slug=slugify(PROVISIONAL_CATEGORY))
+            db.add(category)
+            db.flush()
+        product = Product(
+            title=body.title,
+            # la llave va en el slug: dos equipos pueden usar el mismo nombre
+            slug=_product_slug(body.title, body.client_key),
+            price_retail=body.price_retail,
+            price_cost=0,
+            unit_name="pieza",
+            product_category_id=category.id,
+            tracks_batches=False,
+            quick_sale=True,
+            provisional=True,
+            client_key=body.client_key,
+            needs_prep=body.needs_prep,
+            consignor_id=body.consignor_id,
+        )
+        db.add(product)
+        try:
+            db.commit()
+        except IntegrityError:
+            # otra petición con la misma llave ganó la carrera
+            db.rollback()
+            product = existing()
+            if not product:
+                raise
+        else:
+            logger.info("Provisional product created id=%s title=%s", product.id, product.title)
+    return _quick_sale_items(db, only_id=product.id)[0]
+
+
+@router.get("/provisional",
+            response_model=list[ProvisionalReview],
+            summary="Productos provisionales por revisar, con lo que vendieron",
+            status_code=status.HTTP_200_OK,
+            dependencies=CAN_READ_PRODUCTS)
+@limiter.limit(LIMIT_READ)
+def read_provisional(request: Request, db: db_dependency):
+    from sqlalchemy import func
+    from ...models.sales.orm import Sale
+    from ...models.sale_details.orm import SaleDetail
+    from pharmatrack.types.sales import SaleStatusEnum
+
+    sold = dict(
+        (pid, (units, amount)) for pid, units, amount in
+        db.query(SaleDetail.product_id, func.sum(SaleDetail.quantity), func.sum(SaleDetail.total))
+        .join(Sale, Sale.id == SaleDetail.sale_id)
+        .join(Product, Product.id == SaleDetail.product_id)
+        .filter(Product.provisional.is_(True), Sale.status == SaleStatusEnum.COMPLETED)
+        .group_by(SaleDetail.product_id)
+        .all()
+    )
+    products = (
+        db.query(Product)
+        .filter(Product.provisional.is_(True), Product.deleted_at.is_(None))
+        .order_by(Product.is_active.desc(), Product.title, Product.id)
+        .all()
+    )
+    return [
+        ProvisionalReview(
+            id=p.id, title=p.title, price_retail=p.price_retail, is_active=p.is_active,
+            needs_prep=p.needs_prep, consignor_id=p.consignor_id, created_at=p.created_at,
+            units_sold=float(sold.get(p.id, (0, 0))[0]), amount=sold.get(p.id, (0, 0))[1],
+        )
+        for p in products
+    ]
 
 
 # =========================================================
@@ -271,6 +388,8 @@ def create_product(request: Request, product: ProductCreate, db: db_dependency):
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Ingredient not found: {list(missing)}"
             )
+
+    _check_consignor(db, product.consignor_id)
 
     # slug tiene Field(exclude=True) -> hay que inyectarlo manualmente
     slug = product.slug
@@ -356,6 +475,7 @@ def update_product(product_id: int, product_request: ProductUpdate, db: db_depen
         exclude={"ingredients"},
         exclude_unset=True,
     )
+    _check_consignor(db, update_data.get("consignor_id"))
     if product_request.slug is not None:
         update_data["slug"] = product_request.slug
 

@@ -96,6 +96,8 @@ class ProductBase(BaseModel):
     tracks_batches: bool = Field(default=True, description="Si False, el producto no maneja lotes con caducidad ni código")
     show_online: bool = Field(default=False, description="Visible en el catálogo del sitio público")
     quick_sale: bool = Field(default=False, description="Aparece como botón en la venta rápida")
+    needs_prep: bool = Field(default=False, description="Se prepara al momento (talón de orden)")
+    consignor_id: Optional[int] = Field(None, ge=1, description="Proveedor dueño del producto; null = propio")
     compare_at_price: Optional[float] = Field(None, gt=0, description="Precio anterior (tachado) para ofertas")
     max_discount: Optional[float] = Field(None, ge=0, le=100, description="Tope de descuento por línea en el POS (%)")
 
@@ -192,6 +194,9 @@ class ProductUpdate(BaseModel):
     tracks_batches: Optional[bool] = None
     show_online: Optional[bool] = None
     quick_sale: Optional[bool] = None
+    needs_prep: Optional[bool] = None
+    consignor_id: Optional[int] = Field(None, ge=1)
+    provisional: Optional[bool] = None
     compare_at_price: Optional[float] = Field(None, gt=0)
     max_discount: Optional[float] = Field(None, ge=0, le=100)
 
@@ -262,6 +267,7 @@ class ProductUpdate(BaseModel):
 # 🔵 Response (sin relaciones)
 # =========================================================
 class ProductResponse(ProductBase):
+    provisional: bool = False
     id: int
     slug: str
     created_at: Optional[datetime] = None
@@ -379,4 +385,41 @@ class QuickSaleItem(BaseModel):
     is_bundle: bool = False
     components: List[QuickSaleComponent] = Field(default_factory=list)
     blocked_reason: Optional[Literal["reserved", "deceased", "not_for_sale"]] = None
+    needs_prep: bool = False
+    provisional: bool = False
+    client_key: Optional[str] = None
+    consignor_id: Optional[int] = None
     animal: Optional[Any] = None  # AnimalResponse del gemelo (nombre científico del ticket)
+
+
+# =========================================================
+# 🔹 Producto provisional (alta al vuelo desde la venta rápida)
+# =========================================================
+class ProvisionalCreate(BaseModel):
+    client_key: str = Field(..., min_length=8, max_length=64)
+    title: str = Field(..., min_length=1, max_length=250)
+    price_retail: Decimal = Field(..., gt=0, max_digits=12, decimal_places=2)
+    needs_prep: bool = False
+    consignor_id: Optional[int] = Field(None, ge=1)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("title")
+    @classmethod
+    def title_not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("El nombre no puede ir vacío")
+        return v
+
+
+class ProvisionalReview(BaseModel):
+    id: int
+    title: str
+    price_retail: Decimal
+    is_active: bool
+    needs_prep: bool
+    consignor_id: Optional[int] = None
+    units_sold: float
+    amount: Decimal
+    created_at: Optional[datetime] = None
