@@ -71,6 +71,7 @@ def read_all(
     category_id: int | None = None,
     is_active: bool | None = None,
     show_online: bool | None = None,
+    quick_sale: bool | None = None,
     ordering: str | None = None,
     exclude_animal_twins: bool = False,
     only_bundles: bool = False,
@@ -102,6 +103,8 @@ def read_all(
         query = query.filter(Product.is_active == is_active)
     if show_online is not None:
         query = query.filter(Product.show_online == show_online)
+    if quick_sale is not None:
+        query = query.filter(Product.quick_sale == quick_sale)
 
     order_clause = _ORDERING_MAP.get(ordering) if ordering else None
     if order_clause is None:
@@ -323,6 +326,25 @@ def toggle_product_online(product_id: int, db: db_dependency):
     db.commit()
     db.refresh(product)
     logger.info("Product id=%s toggled show_online=%s", product_id, product.show_online)
+    return product
+
+
+# =========================================================
+# PATCH /{product_id}/toggle-quick-sale
+# =========================================================
+@router.patch("/{product_id}/toggle-quick-sale",
+              response_model=ProductDetailsResponse,
+              summary="Toggle product presence on the quick-sale screen",
+              dependencies=CAN_UPDATE_PRODUCTS)
+def toggle_product_quick_sale(product_id: int, db: db_dependency):
+    product = db.query(Product).filter(Product.id == product_id, Product.deleted_at.is_(None)).first()
+    if not product:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
+
+    product.quick_sale = not product.quick_sale
+    db.commit()
+    db.refresh(product)
+    logger.info("Product id=%s toggled quick_sale=%s", product_id, product.quick_sale)
     return product
 
 

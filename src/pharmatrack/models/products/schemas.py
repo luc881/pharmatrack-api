@@ -94,6 +94,7 @@ class ProductBase(BaseModel):
     is_active: bool = True
     tracks_batches: bool = Field(default=True, description="Si False, el producto no maneja lotes con caducidad ni código")
     show_online: bool = Field(default=False, description="Visible en el catálogo del sitio público")
+    quick_sale: bool = Field(default=False, description="Aparece como botón en la venta rápida")
     compare_at_price: Optional[float] = Field(None, gt=0, description="Precio anterior (tachado) para ofertas")
     max_discount: Optional[float] = Field(None, ge=0, le=100, description="Tope de descuento por línea en el POS (%)")
 
@@ -189,6 +190,7 @@ class ProductUpdate(BaseModel):
     is_active: Optional[bool] = None
     tracks_batches: Optional[bool] = None
     show_online: Optional[bool] = None
+    quick_sale: Optional[bool] = None
     compare_at_price: Optional[float] = Field(None, gt=0)
     max_discount: Optional[float] = Field(None, ge=0, le=100)
 
