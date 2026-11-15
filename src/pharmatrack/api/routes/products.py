@@ -362,8 +362,9 @@ def create_product(request: Request, product: ProductCreate, db: db_dependency):
     validate_units_schema(product)
     validate_unit_name_for_sale(product)
 
-    # Validar SKU unico
-    if db.query(Product).filter(Product.sku == product.sku).first():
+    # Validar SKU unico (opcional: sin SKU no hay con qué chocar; comparar
+    # contra None sería `IS NULL` y cualquier otro sin SKU contaba como duplicado)
+    if product.sku and db.query(Product).filter(Product.sku == product.sku).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Product with this SKU already exists."

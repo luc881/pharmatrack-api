@@ -142,3 +142,10 @@ def test_animal_can_be_created_already_in_quick_sale(auth_headers):
     items = client.get(CATALOG, headers=auth_headers).json()
     assert len(items) == 3
     assert all(i["animal"]["species"]["id"] == sp["id"] for i in items)
+
+
+def test_several_products_without_sku(auth_headers, test_product_category):
+    """El SKU es opcional: dos productos sin SKU no son «duplicados»."""
+    first = _make_product(auth_headers, test_product_category.id, sku=None, title="Sin código uno")
+    second = _make_product(auth_headers, test_product_category.id, sku=None, title="Sin código dos")
+    assert first["id"] != second["id"]
