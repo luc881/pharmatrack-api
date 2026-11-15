@@ -322,6 +322,7 @@ class AnimalCreate(AnimalBase):
         1, ge=1, le=50,
         description="Individuales: cuántos ejemplares iguales dar de alta de una vez (cada uno con su código)",
     )
+    quick_sale: bool = Field(False, description="Nace ya como botón de la venta rápida")
 
     model_config = ConfigDict(
         extra="forbid",

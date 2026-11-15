@@ -208,6 +208,7 @@ def create_animal(payload: AnimalCreate, db: db_dependency):
             description=payload.description, image=payload.image, photos=payload.photos,
             requires_legal_doc=payload.requires_legal_doc,
             legal_doc=payload.legal_doc, legal_doc_url=payload.legal_doc_url,
+            quick_sale=payload.quick_sale,
         )
         for _ in range(payload.count)
     ]

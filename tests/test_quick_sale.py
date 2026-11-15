@@ -129,3 +129,16 @@ def test_quick_sale_catalog_no_consulta_por_animal(auth_headers, db_session):
     three, count = queries()
     assert count == 3
     assert three == one
+
+
+def test_animal_can_be_created_already_in_quick_sale(auth_headers):
+    """«Poner en venta» con «También en venta rápida»: los gemelos nacen marcados."""
+    from .test_animals import _make_taxonomy, _create_animal
+
+    *_, sp, _morph = _make_taxonomy(auth_headers)
+    _create_animal(auth_headers, sp["id"], count=3, quick_sale=True)
+    _create_animal(auth_headers, sp["id"])  # sin marcar: no entra
+
+    items = client.get(CATALOG, headers=auth_headers).json()
+    assert len(items) == 3
+    assert all(i["animal"]["species"]["id"] == sp["id"] for i in items)

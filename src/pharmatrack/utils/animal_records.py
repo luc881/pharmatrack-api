@@ -39,7 +39,7 @@ def new_animal(db: Session, species: Species, morphs: list[Morph], *, purpose: s
                price, price_cost, compare_at_price=None, code: str | None = None,
                sex="unknown", birth_date=None, description=None, image=None,
                photos: list[str] = (), requires_legal_doc=False, legal_doc=None,
-               legal_doc_url=None) -> Animal:
+               legal_doc_url=None, quick_sale=False) -> Animal:
     """Crea el animal con su producto gemelo y su lote. Hace flush, no commit."""
     code = code or f"AN-{uuid.uuid4().hex[:8].upper()}"
     # Sin image explícita, la primera foto es la principal
@@ -57,6 +57,7 @@ def new_animal(db: Session, species: Species, morphs: list[Morph], *, purpose: s
         is_unit_sale=True,
         unit_name="pieza",
         tracks_batches=True,
+        quick_sale=quick_sale,
         image=main_image,
         description=description,
     )
