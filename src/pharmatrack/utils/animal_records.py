@@ -229,9 +229,18 @@ def move_animal(db: Session, animal: Animal, purpose: str, quantity: int | None,
             photos=[p.url for p in animal.photos],
             requires_legal_doc=animal.requires_legal_doc,
             legal_doc=animal.legal_doc, legal_doc_url=animal.legal_doc_url,
+            show_public=animal.show_public,
         )
     if purpose == sale:
         _apply_sale_price(target, price)
     # Vaciado por mover queda disponible (en 0), aunque esté en venta
     set_animal_stock(db, animal, stock - units_out, closing=False)
     return [animal, target]
+
+
+def refresh_twin_images(db: Session, animals) -> None:
+    """Producto gemelo de cada animal sin foto propia: la de su variedad o
+    especie. Se llama al cambiar las fotos de una especie o variedad."""
+    for animal in animals:
+        if animal.product:
+            animal.product.image = animal.display_image

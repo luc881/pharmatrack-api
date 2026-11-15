@@ -1,4 +1,4 @@
-from typing import Literal, Optional, List
+from typing import Annotated, Literal, Optional, List
 from datetime import datetime, date
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
@@ -13,6 +13,10 @@ from pharmatrack.utils.normalize import norm_title
 # =========================================================
 # 🔹 AnimalGroup (jerárquico, como product_categories)
 # =========================================================
+# Una foto de especie o variedad: la primera se copia a `image` (250 chars)
+PhotoURL = Annotated[str, Field(min_length=1, max_length=250)]
+
+
 class AnimalGroupBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     parent_id: Optional[int] = Field(None, ge=1, description="Grupo padre (NULL si es raíz)")
@@ -154,7 +158,7 @@ class SpeciesBase(BaseModel):
     diet: Optional[DescriptionStr] = None
     notes: Optional[DescriptionStr] = None
     image: Optional[str] = Field(None, max_length=250)
-    photos: List[str] = Field(default_factory=list, max_length=20)
+    photos: List[PhotoURL] = Field(default_factory=list, max_length=20)
 
     @field_validator("name", "common_name", mode="before")
     @classmethod
@@ -200,7 +204,7 @@ class SpeciesUpdate(BaseModel):
     diet: Optional[DescriptionStr] = None
     notes: Optional[DescriptionStr] = None
     image: Optional[str] = Field(None, max_length=250)
-    photos: Optional[List[str]] = Field(None, max_length=20)
+    photos: Optional[List[PhotoURL]] = Field(None, max_length=20)
     show_public: Optional[bool] = None
     # Manejo/cria (privado)
     husbandry_status: Optional[HusbandryStatusEnum] = None
@@ -246,7 +250,7 @@ class MorphBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[DescriptionStr] = None
     image: Optional[str] = Field(None, max_length=250)
-    photos: List[str] = Field(default_factory=list, max_length=20)
+    photos: List[PhotoURL] = Field(default_factory=list, max_length=20)
 
     @field_validator("name")
     @classmethod
@@ -263,7 +267,7 @@ class MorphUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[DescriptionStr] = None
     image: Optional[str] = Field(None, max_length=250)
-    photos: Optional[List[str]] = Field(None, max_length=20)
+    photos: Optional[List[PhotoURL]] = Field(None, max_length=20)
     show_public: Optional[bool] = None
     # Manejo/cria (privado) — el morph es independiente del nominal
     husbandry_status: Optional[HusbandryStatusEnum] = None

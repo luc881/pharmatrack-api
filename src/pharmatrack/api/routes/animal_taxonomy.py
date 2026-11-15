@@ -257,9 +257,23 @@ def delete_genus(genus_id: int, db: db_dependency):
 # Species
 # =========================================================
 def _main_photo(taxon, payload) -> None:
-    """Con `photos` en el cuerpo, la principal (`image`) es la primera."""
+    """Con `photos` en el cuerpo, la principal (`image`) es la primera, y los
+    productos de sus animales sin foto propia la toman."""
+    if "photos" not in payload.model_fields_set and "image" not in payload.model_fields_set:
+        return
     if "photos" in payload.model_fields_set:
         taxon.image = taxon.photos[0] if taxon.photos else None
+    if taxon.id is None:
+        return  # recién creado: aún no tiene animales
+    from sqlalchemy.orm import object_session
+    from ...models.animals.orm import Animal, Morph as MorphModel
+    from ...utils.animal_records import refresh_twin_images
+    db = object_session(taxon)
+    query = db.query(Animal)
+    query = (query.filter(Animal.morphs.any(MorphModel.id == taxon.id))
+             if isinstance(taxon, MorphModel) else query.filter(Animal.species_id == taxon.id))
+    db.flush()
+    refresh_twin_images(db, query.all())
 
 
 @species_router.get("", response_model=PaginatedResponse[SpeciesAdminResponse],

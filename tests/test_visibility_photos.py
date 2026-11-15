@@ -123,3 +123,39 @@ def test_animal_without_photo_shows_its_variety_or_species_photo(auth_headers):
         variety["product_id"]: "https://x/gl.jpg",
         own["product_id"]: "https://x/own.jpg",
     }
+
+
+def test_new_taxon_photo_reaches_existing_products(auth_headers):
+    """Los animales que ya existían, sin foto propia, toman la foto nueva."""
+    *_, sp, glacier = _make_taxonomy(auth_headers, morph_name="Glacier")
+    nominal = _create_animal(auth_headers, sp["id"])
+    variety = _create_animal(auth_headers, sp["id"], morph_ids=[glacier["id"]])
+    own = _create_animal(auth_headers, sp["id"], photos=["https://x/own.jpg"])
+
+    species_put(f"/{sp['id']}", json={"photos": ["https://x/sp.jpg"]}, headers=auth_headers)
+    client.put(f"/api/v1/morphs/{glacier['id']}", json={"photos": ["https://x/gl.jpg"]},
+               headers=auth_headers)
+
+    def image(animal):
+        return client.get(f"/api/v1/products/{animal['product_id']}", headers=auth_headers).json()["image"]
+
+    assert image(nominal) == "https://x/sp.jpg"
+    assert image(variety) == "https://x/gl.jpg"
+    assert image(own) == "https://x/own.jpg"
+
+
+def test_photo_urls_longer_than_the_column_are_rejected(auth_headers):
+    *_, sp, _m = _make_taxonomy(auth_headers)
+    res = species_put(f"/{sp['id']}", json={"photos": ["https://x/" + "a" * 300]}, headers=auth_headers)
+    assert res.status_code == 422
+
+
+def test_moving_part_of_a_hidden_lot_keeps_it_hidden(auth_headers):
+    from .test_animal_move import _bulk_species, _move
+
+    sp = _bulk_species(auth_headers)
+    src = _create_animal(auth_headers, sp["id"], purpose="breeder", stock=10, show_public=False)
+    res = _move(auth_headers, src["id"], purpose="sale", quantity=4, price=200)
+    assert res.status_code == status.HTTP_200_OK, res.text
+    moved = [a for a in res.json() if a["id"] != src["id"]][0]
+    assert moved["show_public"] is False
