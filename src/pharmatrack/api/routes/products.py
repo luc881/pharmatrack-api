@@ -210,7 +210,8 @@ def _quick_sale_items(db, only_id: int | None = None) -> list[QuickSaleItem]:
         result.append(QuickSaleItem(
             id=product.id,
             title=product.title,
-            image=product.image,
+            # un animal sin foto propia usa la de su variedad o especie
+            image=(animal.display_image if animal else None) or product.image,
             category=category,
             price_retail=product.price_retail,
             tax_percentage=product.tax_percentage,

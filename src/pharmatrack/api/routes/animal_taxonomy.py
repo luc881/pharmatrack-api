@@ -256,6 +256,12 @@ def delete_genus(genus_id: int, db: db_dependency):
 # =========================================================
 # Species
 # =========================================================
+def _main_photo(taxon, payload) -> None:
+    """Con `photos` en el cuerpo, la principal (`image`) es la primera."""
+    if "photos" in payload.model_fields_set:
+        taxon.image = taxon.photos[0] if taxon.photos else None
+
+
 @species_router.get("", response_model=PaginatedResponse[SpeciesAdminResponse],
                     summary="List species", dependencies=CAN_READ_SPECIES)
 def list_species(db: db_dependency, genus_id: Optional[int] = None,
@@ -286,6 +292,7 @@ def create_species(payload: SpeciesCreate, db: db_dependency):
     if conflict:
         raise HTTPException(status_code=400, detail="A species with this name already exists in this genus.")
     species = Species(**payload.model_dump())
+    _main_photo(species, payload)
     db.add(species)
     db.commit()
     db.refresh(species)
@@ -334,6 +341,7 @@ def update_species(species_id: int, payload: SpeciesUpdate, db: db_dependency):
 
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(species, key, value)
+    _main_photo(species, payload)
     db.commit()
     db.refresh(species)
     return species
@@ -386,6 +394,7 @@ def create_morph(payload: MorphCreate, db: db_dependency):
     if conflict:
         raise HTTPException(status_code=400, detail="A morph with this name already exists for this species.")
     morph = Morph(**payload.model_dump())
+    _main_photo(morph, payload)
     db.add(morph)
     db.commit()
     db.refresh(morph)
@@ -414,6 +423,7 @@ def update_morph(morph_id: int, payload: MorphUpdate, db: db_dependency):
 
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(morph, key, value)
+    _main_photo(morph, payload)
     db.commit()
     db.refresh(morph)
     return morph

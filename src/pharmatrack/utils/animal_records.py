@@ -39,7 +39,7 @@ def new_animal(db: Session, species: Species, morphs: list[Morph], *, purpose: s
                price, price_cost, compare_at_price=None, code: str | None = None,
                sex="unknown", birth_date=None, description=None, image=None,
                photos: list[str] = (), requires_legal_doc=False, legal_doc=None,
-               legal_doc_url=None, quick_sale=False) -> Animal:
+               legal_doc_url=None, quick_sale=False, show_public=True) -> Animal:
     """Crea el animal con su producto gemelo y su lote. Hace flush, no commit."""
     code = code or f"AN-{uuid.uuid4().hex[:8].upper()}"
     # Sin image explícita, la primera foto es la principal
@@ -84,11 +84,14 @@ def new_animal(db: Session, species: Species, morphs: list[Morph], *, purpose: s
         requires_legal_doc=requires_legal_doc,
         legal_doc=legal_doc,
         legal_doc_url=legal_doc_url,
+        show_public=show_public,
     )
     animal.morphs = morphs
     animal.photos = [AnimalPhoto(url=u) for u in photos]
     db.add(animal)
     db.flush()
+    # sin foto propia, el producto (POS y venta rápida) usa la de su variedad o especie
+    product.image = animal.display_image
     return animal
 
 

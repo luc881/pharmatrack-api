@@ -113,15 +113,18 @@ def _animals_query(db, species_id=None, genus_id=None, group_id=None,
     # Si el filtro se aplicara siempre, una especie oculta desapareceria tambien
     # del dashboard y nadie podria volver a publicarla.
     if exclude_hidden_taxa:
+        from sqlalchemy import and_, or_
+        # La nominal y cada variedad se muestran por separado: un ejemplar sin
+        # morph depende del switch de su especie; uno con morph, solo de sus
+        # morphs (si CUALQUIERA esta oculto se esconde: sigue llevandolo, asi
+        # que su ficha lo mostraria). Ocultar la nominal no esconde Glacier.
+        visible_species = db.query(Species.id).filter(Species.show_public.is_(True))
         query = query.filter(
-            Animal.species_id.in_(db.query(Species.id).filter(Species.show_public.is_(True)))
-        )
-        # Un ejemplar puede llevar varios morphs: si CUALQUIERA esta oculto, el
-        # ejemplar se esconde. Sigue llevando ese morph, asi que su ficha lo
-        # mostraria; esconder de menos seria la fuga.
-        hidden_morph_ids = db.query(Morph.id).filter(Morph.show_public.is_(False))
-        query = query.filter(
-            ~Animal.morphs.any(Morph.id.in_(hidden_morph_ids))
+            Animal.show_public.is_(True),
+            or_(
+                and_(~Animal.morphs.any(), Animal.species_id.in_(visible_species)),
+                and_(Animal.morphs.any(), ~Animal.morphs.any(Morph.show_public.is_(False))),
+            ),
         )
     if animal_status is not None:
         query = query.filter(Animal.status == animal_status.value)
@@ -216,7 +219,7 @@ def create_animal(payload: AnimalCreate, db: db_dependency):
             description=payload.description, image=payload.image, photos=payload.photos,
             requires_legal_doc=payload.requires_legal_doc,
             legal_doc=payload.legal_doc, legal_doc_url=payload.legal_doc_url,
-            quick_sale=payload.quick_sale,
+            quick_sale=payload.quick_sale, show_public=payload.show_public,
         )
         for _ in range(payload.count)
     ]
@@ -276,7 +279,8 @@ def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency):
     if payload.status == AnimalStatusEnum.RESERVED and animal.purpose != AnimalPurposeEnum.SALE.value:
         raise HTTPException(status_code=400, detail="Solo un animal en venta se puede apartar.")
 
-    update_data = payload.model_dump(exclude_unset=True, exclude={"morph_ids", "photos", "stock"})
+    update_data = payload.model_dump(exclude_unset=True,
+                                     exclude={"morph_ids", "photos", "stock", "quick_sale"})
     for key, value in update_data.items():
         setattr(animal, key, value.value if hasattr(value, "value") else value)
 
@@ -295,7 +299,9 @@ def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency):
         product.price_cost = animal.price_cost
         product.sku = animal.code
         product.description = animal.description
-        product.image = animal.image
+        product.image = animal.display_image
+        if payload.quick_sale is not None:
+            product.quick_sale = payload.quick_sale
         title = _animal_title(species, animal.code, animal.morphs)
         if title != product.title:
             product.title = title

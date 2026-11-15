@@ -78,7 +78,10 @@ def public_get_animal(animal_id: int, db: db_dependency):
     # tampoco debe servirlo. El status SI se conserva permisivo a proposito
     # (reservados y vendidos responden, para que un link compartido diga "ya no
     # disponible" en vez de 404).
-    if animal.species and not animal.species.show_public:
+    if not animal.show_public:
+        raise HTTPException(status_code=404, detail="Animal not found.")
+    # la nominal depende de su especie; una variedad, solo de sus morphs
+    if not animal.morphs and animal.species and not animal.species.show_public:
         raise HTTPException(status_code=404, detail="Animal not found.")
     if any(not m.show_public for m in (animal.morphs or [])):
         raise HTTPException(status_code=404, detail="Animal not found.")

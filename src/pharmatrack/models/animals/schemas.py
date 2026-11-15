@@ -154,6 +154,7 @@ class SpeciesBase(BaseModel):
     diet: Optional[DescriptionStr] = None
     notes: Optional[DescriptionStr] = None
     image: Optional[str] = Field(None, max_length=250)
+    photos: List[str] = Field(default_factory=list, max_length=20)
 
     @field_validator("name", "common_name", mode="before")
     @classmethod
@@ -199,6 +200,7 @@ class SpeciesUpdate(BaseModel):
     diet: Optional[DescriptionStr] = None
     notes: Optional[DescriptionStr] = None
     image: Optional[str] = Field(None, max_length=250)
+    photos: Optional[List[str]] = Field(None, max_length=20)
     show_public: Optional[bool] = None
     # Manejo/cria (privado)
     husbandry_status: Optional[HusbandryStatusEnum] = None
@@ -244,6 +246,7 @@ class MorphBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[DescriptionStr] = None
     image: Optional[str] = Field(None, max_length=250)
+    photos: List[str] = Field(default_factory=list, max_length=20)
 
     @field_validator("name")
     @classmethod
@@ -260,6 +263,7 @@ class MorphUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[DescriptionStr] = None
     image: Optional[str] = Field(None, max_length=250)
+    photos: Optional[List[str]] = Field(None, max_length=20)
     show_public: Optional[bool] = None
     # Manejo/cria (privado) — el morph es independiente del nominal
     husbandry_status: Optional[HusbandryStatusEnum] = None
@@ -312,6 +316,7 @@ class AnimalBase(BaseModel):
     requires_legal_doc: bool = False
     legal_doc: Optional[str] = Field(None, max_length=150, description="Folio/referencia del documento de procedencia legal")
     legal_doc_url: Optional[str] = Field(None, max_length=500, description="URL del documento escaneado")
+    show_public: bool = Field(True, description="Se anuncia en el sitio; false = solo mostrador o venta rápida")
 
 
 class AnimalCreate(AnimalBase):
@@ -366,6 +371,8 @@ class AnimalUpdate(BaseModel):
     legal_doc_url: Optional[str] = Field(None, max_length=500)
     stock: Optional[int] = Field(None, ge=0, description="Ajusta las unidades disponibles (resurtir cepa); 0 = agotado")
     compare_at_price: Optional[float] = Field(None, gt=0, description="Precio anterior (tachado); null quita la oferta")
+    show_public: Optional[bool] = None
+    quick_sale: Optional[bool] = Field(None, description="Botón en la venta rápida")
 
     @field_validator("status")
     @classmethod
@@ -422,6 +429,7 @@ class AnimalResponse(AnimalBase):
     product_id: int
     # Unidades disponibles (lotes del producto gemelo); individuales: 1
     stock: Optional[int] = None
+    quick_sale: bool = False
     species: Optional[SpeciesResponse] = None
     morphs: List[MorphResponse] = Field(default_factory=list)
     photos: List[str] = Field(default_factory=list)

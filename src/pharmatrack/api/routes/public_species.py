@@ -11,10 +11,11 @@ from typing import List
 
 from fastapi import APIRouter
 from pydantic import ConfigDict
+from sqlalchemy import or_
 from sqlalchemy.orm import joinedload, selectinload
 
 from ...db.session import db_dependency
-from ...models.animals.orm import Genus, Species
+from ...models.animals.orm import Genus, Morph, Species
 from ...models.animals.schemas import MorphResponse, SpeciesResponse
 from .animal_taxonomy import hidden_group_ids
 
@@ -25,6 +26,10 @@ class PublicSpeciesResponse(SpeciesResponse):
     """La especie publica mas sus morphs visibles anidados."""
 
     morphs: List[MorphResponse] = []
+    # ¿Se anuncia la nominal (la especie sin variedad)? Puede ser false y la
+    # especie seguir aquí por sus variedades visibles. Otro nombre a propósito:
+    # show_public es interno y no viaja al sitio.
+    nominal_public: bool = True
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -43,7 +48,9 @@ def public_list_species(db: db_dependency):
             joinedload(Species.genus).joinedload(Genus.group),
             selectinload(Species.morphs),
         )
-        .filter(Species.show_public.is_(True))
+        # visible la nominal o alguna de sus variedades
+        .filter(or_(Species.show_public.is_(True),
+                    Species.morphs.any(Morph.show_public.is_(True))))
     )
     if hidden:
         # Mismo criterio que el listado de animales: un grupo raiz oculto
@@ -57,6 +64,7 @@ def public_list_species(db: db_dependency):
         PublicSpeciesResponse.model_validate(
             {
                 **SpeciesResponse.model_validate(sp).model_dump(),
+                "nominal_public": sp.show_public,
                 "morphs": [
                     MorphResponse.model_validate(m).model_dump()
                     for m in sp.morphs

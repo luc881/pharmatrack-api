@@ -97,6 +97,9 @@ class Species(Base):
     # Foto del taxon para la tarjeta del catalogo. Las fotos "reales" cuelgan
     # del ejemplar; esta es la que se usa cuando la especie no tiene ninguno.
     image: Mapped[Optional[str]] = mapped_column(String(250), nullable=True)
+    # Todas sus fotos (la primera es `image`). Son la fuente de verdad: un
+    # ejemplar sin foto propia usa la de su variedad o, si no, esta.
+    photos: Mapped[list] = mapped_column(JSON, nullable=False, server_default="[]", default=list)
 
     # === Manejo/cria (PRIVADO — nunca se expone en la API publica) ===
     # Estado de cria; low_stock_threshold NULL = usa el default global del panel
@@ -134,6 +137,7 @@ class Morph(Base):
     # Foto propia del morph: sin ella, todos los morphs de una especie
     # compartirian imagen y se perderia justo lo que los distingue.
     image: Mapped[Optional[str]] = mapped_column(String(250), nullable=True)
+    photos: Mapped[list] = mapped_column(JSON, nullable=False, server_default="[]", default=list)
 
     # === Manejo/cria (PRIVADO — nunca se expone en la API publica) ===
     # El morph maneja su cria independiente del nominal (puede estar en cultivo
@@ -202,6 +206,8 @@ class Animal(Base):
     requires_legal_doc: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="0")
     legal_doc: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
     legal_doc_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    # Fuera del sitio: se vende en mostrador o venta rápida sin anunciarse
+    show_public: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
 
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -211,6 +217,20 @@ class Animal(Base):
     species = relationship("Species", back_populates="animals")
     product = relationship("Product")
     morphs: Mapped[list["Morph"]] = relationship("Morph", secondary=animal_has_morphs)
+
+    @property
+    def quick_sale(self) -> bool:
+        # vive en el producto gemelo (la venta rápida vende productos)
+        return bool(self.product and self.product.quick_sale)
+
+    @property
+    def display_image(self):
+        """Foto propia; si no, la de su variedad; si no, la de su especie."""
+        own = self.image or next((p.url for p in self.photos), None)
+        if own:
+            return own
+        variety = next((m.image for m in self.morphs if m.image), None)
+        return variety or (self.species.image if self.species else None)
 
     @property
     def stock(self) -> Optional[int]:
