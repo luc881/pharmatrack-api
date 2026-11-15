@@ -71,3 +71,15 @@ def test_cannot_go_back_to_named_with_combined_animals(auth_headers):
 def test_variety_mode_rejects_unknown_value(auth_headers):
     sp, *_ = _two_morphs(auth_headers)
     assert _set_mode(auth_headers, sp["id"], "otra").status_code == 422
+
+
+def test_public_catalog_knows_the_variety_mode(auth_headers):
+    """El sitio agrupa por combinación en las especies de genes."""
+    sp, glacier, _ = _two_morphs(auth_headers)
+    _set_mode(auth_headers, sp["id"], "genes")
+    _create_animal(auth_headers, sp["id"], morph_ids=[glacier["id"]])
+
+    animal = client.get("/api/v1/public/animals").json()["data"][0]
+    assert animal["species"]["variety_mode"] == "genes"
+    species = client.get("/api/v1/public/species").json()
+    assert species[0]["variety_mode"] == "genes"
