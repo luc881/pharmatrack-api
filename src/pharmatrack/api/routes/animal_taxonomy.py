@@ -312,6 +312,26 @@ def update_species(species_id: int, payload: SpeciesUpdate, db: db_dependency):
     if conflict:
         raise HTTPException(status_code=400, detail="A species with this name already exists in this genus.")
 
+    # Volver a «variedades con nombre» pide que ningún ejemplar combine varias
+    if payload.variety_mode is not None and payload.variety_mode.value == "named":
+        from sqlalchemy import func
+        from ...models.animals.orm import Animal, animal_has_morphs
+        combined = (
+            db.query(Animal.code)
+            .join(animal_has_morphs, animal_has_morphs.c.animal_id == Animal.id)
+            .filter(Animal.species_id == species_id)
+            .group_by(Animal.id, Animal.code)
+            .having(func.count() > 1)
+            .limit(5)
+            .all()
+        )
+        if combined:
+            raise HTTPException(
+                status_code=400,
+                detail="Hay ejemplares con varias variedades: "
+                       f"{', '.join(c.code for c in combined)}. Déjales una sola antes de cambiar.",
+            )
+
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(species, key, value)
     db.commit()

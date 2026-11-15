@@ -28,6 +28,11 @@ class SaleFormatEnum(str, Enum):
     COLONY = "colony"           # cepa/colonia sin cantidad definida
 
 
+class VarietyModeEnum(str, Enum):
+    NAMED = "named"   # variedades con nombre: una por ejemplar (Glacier, Papaya) o nominal
+    GENES = "genes"   # genes combinables: varios por ejemplar (Banana + Pastel)
+
+
 class HusbandryStatusEnum(str, Enum):
     """Estado de manejo/cria (privado, no se expone al publico)."""
     ACTIVE = "active"     # en cultivo / produciendo

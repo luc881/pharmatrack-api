@@ -32,9 +32,17 @@ BULK_DUPLICATE_MSG = "Ya existe un registro de esa colonia para ese destino; aju
 # =========================================================
 # Helpers
 # =========================================================
-def _validate_morphs(db: Session, morph_ids: list[int], species_id: int) -> list[Morph]:
+def _validate_morphs(db: Session, morph_ids: list[int], species: Species) -> list[Morph]:
+    species_id = species.id
     if not morph_ids:
         return []
+    # Variedades con nombre (Glacier, Papaya): el ejemplar es una sola, o nominal
+    if species.variety_mode == "named" and len(set(morph_ids)) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Esta especie lleva una sola variedad por ejemplar. Para combinar varias, "
+                   "cambia su tipo de variedades a «genes combinables».",
+        )
     morphs = db.query(Morph).filter(Morph.id.in_(morph_ids)).all()
     if len(morphs) != len(set(morph_ids)):
         raise HTTPException(status_code=400, detail="One or more morphs not found.")
@@ -176,7 +184,7 @@ def create_animal(payload: AnimalCreate, db: db_dependency):
     if not species:
         raise HTTPException(status_code=400, detail="Species not found.")
 
-    morphs = _validate_morphs(db, payload.morph_ids, species.id)
+    morphs = _validate_morphs(db, payload.morph_ids, species)
     _validate_stock(species, payload.stock)
     _validate_compare_at(payload.price, payload.compare_at_price)
 
@@ -233,7 +241,7 @@ def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency):
         raise HTTPException(status_code=400, detail="Species not found.")
 
     if payload.morph_ids is not None:
-        animal.morphs = _validate_morphs(db, payload.morph_ids, final_species_id)
+        animal.morphs = _validate_morphs(db, payload.morph_ids, species)
     elif payload.species_id is not None and payload.species_id != animal.species_id:
         wrong = [m.name for m in animal.morphs if m.species_id != final_species_id]
         if wrong:

@@ -2,7 +2,10 @@ from typing import Literal, Optional, List
 from datetime import datetime, date
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
-from pharmatrack.types.animals import AnimalSexEnum, AnimalStatusEnum, AnimalPurposeEnum, SaleFormatEnum, HusbandryStatusEnum
+from pharmatrack.types.animals import (
+    AnimalSexEnum, AnimalStatusEnum, AnimalPurposeEnum, SaleFormatEnum, HusbandryStatusEnum,
+    VarietyModeEnum,
+)
 from pharmatrack.types.common import DescriptionStr, ImageURLStr
 from pharmatrack.utils.normalize import norm_title
 
@@ -134,6 +137,10 @@ class SpeciesBase(BaseModel):
     common_name: Optional[str] = Field(None, min_length=1, max_length=150)
     sale_format: SaleFormatEnum = SaleFormatEnum.INDIVIDUAL
     package_size: Optional[int] = Field(None, ge=2, description="Solo para formato package")
+    variety_mode: VarietyModeEnum = Field(
+        VarietyModeEnum.NAMED,
+        description="named: una variedad con nombre por ejemplar; genes: varios genes combinables",
+    )
     price_tiers: Optional[List[PriceTier]] = None
     # Ficha de cuidados (sitio público)
     description: Optional[DescriptionStr] = None
@@ -179,6 +186,7 @@ class SpeciesUpdate(BaseModel):
     common_name: Optional[str] = Field(None, min_length=1, max_length=150)
     sale_format: Optional[SaleFormatEnum] = None
     package_size: Optional[int] = Field(None, ge=2)
+    variety_mode: Optional[VarietyModeEnum] = None
     price_tiers: Optional[List[PriceTier]] = None
     description: Optional[DescriptionStr] = None
     origin: Optional[str] = Field(None, max_length=150)

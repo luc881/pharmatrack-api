@@ -71,6 +71,9 @@ class Species(Base):
     # Cómo se vende la especie: individual (folio único), package (de N) o colony (cepa)
     sale_format: Mapped[str] = mapped_column(String(20), nullable=False, server_default="individual")
     package_size: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    # Cómo son sus variedades: named = una con nombre por ejemplar (o nominal);
+    # genes = varios genes combinables por ejemplar
+    variety_mode: Mapped[str] = mapped_column(String(20), nullable=False, server_default="named")
     # Escalas de precio por cantidad: [{"quantity": 6, "price": 150}, ...]
     price_tiers: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     # Ficha de cuidados para el sitio público (texto libre, todo opcional)

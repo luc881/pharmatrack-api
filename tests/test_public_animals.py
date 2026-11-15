@@ -199,6 +199,8 @@ def test_un_morph_oculto_esconde_el_ejemplar_aunque_el_otro_sea_visible(auth_hea
     _, _, _, sp, morph_a = _make_taxonomy(auth_headers)
     morph_b = morphs_post(json={"species_id": sp["id"], "name": "Rubber Ducky"},
                           headers=auth_headers).json()
+    # combinar dos morphs es de especies de genes (las de nombre llevan uno)
+    species_put(f"/{sp['id']}", json={"variety_mode": "genes"}, headers=auth_headers)
     animal = _create_animal(auth_headers, sp["id"], morph_ids=[morph_a["id"], morph_b["id"]])
 
     morphs_put(f"/{morph_a['id']}", json={"show_public": False}, headers=auth_headers)
