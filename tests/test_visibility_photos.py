@@ -159,3 +159,30 @@ def test_moving_part_of_a_hidden_lot_keeps_it_hidden(auth_headers):
     assert res.status_code == status.HTTP_200_OK, res.text
     moved = [a for a in res.json() if a["id"] != src["id"]][0]
     assert moved["show_public"] is False
+
+
+def test_species_and_morph_can_be_created_already_hidden(auth_headers):
+    """El formulario de alta manda «Visible en el sitio»: no es un 422."""
+    from .test_animals import species_post
+    *_, sp, _m = _make_taxonomy(auth_headers)
+    res = species_post(json={"genus_id": sp["genus_id"], "name": "Caffrorum", "show_public": False},
+                       headers=auth_headers)
+    assert res.status_code == status.HTTP_201_CREATED, res.text
+    assert res.json()["show_public"] is False
+
+    res = morphs_post(json={"species_id": sp["id"], "name": "Oculta", "show_public": False},
+                      headers=auth_headers)
+    assert res.status_code == status.HTTP_201_CREATED, res.text
+    assert res.json()["show_public"] is False
+
+
+def test_validation_errors_are_logged(auth_headers, caplog):
+    """Un 422 deja rastro en el registro (Railway): ruta y campos, sin los valores."""
+    import logging
+    with caplog.at_level(logging.WARNING):
+        res = client.post("/api/v1/species", json={"genus_id": 1, "name": "x", "inventado": "secreto"},
+                          headers=auth_headers)
+    assert res.status_code == 422
+    logged = " ".join(r.getMessage() for r in caplog.records)
+    assert "/api/v1/species" in logged and "inventado" in logged
+    assert "secreto" not in logged

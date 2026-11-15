@@ -108,6 +108,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         field_parts = [str(p) for p in loc[1:]] if len(loc) > 1 else [str(p) for p in loc]
         field = ".".join(field_parts) if field_parts else "unknown"
         errors.append({"field": field, "message": error["msg"]})
+    # Que quede rastro en Railway: ruta y campos, nunca los valores enviados
+    logger.warning(
+        "422 %s %s: %s", request.method, request.url.path,
+        "; ".join(f"{e['field']}: {e['message']}" for e in errors),
+    )
     return JSONResponse(status_code=422, content={"detail": errors})
 
 

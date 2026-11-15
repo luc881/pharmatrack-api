@@ -4,6 +4,7 @@ from typing import List, Optional
 from pydantic import Field, BaseModel, ConfigDict, field_validator
 
 from pharmatrack.types.common import ImageURLStr
+from pharmatrack.types.levels import DifficultyStr
 
 SLUG = r"^[a-z0-9]+(-[a-z0-9]+)*$"
 
@@ -42,7 +43,8 @@ class Reference(BaseModel):
 class CareSheetContent(BaseModel):
     authority: Optional[str] = Field(None, max_length=200)
     origin: Optional[str] = Field(None, max_length=150)
-    difficulty: Optional[str] = Field(None, max_length=50)
+    # opciones fijas (Fácil, Intermedia, Difícil); los sinónimos se traducen
+    difficulty: DifficultyStr = None
     summary: str = Field(..., min_length=1, max_length=600)
     taxonomy: List[TaxonRow] = Field(default_factory=list)
     facts: List[Fact] = Field(default_factory=list)
@@ -108,6 +110,8 @@ class CareSheetSummary(BaseModel):
 
 
 class CareSheetResponse(CareSheetContent):
+    # al responder, tal como está guardada (la validación es solo al recibir)
+    difficulty: Optional[str] = None
     id: int
     slug: str
     species_id: int

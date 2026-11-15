@@ -59,7 +59,7 @@ CATALOG = [
         "morphs": [],
         "care": dict(
             origin="México (cría en cautiverio)", temperature="24-28 °C", humidity="60-70 %",
-            adult_size="14 cm", difficulty="Principiante", rarity="Común",
+            adult_size="14 cm", difficulty="Fácil", rarity="Común",
             description=(
                 "Tarántula terrestre mexicana, icónica por sus rodillas rojas. Muy dócil y "
                 "longeva: las hembras superan los 20 años.\n\n"
@@ -121,7 +121,7 @@ CATALOG = [
         "morphs": ["Normal", "Banana", "Pastel", "Albino"],
         "care": dict(
             origin="África occidental (cría en cautiverio)", temperature="26-32 °C",
-            humidity="55-65 %", adult_size="1.5 m", difficulty="Principiante", rarity="Común",
+            humidity="55-65 %", adult_size="1.5 m", difficulty="Fácil", rarity="Común",
             description=(
                 "La serpiente más popular como mascota: tranquila, de tamaño manejable y con "
                 "una enorme variedad de morphs.\n\n"
@@ -155,7 +155,7 @@ CATALOG = [
         "morphs": ["Flame", "Harlequin"],
         "care": dict(
             origin="Nueva Caledonia (cría en cautiverio)", temperature="22-26 °C",
-            humidity="60-80 %", adult_size="20 cm", difficulty="Principiante", rarity="Común",
+            humidity="60-80 %", adult_size="20 cm", difficulty="Fácil", rarity="Común",
             description=(
                 "Gecko arborícola nocturno, ideal para empezar: no necesita calor extra ni "
                 "insectos vivos si se alimenta con papilla comercial.\n\n"
@@ -249,7 +249,7 @@ CATALOG = [
         "sale_format": "colony",
         "care": dict(
             origin="Cosmopolita (cría en cautiverio)", temperature="18-24 °C", humidity="80-90 %",
-            adult_size="2 mm", difficulty="Principiante", rarity="Común",
+            adult_size="2 mm", difficulty="Fácil", rarity="Común",
             description=(
                 "Microfauna indispensable: consume moho y restos orgánicos, manteniendo limpio "
                 "el terrario de cualquier invertebrado o reptil.\n\n"
@@ -280,7 +280,7 @@ CATALOG = [
         ],
         "care": dict(
             origin="Europa (cría en cautiverio)", temperature="20-26 °C", humidity="70-80 %",
-            adult_size="18 mm", difficulty="Principiante", rarity="Común",
+            adult_size="18 mm", difficulty="Fácil", rarity="Común",
             description=(
                 "Isópodo muy prolífico con patrón blanco y negro. Excelente equipo de limpieza "
                 "para terrarios y fácil de reproducir.\n\n"

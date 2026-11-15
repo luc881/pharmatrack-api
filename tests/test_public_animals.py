@@ -94,7 +94,8 @@ def test_public_species_care_info_roundtrip(auth_headers):
 
     detail = client.get(f"/api/v1/public/animals/{animal['id']}").json()
     assert detail["species"]["origin"] == "Vietnam"
-    assert detail["species"]["difficulty"] == "Medio"
+    # «Medio» se guarda como la opción fija
+    assert detail["species"]["difficulty"] == "Intermedia"
     assert detail["species"]["description"] == "Especie activa y rápida."
     assert detail["species"]["habitat"] == "Hojarasca húmeda de bosque tropical."
     assert detail["species"]["diet"] == "Detritívoro: hojas secas y madera en descomposición."

@@ -7,6 +7,7 @@ from pharmatrack.types.animals import (
     VarietyModeEnum,
 )
 from pharmatrack.types.common import DescriptionStr, ImageURLStr
+from pharmatrack.types.levels import DifficultyStr, RarityStr
 from pharmatrack.utils.normalize import norm_title
 
 
@@ -182,6 +183,12 @@ class SpeciesBase(BaseModel):
 
 
 class SpeciesCreate(SpeciesBase):
+    # visible en el sitio desde el alta (no va en SpeciesBase: el público la embebe)
+    show_public: bool = True
+    # opciones fijas al recibir (SpeciesBase también responde: ahí no se valida)
+    difficulty: DifficultyStr = None
+    rarity: RarityStr = None
+
     model_config = ConfigDict(extra="forbid")
 
 
@@ -198,8 +205,8 @@ class SpeciesUpdate(BaseModel):
     temperature: Optional[str] = Field(None, max_length=50)
     humidity: Optional[str] = Field(None, max_length=50)
     adult_size: Optional[str] = Field(None, max_length=50)
-    difficulty: Optional[str] = Field(None, max_length=50)
-    rarity: Optional[str] = Field(None, max_length=50)
+    difficulty: DifficultyStr = None
+    rarity: RarityStr = None
     habitat: Optional[DescriptionStr] = None
     diet: Optional[DescriptionStr] = None
     notes: Optional[DescriptionStr] = None
@@ -259,6 +266,8 @@ class MorphBase(BaseModel):
 
 
 class MorphCreate(MorphBase):
+    show_public: bool = True
+
     model_config = ConfigDict(extra="forbid")
 
 
