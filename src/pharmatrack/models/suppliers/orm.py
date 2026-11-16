@@ -16,6 +16,10 @@ class Supplier(Base):
     phone: Mapped[str] = mapped_column(String(25), nullable=True)
     address: Mapped[str] = mapped_column(String(250), nullable=True)
     rfc: Mapped[str] = mapped_column(String(50), nullable=True)
+    # ticket propio en la venta rápida
+    ticket_prefix: Mapped[str] = mapped_column(String(6), nullable=True)
+    ticket_lines: Mapped[str] = mapped_column(String(400), nullable=True)
+    ticket_qr_url: Mapped[str] = mapped_column(String(255), nullable=True)
 
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="1")
 

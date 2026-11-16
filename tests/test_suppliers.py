@@ -166,3 +166,34 @@ def test_delete_supplier_not_found(auth_headers):
 def test_delete_supplier_no_auth(test_supplier):
     response = suppliers_delete(f"/{test_supplier.id}")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+# =========================================================
+# 🧾 Datos del ticket (venta rápida: un ticket por dueño)
+# =========================================================
+
+def test_supplier_ticket_fields(auth_headers):
+    payload = {
+        "name": "BD Exóticos",
+        "logo": "https://res.cloudinary.com/demo/image/upload/bd.png",
+        "ticket_prefix": "BD",
+        "ticket_lines": "@bd.exoticos\nCDMX",
+        "ticket_qr_url": "https://instagram.com/bd.exoticos",
+    }
+    res = suppliers_post("/", json=payload, headers=auth_headers)
+    assert res.status_code == 201, res.text
+    body = res.json()
+    assert (body["ticket_prefix"], body["ticket_lines"], body["ticket_qr_url"]) == (
+        "BD", "@bd.exoticos\nCDMX", "https://instagram.com/bd.exoticos")
+    # todo opcional: sin correo ni datos de ticket también se registra
+    assert suppliers_post("/", json={"name": "Otro Expositor"}, headers=auth_headers).status_code == 201
+
+    res = suppliers_put(f"/{body['id']}", json={"ticket_prefix": "BDX"}, headers=auth_headers)
+    assert res.status_code == 200, res.text
+    assert res.json()["ticket_prefix"] == "BDX"
+
+
+def test_supplier_ticket_fields_are_validated(auth_headers):
+    for bad in ({"ticket_prefix": "BD-1"}, {"ticket_prefix": "DEMASIADO"},
+                {"ticket_qr_url": "javascript:alert(1)"}):
+        res = suppliers_post("/", json={"name": "Malo", **bad}, headers=auth_headers)
+        assert res.status_code == 422, bad

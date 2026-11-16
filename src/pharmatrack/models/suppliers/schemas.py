@@ -19,6 +19,10 @@ class SupplierBase(BaseModel):
     address: Optional[str] = Field(None, max_length=250, description="Dirección")
     rfc: Optional[SupplierRFCStr] = Field(None, description="RFC / identificación tributaria")
     is_active: bool = Field(True, description="Estado del proveedor")
+    # ticket propio en la venta rápida (un ticket por dueño); vacío = no se imprime
+    ticket_prefix: Optional[str] = Field(None, pattern=r"^[A-Za-z0-9]{0,6}$", description="Prefijo del folio: BD → BD-…")
+    ticket_lines: Optional[str] = Field(None, max_length=400, description="Datos de contacto, uno por renglón")
+    ticket_qr_url: Optional[str] = Field(None, pattern=r"^https?://", max_length=255, description="URL del QR del ticket")
 
     @field_validator("name")
     @classmethod
@@ -57,6 +61,10 @@ class SupplierUpdate(BaseModel):
     address: Optional[str] = Field(None, max_length=250)
     rfc: Optional[SupplierRFCStr] = None
     is_active: Optional[bool] = None
+    # ticket propio en la venta rápida (un ticket por dueño); vacío = no se imprime
+    ticket_prefix: Optional[str] = Field(None, pattern=r"^[A-Za-z0-9]{0,6}$", description="Prefijo del folio: BD → BD-…")
+    ticket_lines: Optional[str] = Field(None, max_length=400, description="Datos de contacto, uno por renglón")
+    ticket_qr_url: Optional[str] = Field(None, pattern=r"^https?://", max_length=255, description="URL del QR del ticket")
 
     @field_validator("name", mode="before")
     @classmethod
