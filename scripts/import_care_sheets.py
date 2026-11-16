@@ -6,7 +6,7 @@ Uso (desde la carpeta pharmatrack-api):
     poetry run python scripts/import_care_sheets.py fichas.json --email tu@correo.com --aplicar
 
 Sin --aplicar solo revisa y dice qué haría: cuáles crea, cuáles reemplaza y
-qué tiene errores. No escribe nada. La contraseña la pide en la terminal (no
+qué tiene errores. No escribe nada. Con --publicar quedan visibles en el sitio. La contraseña la pide en la terminal (no
 se escribe en el comando ni se guarda). Por omisión va a producción
 (https://api.opuntiaden.com); --api http://localhost:8000 para la local.
 
@@ -14,8 +14,8 @@ se escribe en el comando ni se guarda). Por omisión va a producción
   ("Phyllium gardabagusi", con o sin localidad) o "species_id". Nunca crea
   especies: si no la encuentra, lo reporta.
 - Si la especie ya tiene ficha, la reemplaza completa pero conserva su
-  dirección (slug) y si está publicada. Las nuevas nacen SIN publicar: se
-  revisan en el dashboard y se publican desde ahí.
+  dirección (slug) y si está publicada. Las nuevas nacen SIN publicar (se
+  revisan y publican en el dashboard), salvo con --publicar.
 - El resto de los campos son los del editor de fichas (ver
   scripts/fichas-ejemplo.json): summary (obligatorio), authority, origin,
   difficulty (Fácil, Intermedia, Difícil), taxonomy, facts, basics, body
@@ -62,8 +62,8 @@ def _get(client, headers, url):
     return res.json()
 
 
-def plan(client, headers, entries) -> list[dict]:
-    """Qué haría con cada ficha, sin escribir nada."""
+def plan(client, headers, entries, publish: bool = False) -> list[dict]:
+    """Qué haría con cada ficha, sin escribir nada. publish=True las deja publicadas."""
     species = _get(client, headers, f"{API}/species?page=1&page_size=500")
     species = species.get("data", species) if isinstance(species, dict) else species
     sheets = {s["species_id"]: s for s in _get(client, headers, f"{API}/care-sheets")}
@@ -98,9 +98,9 @@ def plan(client, headers, entries) -> list[dict]:
             payload = CareSheetCreate.model_validate({
                 **entry,
                 "species_id": sp["id"],
-                # al reemplazar se conserva la dirección y si está publicada
-                **({"slug": existing["slug"], "published": existing["published"]} if existing
-                   else {"published": False}),
+                # al reemplazar se conserva la dirección; publicada si ya lo estaba o con --publicar
+                **({"slug": existing["slug"]} if existing else {}),
+                "published": publish or bool(existing and existing["published"]),
             })
         except ValidationError as exc:
             item.update(action="error", errors=_errors(exc))
@@ -151,6 +151,7 @@ def main() -> None:
     parser.add_argument("--email", required=True)
     parser.add_argument("--api", default="https://api.opuntiaden.com")
     parser.add_argument("--aplicar", action="store_true", help="escribe de verdad (si no, solo revisa)")
+    parser.add_argument("--publicar", action="store_true", help="las deja publicadas en el sitio")
     args = parser.parse_args()
 
     entries = json.loads(args.archivo.read_text(encoding="utf-8"))
@@ -164,7 +165,7 @@ def main() -> None:
             sys.exit(f"No se pudo iniciar sesión ({res.status_code}).")
         headers = {"Authorization": f"Bearer {res.json()['access_token']}"}
 
-        planned = plan(client, headers, entries)
+        planned = plan(client, headers, entries, publish=args.publicar)
         names = {"create": "crear", "update": "reemplazar", "error": "ERROR"}
         for item in planned:
             print(f"{item['n']:>3}. {names[item['action']]:<10} {item['especie']}")
@@ -181,7 +182,7 @@ def main() -> None:
         for r in failed:
             print(f"Falló la ficha {r['n']}: {r['detail']}")
         print(f"\nListo: {sum(r['status'] == 'ok' for r in results)} guardadas, {len(failed)} fallaron.")
-        if counts["create"]:
+        if counts["create"] and not args.publicar:
             print("Las nuevas quedaron SIN publicar: revísalas y publícalas en Sitio → Fichas.")
 
 

@@ -83,3 +83,17 @@ def test_same_species_twice_in_the_file_is_an_error(auth_headers):
     ])
     assert [p["action"] for p in plan] == ["create", "error"]
     assert "repetida" in plan[1]["errors"][0]
+
+
+def test_publish_flag_publishes_new_and_existing(auth_headers):
+    draft = _species(auth_headers, genus="Phyllium", name="Gardabagusi")
+    new = _species(auth_headers, genus="Extatosoma", name="Tiaratum", group="Otros fasmidos")
+    client.post(URL, json=_sheet(draft), headers=auth_headers)  # borrador
+
+    plan = importer.plan(client, auth_headers, [
+        _entry("Phyllium gardabagusi"), _entry("Extatosoma tiaratum"),
+    ], publish=True)
+    importer.apply(client, auth_headers, plan)
+
+    public = {s["species_id"] for s in client.get("/api/v1/public/care-sheets").json()}
+    assert public == {draft["id"], new["id"]}
