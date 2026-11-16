@@ -64,7 +64,7 @@ Un archivo JSON con una lista de fichas (ver `lote-1.json` y `lote-2.json`). Cam
 | `origin` | 150 | Igual que en Animales |
 | `difficulty` | opciones | Igual que en Animales |
 | `taxonomy` | filas | `{rank, name, italic}`: Orden, Suborden/Subfamilia si aplica, Familia, Género *(itálica)*, Especie *(itálica)*, Autoridad, Combinación original *(itálica)*, Nombre común, Variedades, Estado: `En cultivo` |
-| `facts` | label 60, value 120 | 8–11 datos rápidos; la primera fila es `Dificultad` |
+| `facts` | label 60, value 120 | 7–10 datos rápidos; sin fila `Dificultad` (el sitio la pone sola desde `difficulty`) |
 | `morphology` | label 60, text 1000 | Adulto, juvenil, rasgos de la familia, cada variedad, identificación |
 | `habitat` | 2000 | Dónde vive en la naturaleza (no el terrario) |
 | `tags` | máx. 12 | 6–8 etiquetas cortas |
