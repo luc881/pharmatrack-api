@@ -75,3 +75,18 @@ def test_null_json_columns_read_as_empty_lists():
     from pharmatrack.models.care_sheets.schemas import CareSheetContent
     c = CareSheetContent.model_validate({"summary": "x", "morphology": None, "tags": None})
     assert c.morphology == [] and c.tags == []
+
+
+def test_photo_can_name_its_section(auth_headers, db_session):
+    _root, _sub, _genus, sp, _morph = _make_taxonomy(
+        auth_headers, group_name="Insectos", subgroup_name="Fásmidos",
+        genus_name="Phyllium", species_name="Philippinicum",
+    )
+    photos = [
+        {"src": "https://res.cloudinary.com/x/image/upload/comida.jpg", "alt": "Comiendo", "section": "Alimentación"},
+        {"src": "https://res.cloudinary.com/x/image/upload/b.jpg", "alt": "Hembra"},
+    ]
+    res = client.post(URL, json=_sheet(sp, photos=photos, published=True), headers=auth_headers)
+    assert res.status_code == 201, res.text
+    public = client.get(f"{PUB}/{res.json()['slug']}").json()
+    assert [p.get("section") for p in public["photos"]] == ["Alimentación", None]

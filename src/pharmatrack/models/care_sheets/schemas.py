@@ -28,6 +28,8 @@ class MorphologyItem(BaseModel):
 class Photo(BaseModel):
     src: ImageURLStr
     alt: str = Field(..., min_length=1, max_length=200)
+    # título de la sección del cuerpo («Alimentación») donde va; vacío = el sitio la acomoda
+    section: Optional[str] = Field(None, max_length=120)
 
 
 class Video(BaseModel):

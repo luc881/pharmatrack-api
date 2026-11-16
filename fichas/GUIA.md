@@ -71,7 +71,7 @@ Un archivo JSON con una lista de fichas (ver `lote-1.json` y `lote-2.json`). Cam
 | `basics` | lista | 6 líneas: contenedor, sustrato, temperatura, humedad, comida, el aviso clave |
 | `body` | Markdown | Ver abajo |
 | `references` | text 600 | `{text, url}`; la url con `https://` o `null` |
-| `photos`, `video` | | Opcional: links de Cloudinary con `alt` |
+| `photos`, `video` | | Opcional: links de Cloudinary con `alt`. Cada foto puede llevar `section` con el título exacto de una sección del cuerpo («Alimentación») para salir ahí; sin `section` el sitio las reparte solo |
 
 ### El cuerpo (`body`)
 
