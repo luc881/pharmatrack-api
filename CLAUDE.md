@@ -117,3 +117,8 @@ Tests require a real PostgreSQL database. The URL defaults to `postgresql://luc:
 `tests/conftest.py` creates tables once per session, then truncates all tables and resets identity sequences before each test. A single `Session` is shared between pytest fixtures and the FastAPI `TestClient` via a dependency override (`override_get_db` in `tests/utils.py`). This ensures fixtures and endpoint handlers see the same transaction.
 
 Fixtures for each domain are in `tests/fixtures/<module>.py` and wildcard-imported into `conftest.py`.
+
+## Cargar guías de cuidados en lote (Sitio → Fichas)
+
+`scripts/import_care_sheets.py fichas.json --email <correo>` revisa el archivo contra el API (por omisión producción; `--api http://localhost:8000` para la local) y dice qué crearía, qué reemplazaría y qué tiene errores, sin escribir. Con `--aplicar` escribe. La contraseña se pide en la terminal. Busca la especie por nombre científico (`"especie"`) o `species_id`; nunca crea especies. Las fichas nuevas quedan sin publicar; las existentes conservan su slug y su estado. Formato: `scripts/fichas-ejemplo.json`.
+

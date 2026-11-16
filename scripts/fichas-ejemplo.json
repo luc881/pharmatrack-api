@@ -1,0 +1,37 @@
+[
+  {
+    "especie": "Phyllium gardabagusi \"Argopuro\"",
+    "summary": "Un insecto hoja de Java, de los más fáciles de criar. Las hembras se reproducen solas.",
+    "authority": "Cumming, Bank, Le Tirant & Bradler, 2020",
+    "origin": "Java, Indonesia",
+    "difficulty": "Fácil",
+    "taxonomy": [
+      { "rank": "Orden", "name": "Phasmatodea" },
+      { "rank": "Familia", "name": "Phylliidae" },
+      { "rank": "Especie", "name": "Phyllium gardabagusi", "italic": true }
+    ],
+    "facts": [
+      { "label": "Hembra adulta", "value": "6.5–7.5 cm" },
+      { "label": "Temperatura", "value": "22–26 °C" },
+      { "label": "Humedad", "value": "60–80 %" }
+    ],
+    "basics": [
+      "Hojas frescas de guayaba (*Psidium guajava*), zarzamora o encino.",
+      "Rocío ligero una vez al día; nunca encharcar."
+    ],
+    "body": "## Lo esencial\n\nTexto de la sección.\n\n## Alimentación\n\nOtro párrafo.",
+    "morphology": [
+      { "label": "Hembra", "text": "Verde, con lóbulos en las patas que imitan hojas." },
+      { "label": "Huevo", "text": "5 × 3 mm, parecido a una semilla." }
+    ],
+    "habitat": "Bosque húmedo de montaña, entre 800 y 1,500 m.",
+    "tags": ["Mimetismo", "Partenogénesis"],
+    "photos": [
+      { "src": "https://res.cloudinary.com/TU-CUENTA/image/upload/hembra.jpg", "alt": "Hembra adulta" }
+    ],
+    "video": null,
+    "references": [
+      { "text": "Cumming et al. 2020. ZooKeys 913: 89–126.", "url": "https://doi.org/10.3897/zookeys.913.49044" }
+    ]
+  }
+]
