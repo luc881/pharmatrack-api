@@ -384,3 +384,35 @@ def test_change_password_not_authorized(test_user_with_role_permissions_branch_a
         # sin headers
     )
     assert response.status_code in (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN)
+
+# =========================================================
+# 🔹 Avatares predefinidos: ruta del dashboard, sin dominio
+# =========================================================
+
+def _put_avatar(user, headers, avatar):
+    body = {"name": "TestUser", "surname": "User Surname", "email": user.email, "avatar": avatar}
+    return users_put(f"/{user.id}", json=body, headers=headers)
+
+
+def test_preset_avatar_is_saved_without_domain(test_user_with_role_permissions_branch_auth, auth_headers):
+    user = test_user_with_role_permissions_branch_auth
+    # el dominio viejo (o cualquiera) se quita: la imagen vive en el dashboard
+    res = _put_avatar(user, auth_headers, "https://app.farmaciaselene.com/assets/images/mock/avatar/avatar-11.webp")
+    assert res.status_code == status.HTTP_200_OK, res.text
+    assert res.json()["avatar"] == "/assets/images/mock/avatar/avatar-11.webp"
+
+    res = _put_avatar(user, auth_headers, "/assets/images/mock/avatar/avatar-3.webp")
+    assert res.status_code == status.HTTP_200_OK, res.text
+    assert users_get(f"/{user.id}", headers=auth_headers).json()["avatar"] == "/assets/images/mock/avatar/avatar-3.webp"
+
+
+def test_uploaded_avatar_keeps_its_url(test_user_with_role_permissions_branch_auth, auth_headers):
+    url = "https://res.cloudinary.com/demo/image/upload/yo.jpg"
+    res = _put_avatar(test_user_with_role_permissions_branch_auth, auth_headers, url)
+    assert res.status_code == status.HTTP_200_OK, res.text
+    assert res.json()["avatar"] == url
+
+
+def test_other_relative_paths_are_rejected(test_user_with_role_permissions_branch_auth, auth_headers):
+    res = _put_avatar(test_user_with_role_permissions_branch_auth, auth_headers, "/etc/passwd")
+    assert res.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY

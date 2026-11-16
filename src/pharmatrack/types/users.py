@@ -1,8 +1,26 @@
+import re
 from enum import Enum
 from typing import Union, Annotated
-from pydantic import StringConstraints
+from pydantic import AfterValidator, StringConstraints
 from pydantic_extra_types.phone_numbers import PhoneNumberValidator
 import phonenumbers
+
+# Avatar: una URL http(s) (foto subida) o uno de los predefinidos del dashboard.
+# Los predefinidos se guardan como ruta, sin dominio: así sirven en cualquier
+# dominio o instalación (con dominio se rompieron al dejar farmaciaselene).
+PRESET_AVATAR = re.compile(r"^(?:https?://[^/]+)?(/assets/images/mock/avatar/avatar-\d+\.webp)$")
+
+
+def _avatar(v: str) -> str:
+    preset = PRESET_AVATAR.match(v)
+    if preset:
+        return preset.group(1)
+    if not re.match(r"^https?://\S+$", v):
+        raise ValueError("Debe ser un link https:// o un avatar predefinido")
+    return v
+
+
+AvatarStr = Annotated[str, StringConstraints(strip_whitespace=True, max_length=255), AfterValidator(_avatar)]
 
 # Tipos especiales
 NameStr = Annotated[

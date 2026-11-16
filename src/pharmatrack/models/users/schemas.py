@@ -2,7 +2,7 @@ from typing import Optional, TYPE_CHECKING
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator, model_validator, HttpUrl, SecretStr
 
-from pharmatrack.types.users import NameStr, SurnameStr, MXPhoneNumber, NumDocStr, DocumentTypeEnum, GenderEnum
+from pharmatrack.types.users import AvatarStr, NameStr, SurnameStr, MXPhoneNumber, NumDocStr, DocumentTypeEnum, GenderEnum
 from pharmatrack.models.products.schemas import PaginatedResponse, PaginationParams
 
 
@@ -13,7 +13,7 @@ class UserBase(BaseModel):
     name: NameStr = Field(..., description="Nombre del usuario")
     surname: Optional[SurnameStr] = Field(None, description="Apellido del usuario")
     email: EmailStr = Field(..., max_length=255, description="Correo electrónico")
-    avatar: Optional[HttpUrl] = Field(None, max_length=255, description="URL del avatar del usuario")
+    avatar: Optional[AvatarStr] = Field(None, description="Link del avatar, o ruta de un avatar predefinido")
     branch_id: Optional[int] = Field(None, gt=0, description="ID de la sucursal")
     phone: Optional[MXPhoneNumber] = Field(None, description="Número telefónico en formato E164")
     type_document: Optional[DocumentTypeEnum] = Field(None, description="Tipo de documento")
