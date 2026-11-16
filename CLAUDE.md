@@ -120,5 +120,5 @@ Fixtures for each domain are in `tests/fixtures/<module>.py` and wildcard-import
 
 ## Cargar guías de cuidados en lote (Sitio → Fichas)
 
-`scripts/import_care_sheets.py fichas.json --email <correo>` revisa el archivo contra el API (por omisión producción; `--api http://localhost:8000` para la local) y dice qué crearía, qué reemplazaría y qué tiene errores, sin escribir. Con `--aplicar` escribe. La contraseña se pide en la terminal. Busca la especie por nombre científico (`"especie"`) o `species_id`; nunca crea especies. Las fichas nuevas quedan sin publicar salvo con `--publicar`; las existentes conservan su slug (y su estado, salvo `--publicar`). Formato: `scripts/fichas-ejemplo.json`.
+`scripts/import_care_sheets.py fichas.json --email <correo>` revisa el archivo contra el API (por omisión producción; `--api http://localhost:8000` para la local) y dice qué crearía, qué reemplazaría y qué tiene errores, sin escribir. Con `--aplicar` escribe. La contraseña se pide en la terminal. Busca la especie por nombre científico (`"especie"`) o `species_id`; nunca crea especies. Las fichas nuevas quedan sin publicar salvo con `--publicar`; las existentes conservan su slug (y su estado, salvo `--publicar`). Formato y estilo de las dos fichas (Animales y Sitio): `fichas/GUIA.md`; ejemplo: `scripts/fichas-ejemplo.json`.
 
