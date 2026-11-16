@@ -40,3 +40,12 @@ def test_dashboard_viejo_con_gracias_se_guarda_sin_ella(auth_headers):
 
 def test_sin_sesion_no_guarda():
     assert client.put(URL, json=LINK_PAGES_DEFAULTS).status_code == 401
+
+
+def test_las_guias_ya_no_se_guardan_ni_se_leen(auth_headers):
+    # /links arma las guías con las fichas publicadas; un dashboard viejo aún las manda
+    assert "guides" not in client.get(URL).json()
+    body = copy.deepcopy(LINK_PAGES_DEFAULTS)
+    body["guides"] = [{"name": "Isópodos", "url": "/articulos/x", "sub": False}]
+    assert client.put(URL, json=body, headers=auth_headers).status_code == 200
+    assert "guides" not in client.get(URL).json()

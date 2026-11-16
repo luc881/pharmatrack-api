@@ -288,14 +288,6 @@ LINK_PAGES_DEFAULTS = {
             "url_label": "Más información",
         }
     ],
-    # url vacia = todavia no hay guia: el sitio la ofrece por WhatsApp
-    "guides": [
-        {"name": "Fásmidos", "url": "/fichas/phyllium-gardabagusi-argopuro", "sub": False},
-        {"name": 'Phyllium gardabagusi "Argopuro"', "url": "/fichas/phyllium-gardabagusi-argopuro", "sub": True},
-        {"name": "Isópodos", "url": "/articulos/isopodos-y-colembolos-el-equipo-de-limpieza-del-terrario-2", "sub": False},
-        {"name": "Colémbolos", "url": "/articulos/isopodos-y-colembolos-el-equipo-de-limpieza-del-terrario-2", "sub": False},
-        {"name": "Cucarachas", "url": "", "sub": False},
-    ],
     "pages": {
         "links": {
             "label": "Criadero · CDMX",
@@ -324,12 +316,6 @@ class LinkButton(BaseModel):
     primary: bool = False
 
 
-class LinkGuide(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
-    url: str = Field("", pattern=rf"{URL_PATTERN}|^$", max_length=500)
-    sub: bool = False
-
-
 class LinkEvent(BaseModel):
     title: str = Field(min_length=1, max_length=120)
     place: str = Field("", max_length=160)
@@ -350,7 +336,8 @@ class LinkPage(BaseModel):
 
 class LinkPages(BaseModel):
     events: list[LinkEvent] = Field(default_factory=list, max_length=20)
-    guides: list[LinkGuide] = Field(default_factory=list, max_length=30)
+    # las guías de /links salen de las fichas publicadas; un "guides" de un
+    # dashboard viejo se ignora (BaseModel descarta campos de más)
     # dict[str]: un dashboard viejo todavia manda "gracias"; se descarta al guardar
     pages: dict[str, LinkPage]
 
@@ -362,6 +349,8 @@ def get_link_pages(db) -> dict:
     data = json.loads(row.value)
     # /gracias ya no existe: lo guardado antes la trae y aqui se quita
     data["pages"] = {"links": data["pages"]["links"]}
+    # tampoco la lista de guias a mano: /links las arma con las fichas
+    data.pop("guides", None)
     return data
 
 
