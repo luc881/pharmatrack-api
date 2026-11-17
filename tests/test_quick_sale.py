@@ -149,3 +149,29 @@ def test_several_products_without_sku(auth_headers, test_product_category):
     first = _make_product(auth_headers, test_product_category.id, sku=None, title="Sin código uno")
     second = _make_product(auth_headers, test_product_category.id, sku=None, title="Sin código dos")
     assert first["id"] != second["id"]
+
+
+def test_animal_owner_lives_in_its_twin(auth_headers):
+    """El dueño de un animal (otro expositor) va en su producto gemelo: su ticket sale aparte."""
+    from .test_animals import _make_taxonomy, _create_animal
+
+    owner = client.post("/api/v1/suppliers", json={"name": "BD Exóticos"}, headers=auth_headers).json()
+    *_, sp, _morph = _make_taxonomy(auth_headers)
+    animal = _create_animal(auth_headers, sp["id"], quick_sale=True)
+    assert animal["consignor_id"] is None
+
+    res = client.put(f"/api/v1/animals/{animal['id']}", json={"consignor_id": owner["id"]},
+                     headers=auth_headers)
+    assert res.status_code == status.HTTP_200_OK, res.text
+    assert res.json()["consignor_id"] == owner["id"]
+    item = next(i for i in client.get(CATALOG, headers=auth_headers).json()
+                if i["id"] == animal["product_id"])
+    assert item["consignor_id"] == owner["id"]
+
+    # otro cambio no lo borra; null lo regresa a propio; un dueño que no existe no
+    client.put(f"/api/v1/animals/{animal['id']}", json={"price": 999}, headers=auth_headers)
+    assert client.get(f"/api/v1/animals/{animal['id']}", headers=auth_headers).json()["consignor_id"] == owner["id"]
+    assert client.put(f"/api/v1/animals/{animal['id']}", json={"consignor_id": 999999},
+                      headers=auth_headers).status_code == status.HTTP_400_BAD_REQUEST
+    res = client.put(f"/api/v1/animals/{animal['id']}", json={"consignor_id": None}, headers=auth_headers)
+    assert res.json()["consignor_id"] is None

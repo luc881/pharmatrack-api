@@ -10,6 +10,7 @@ from ...db.session import db_dependency
 from ...models.animals.orm import Genus, Species, Morph, Animal, AnimalPhoto
 from ...models.animals.schemas import AnimalCreate, AnimalUpdate, AnimalResponse, AnimalMove
 from .animal_taxonomy import descendant_group_ids, hidden_group_ids
+from .products import _check_consignor
 from ...models.products.orm import Product
 from ...models.sale_details.orm import SaleDetail
 from ...utils.permissions import (
@@ -280,7 +281,7 @@ def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency):
         raise HTTPException(status_code=400, detail="Solo un animal en venta se puede apartar.")
 
     update_data = payload.model_dump(exclude_unset=True,
-                                     exclude={"morph_ids", "photos", "stock", "quick_sale"})
+                                     exclude={"morph_ids", "photos", "stock", "quick_sale", "consignor_id"})
     for key, value in update_data.items():
         setattr(animal, key, value.value if hasattr(value, "value") else value)
 
@@ -302,6 +303,9 @@ def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency):
         product.image = animal.display_image
         if payload.quick_sale is not None:
             product.quick_sale = payload.quick_sale
+        if "consignor_id" in payload.model_fields_set:
+            _check_consignor(db, payload.consignor_id)
+            product.consignor_id = payload.consignor_id
         title = _animal_title(species, animal.code, animal.morphs)
         if title != product.title:
             product.title = title

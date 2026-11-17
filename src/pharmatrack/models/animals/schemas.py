@@ -386,6 +386,8 @@ class AnimalUpdate(BaseModel):
     compare_at_price: Optional[float] = Field(None, gt=0, description="Precio anterior (tachado); null quita la oferta")
     show_public: Optional[bool] = None
     quick_sale: Optional[bool] = Field(None, description="Botón en la venta rápida")
+    # proveedor dueño (otro expositor); null = propio. Se guarda en el producto gemelo
+    consignor_id: Optional[int] = Field(None, ge=1)
 
     @field_validator("status")
     @classmethod
@@ -443,6 +445,7 @@ class AnimalResponse(AnimalBase):
     # Unidades disponibles (lotes del producto gemelo); individuales: 1
     stock: Optional[int] = None
     quick_sale: bool = False
+    consignor_id: Optional[int] = None
     species: Optional[SpeciesResponse] = None
     morphs: List[MorphResponse] = Field(default_factory=list)
     photos: List[str] = Field(default_factory=list)

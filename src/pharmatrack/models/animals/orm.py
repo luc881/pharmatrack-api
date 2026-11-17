@@ -224,6 +224,11 @@ class Animal(Base):
         return bool(self.product and self.product.quick_sale)
 
     @property
+    def consignor_id(self):
+        # dueño (otro expositor): vive en el producto gemelo, como cualquier producto
+        return self.product.consignor_id if self.product else None
+
+    @property
     def display_image(self):
         """Foto propia; si no, la de su variedad; si no, la de su especie."""
         own = self.image or next((p.url for p in self.photos), None)
