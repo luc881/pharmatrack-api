@@ -202,6 +202,8 @@ def create_animal(payload: AnimalCreate, db: db_dependency):
 
     if payload.code and db.query(Animal.id).filter(Animal.code == payload.code).first():
         raise HTTPException(status_code=400, detail="An animal with this code already exists.")
+    if payload.consignor_id is not None:
+        _check_consignor(db, payload.consignor_id)
 
     if species.sale_format in BULK_FORMATS and find_bulk_sibling(
         db, (species.id, frozenset(m.id for m in morphs)), payload.purpose.value,
@@ -225,6 +227,8 @@ def create_animal(payload: AnimalCreate, db: db_dependency):
         )
         for _ in range(payload.count)
     ]
+    for animal in created:
+        animal.product.consignor_id = payload.consignor_id
     db.commit()
 
     return _query_with_relations(db).filter(Animal.id == created[0].id).first()

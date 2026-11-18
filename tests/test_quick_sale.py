@@ -175,3 +175,18 @@ def test_animal_owner_lives_in_its_twin(auth_headers):
                       headers=auth_headers).status_code == status.HTTP_400_BAD_REQUEST
     res = client.put(f"/api/v1/animals/{animal['id']}", json={"consignor_id": None}, headers=auth_headers)
     assert res.json()["consignor_id"] is None
+
+
+def test_animal_born_with_owner(auth_headers):
+    """En el alta ya se dice de quién es: nace con su dueño (y uno que no existe no)."""
+    from .test_animals import _make_taxonomy, _create_animal
+
+    owner = client.post("/api/v1/suppliers", json={"name": "BD Alta"}, headers=auth_headers).json()
+    *_, sp, _morph = _make_taxonomy(auth_headers)
+    animal = _create_animal(auth_headers, sp["id"], quick_sale=True, consignor_id=owner["id"])
+    assert animal["consignor_id"] == owner["id"]
+
+    res = client.post("/api/v1/animals",
+                      json={"species_id": sp["id"], "sex": "male", "price": 100, "consignor_id": 999999},
+                      headers=auth_headers)
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
