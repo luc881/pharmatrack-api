@@ -14,6 +14,8 @@ from ..types.animals import AnimalStatusEnum, AnimalPurposeEnum
 from .slugify import slugify
 
 ANIMALS_CATEGORY_SLUG = "animales"
+# «Por pieza»: un lote por variedad y sexo; el sexo va en su nombre
+SEX_LABELS = {"female": "Hembra", "male": "Macho", "unknown": "Sin sexar"}
 
 
 def _animals_category_id(db: Session) -> int:
@@ -26,11 +28,14 @@ def _animals_category_id(db: Session) -> int:
     return cat.id
 
 
-def _animal_title(species: Species, code: str, morphs: list[Morph] | None = None) -> str:
+def _animal_title(species: Species, code: str, morphs: list[Morph] | None = None,
+                  sex: str | None = None) -> str:
     # El morph en el título distingue gemelos de la misma especie en el POS
     # y en el buscador de paquetes ("Murina Glacier AN-X" vs "Murina Papaya AN-Y")
     parts = [species.common_name or species.name]
     parts.extend(m.name for m in (morphs or []))
+    if species.sale_format == "piece" and sex:
+        parts.append(SEX_LABELS.get(sex, sex))
     parts.append(code)
     return " ".join(parts)
 
@@ -45,7 +50,7 @@ def new_animal(db: Session, species: Species, morphs: list[Morph], *, purpose: s
     # Sin image explícita, la primera foto es la principal
     main_image = image or (photos[0] if photos else None)
 
-    title = _animal_title(species, code, morphs)
+    title = _animal_title(species, code, morphs, sex)
     product = Product(
         title=title,
         slug=slugify(title),
@@ -138,14 +143,17 @@ def not_emptied():
 
 
 def find_bulk_sibling(db: Session, animal_or_key, purpose: str,
-                      exclude_id: int | None = None) -> Animal | None:
+                      exclude_id: int | None = None, sex: str | None = None) -> Animal | None:
     """Registro disponible de la misma especie, mismos morphs (como conjunto) y destino.
+    En «Por pieza» también del mismo sexo (sin sexar, hembras y machos van aparte).
 
     animal_or_key: un Animal o la tupla (species_id, frozenset(morph_ids)).
     """
     if isinstance(animal_or_key, Animal):
         species_id = animal_or_key.species_id
         morph_ids = frozenset(m.id for m in animal_or_key.morphs)
+        if animal_or_key.species and animal_or_key.species.sale_format == "piece":
+            sex = animal_or_key.sex
     else:
         species_id, morph_ids = animal_or_key
         morph_ids = frozenset(morph_ids)
@@ -154,6 +162,8 @@ def find_bulk_sibling(db: Session, animal_or_key, purpose: str,
         Animal.purpose == purpose,
         Animal.status == AnimalStatusEnum.AVAILABLE.value,
     )
+    if sex is not None:
+        query = query.filter(Animal.sex == sex)
     if exclude_id is not None:
         query = query.filter(Animal.id != exclude_id)
     for candidate in query.all():
@@ -236,6 +246,50 @@ def move_animal(db: Session, animal: Animal, purpose: str, quantity: int | None,
     # Vaciado por mover queda disponible (en 0), aunque esté en venta
     set_animal_stock(db, animal, stock - units_out, closing=False)
     return [animal, target]
+
+
+def merge_into_lots(db: Session, species: Species) -> None:
+    """Al pasar una especie a «Por pieza»: lo que está en venta se junta en un
+    lote por variedad y sexo (se queda el registro más antiguo con la suma).
+    Su bitácora pasa al lote. No se tocan los que tengan ventas o vayan en un
+    paquete, ni lo que no está en venta (pie de cría, crianza). No hace commit."""
+    from ..models.products.orm import BundleItem
+    from ..models.husbandry_logs.orm import HusbandryLog
+    from ..models.sale_details.orm import SaleDetail
+
+    candidates = (
+        db.query(Animal)
+        .filter(Animal.species_id == species.id,
+                Animal.purpose == AnimalPurposeEnum.SALE.value,
+                Animal.status == AnimalStatusEnum.AVAILABLE.value)
+        .order_by(Animal.id)
+        .all()
+    )
+    groups: dict = {}
+    for animal in candidates:
+        groups.setdefault((frozenset(m.id for m in animal.morphs), animal.sex), []).append(animal)
+
+    for lot, *rest in groups.values():
+        total = lot.stock or 0
+        for other in rest:
+            used = (db.query(SaleDetail.id).filter(SaleDetail.product_id == other.product_id).first()
+                    or db.query(BundleItem.id)
+                    .filter(BundleItem.component_product_id == other.product_id).first())
+            if used:
+                continue
+            total += other.stock or 0
+            for column in (HusbandryLog.animal_id, HusbandryLog.replacement_animal_id):
+                db.query(HusbandryLog).filter(column == other.id).update(
+                    {column: lot.id}, synchronize_session=False)
+            product = db.get(Product, other.product_id)
+            db.delete(other)
+            if product:
+                db.delete(product)  # cascade elimina su lote
+        db.flush()
+        set_animal_stock(db, lot, total)
+        if lot.product:
+            lot.product.title = _animal_title(species, lot.code, list(lot.morphs), lot.sex)
+            lot.product.slug = slugify(lot.product.title)
 
 
 def refresh_twin_images(db: Session, animals) -> None:

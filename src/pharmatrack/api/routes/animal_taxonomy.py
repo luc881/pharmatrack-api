@@ -353,9 +353,16 @@ def update_species(species_id: int, payload: SpeciesUpdate, db: db_dependency):
                        f"{', '.join(c.code for c in combined)}. Déjales una sola antes de cambiar.",
             )
 
+    to_piece = (payload.sale_format is not None and payload.sale_format.value == "piece"
+                and species.sale_format != "piece")
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(species, key, value)
     _main_photo(species, payload)
+    if to_piece:
+        # lo que ya está en venta se junta en un lote por variedad y sexo
+        from ...utils.animal_records import merge_into_lots
+        db.flush()
+        merge_into_lots(db, species)
     db.commit()
     db.refresh(species)
     return species

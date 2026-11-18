@@ -26,6 +26,8 @@ class SaleFormatEnum(str, Enum):
     INDIVIDUAL = "individual"   # ejemplar único con folio
     PACKAGE = "package"         # paquete de N (p. ej. isópodos x6)
     COLONY = "colony"           # cepa/colonia sin cantidad definida
+    PIECE = "piece"             # iguales que se venden de uno en uno (insecto hoja, mantis):
+                                # un registro con cantidad por variedad y sexo
 
 
 class VarietyModeEnum(str, Enum):

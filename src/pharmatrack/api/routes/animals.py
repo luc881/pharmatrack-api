@@ -26,7 +26,7 @@ from pharmatrack.utils.slugify import slugify
 
 router = APIRouter(prefix="/animals", tags=["Animals"])
 
-BULK_FORMATS = ("package", "colony")
+BULK_FORMATS = ("package", "colony", "piece")
 BULK_DUPLICATE_MSG = "Ya existe un registro de esa colonia para ese destino; ajusta su cantidad."
 
 
@@ -81,7 +81,7 @@ def _validate_stock(species: Species, stock: int):
     if stock > 1 and species.sale_format == "individual":
         raise HTTPException(
             status_code=400,
-            detail="Solo las especies en cepa o paquete aceptan stock mayor a 1.",
+            detail="Solo las especies en cepa, paquete o por pieza aceptan stock mayor a 1.",
         )
 
 
@@ -204,7 +204,8 @@ def create_animal(payload: AnimalCreate, db: db_dependency):
         raise HTTPException(status_code=400, detail="An animal with this code already exists.")
 
     if species.sale_format in BULK_FORMATS and find_bulk_sibling(
-        db, (species.id, frozenset(m.id for m in morphs)), payload.purpose.value
+        db, (species.id, frozenset(m.id for m in morphs)), payload.purpose.value,
+        sex=payload.sex.value if species.sale_format == "piece" else None,
     ):
         raise HTTPException(status_code=400, detail=BULK_DUPLICATE_MSG)
 
@@ -255,10 +256,14 @@ def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency):
             )
 
     # Cambiar morphs o especie no puede chocar con otra colonia del mismo destino
+    piece = species.sale_format == "piece"
+    final_sex = payload.sex.value if payload.sex is not None else animal.sex
     if (species.sale_format in BULK_FORMATS
-            and (payload.morph_ids is not None or payload.species_id is not None)
+            and (payload.morph_ids is not None or payload.species_id is not None
+                 or (piece and payload.sex is not None))
             and find_bulk_sibling(db, (species.id, frozenset(m.id for m in animal.morphs)),
-                                  animal.purpose, exclude_id=animal.id)):
+                                  animal.purpose, exclude_id=animal.id,
+                                  sex=final_sex if piece else None)):
         raise HTTPException(status_code=400, detail=BULK_DUPLICATE_MSG)
 
     if payload.code is not None and payload.code != animal.code:
@@ -306,7 +311,7 @@ def update_animal(animal_id: int, payload: AnimalUpdate, db: db_dependency):
         if "consignor_id" in payload.model_fields_set:
             _check_consignor(db, payload.consignor_id)
             product.consignor_id = payload.consignor_id
-        title = _animal_title(species, animal.code, animal.morphs)
+        title = _animal_title(species, animal.code, animal.morphs, animal.sex)
         if title != product.title:
             product.title = title
             product.slug = slugify(title)
