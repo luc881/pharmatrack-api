@@ -76,6 +76,15 @@ def test_too_long_text_says_which_field(auth_headers):
     assert "habitat" in plan[0]["errors"][0]
 
 
+def test_finds_species_saved_under_another_spelling(auth_headers):
+    sp = _species(auth_headers, genus="Nesodillo", name="Archangeli", group="Isópodos TC")
+    plan = importer.plan(client, auth_headers, [
+        _entry("Nesodillo arcangelii", tambien_como=["Nesodillo archangeli"]),
+    ])
+    assert plan[0]["action"] == "create"
+    assert plan[0]["payload"]["species_id"] == sp["id"]
+
+
 def test_same_species_twice_in_the_file_is_an_error(auth_headers):
     _species(auth_headers, genus="Phyllium", name="Gardabagusi")
     plan = importer.plan(client, auth_headers, [

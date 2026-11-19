@@ -25,6 +25,17 @@ El archivo (ver scripts/bd-exoticos.json):
   "se_prepara" (talón de orden en la venta rápida). Si ya hay uno con el
   mismo nombre, se salta.
 
+- "especies": fichas de especie (Animales → Editar especie) y sus
+  variedades, sin animales. Cada una: "especie" (nombre científico),
+  "tambien_como" (otros nombres con que pudo darse de alta, para no
+  duplicar), "grupo" (si hay que crearla), "campos" (common_name,
+  description, origin, temperature, humidity, adult_size, difficulty,
+  rarity, habitat, diet, notes) y "variedades" ([{"nombre", "tambien_como",
+  "descripcion"}]). Si ya existe, solo llena lo vacío: lo que ya tiene otro
+  valor se reporta y no se toca (la ficha de Animales manda), salvo los
+  campos que diga "reemplazar". Los nombres de variedad van entre comillas
+  simples ('Yellow'); al buscar se ignoran.
+
 Una especie con «variedades con nombre» que reciba un ejemplar con varios
 genes se cambia a «genes» (se avisa en la revisión).
 """
@@ -84,7 +95,7 @@ class Importer:
     def __init__(self, client, headers, data, apply=False, log=print):
         self.client, self.headers, self.data, self.apply, self.log = client, headers, data, apply, log
         self.fake_ids = itertools.count(-1, -1)
-        self.counts = {"creados": 0, "ya estaban": 0, "con error": 0}
+        self.counts = {"creados": 0, "actualizados": 0, "ya estaban": 0, "con error": 0}
 
     def _create(self, url, body, what):
         if not self.apply:
@@ -102,14 +113,17 @@ class Importer:
 
     # -- taxonomía -------------------------------------------------------
 
-    def _species(self, scientific):
+    def _species(self, scientific, new=None, aliases=(), fields=None):
+        for name in (scientific, *aliases):
+            if _plain(name) in self.species:
+                return self.species[_plain(name)]
         key = _plain(scientific)
-        if key in self.species:
-            return self.species[key]
-        new = {_plain(k): v for k, v in (self.data.get("especies_nuevas") or {}).items()}.get(key)
+        new = new or {_plain(k): v for k, v in (self.data.get("especies_nuevas") or {}).items()}.get(key)
         if not new:
             raise LookupError(f"La especie «{scientific}» no existe; agrégala en «especies_nuevas».")
         genus_name, _, species_name = scientific.strip().partition(" ")
+        # en Animales la especie va con mayúscula: «Arcangelii», «Sp.»
+        species_name = species_name[:1].upper() + species_name[1:]
         genus = self.genera.get(_plain(genus_name))
         if not genus:
             group = self.groups.get(_plain(new["grupo"]))
@@ -120,10 +134,60 @@ class Importer:
             self.genera[_plain(genus_name)] = genus
         species = self._create(f"{API}/species", {
             "genus_id": genus["id"], "name": species_name, "common_name": new.get("nombre_comun"),
-            "variety_mode": new.get("modo", "named"),
+            "variety_mode": new.get("modo", "named"), **(fields or {}),
         }, f"especie {scientific}")
+        species["_new"] = True
         self.species[key] = species
         return species
+
+    def _fill(self, url, current, wanted, replace, label):
+        """PUT solo de lo vacío (o de lo que diga replace); lo distinto se reporta."""
+        patch = {}
+        for field, value in wanted.items():
+            now = current.get(field)
+            if now in (None, "", []) or (field in replace and now != value):
+                patch[field] = value
+            elif now != value:
+                self.log(f"  {label}: «{field}» ya tiene otro valor, no se cambia")
+        if not patch:
+            return
+        if self.apply and current["id"] > 0:
+            res = _send(self.client, "put", url, self.headers, patch)
+            if res.status_code != 200:
+                raise RuntimeError(f"No se pudo actualizar {label}: {res.status_code} {res.text[:300]}")
+            self.log(f"  actualizado {label}: {', '.join(patch)}")
+        else:
+            self.log(f"  llenar {label}: {', '.join(patch)}")
+        self.counts["actualizados"] += 1
+
+    def _sheet(self, entry):
+        label = entry["especie"]
+        self.log(label)
+        try:
+            fields = entry.get("campos") or {}
+            replace = set(entry.get("reemplazar") or [])
+            species = self._species(entry["especie"], new={"grupo": entry.get("grupo")} if entry.get("grupo") else None,
+                                    aliases=entry.get("tambien_como") or (), fields=fields)
+            if species.pop("_new", False):
+                self.counts["creados"] += 1
+            else:
+                self.log(f"  ya existe (#{species['id']})")
+                self._fill(f"{API}/species/{species['id']}", species, fields, replace, "especie")
+            known = self.morphs.setdefault(species["id"], {})
+            for variety in entry.get("variedades") or []:
+                names = [variety["nombre"], *(variety.get("tambien_como") or [])]
+                morph = next((known[_plain(n)] for n in names if _plain(n) in known), None)
+                wanted = {"description": variety["descripcion"]} if variety.get("descripcion") else {}
+                if morph:
+                    self.log(f"  variedad {morph['name']} ya existe (#{morph['id']})")
+                    self._fill(f"{API}/morphs/{morph['id']}", morph, wanted, replace, f"variedad {morph['name']}")
+                else:
+                    known[_plain(variety["nombre"])] = self._create(
+                        f"{API}/morphs", {"species_id": species["id"], "name": variety["nombre"], **wanted},
+                        f"variedad {variety['nombre']}")
+                    self.counts["creados"] += 1
+        except (LookupError, RuntimeError) as exc:
+            self._error(label, str(exc))
 
     def _morph_ids(self, species, names):
         if len(names) > 1 and species.get("variety_mode", "named") == "named":
@@ -152,12 +216,6 @@ class Importer:
 
     def run(self):
         c, h = self.client, self.headers
-        suppliers = _all(c, h, f"{API}/suppliers")
-        supplier = next((s for s in suppliers if _plain(s["name"]) == _plain(self.data["proveedor"])), None)
-        if not supplier:
-            self._error("proveedor", f"«{self.data['proveedor']}» no existe en Proveedores.")
-            return self.counts
-
         self.groups = {_plain(g["name"]): g for g in _all(c, h, f"{API}/animal-groups")}
         self.genera = {_plain(g["name"]): g for g in _all(c, h, f"{API}/genera")}
         self.species = {
@@ -166,6 +224,17 @@ class Importer:
         self.morphs = {}
         for m in _all(c, h, f"{API}/morphs"):
             self.morphs.setdefault(m["species_id"], {})[_plain(m["name"])] = m
+
+        for entry in self.data.get("especies") or []:
+            self._sheet(entry)
+        if not (self.data.get("animales") or self.data.get("productos")):
+            return self.counts
+
+        suppliers = _all(c, h, f"{API}/suppliers")
+        supplier = next((s for s in suppliers if _plain(s["name"]) == _plain(self.data.get("proveedor"))), None)
+        if not supplier:
+            self._error("proveedor", f"«{self.data.get('proveedor')}» no existe en Proveedores.")
+            return self.counts
         codes = {_plain(a["code"]) for a in _all(c, h, f"{API}/animals")}
 
         quick = self.data.get("venta_rapida", True)
@@ -244,7 +313,8 @@ def main() -> None:
         counts = Importer(client, headers, data, apply=args.aplicar).run()
 
     verb = "Creados" if args.aplicar else "Por crear"
-    print(f"\n{verb}: {counts['creados']} · Ya estaban: {counts['ya estaban']} · Con error: {counts['con error']}")
+    print(f"\n{verb}: {counts['creados']} · Llenados: {counts['actualizados']} · "
+          f"Ya estaban: {counts['ya estaban']} · Con error: {counts['con error']}")
     if not args.aplicar:
         print("Solo revisión. Para escribir, repite el comando con --aplicar.")
 

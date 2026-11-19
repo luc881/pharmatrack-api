@@ -96,4 +96,14 @@ poetry run python scripts/import_care_sheets.py fichas/lote-N.json --email <corr
 ```
 
 El primero solo revisa; el segundo escribe y las deja visibles. Si la especie ya tiene
-guía, se reemplaza completa (se pierde lo editado a mano en el dashboard).
+guía, se reemplaza completa (se pierde lo editado a mano en el dashboard). Si la especie
+pudo darse de alta con otra ortografía, `"tambien_como": ["..."]` la encuentra.
+
+Las fichas de especie y variedades de Animales van en `fichas/especies-lote-N.json`
+y se cargan **antes** que las guías (crean las especies que falten; de las que ya
+existen solo llenan lo vacío y reportan lo distinto):
+
+```
+poetry run python scripts/import_animals.py fichas/especies-lote-N.json --email <correo>
+poetry run python scripts/import_animals.py fichas/especies-lote-N.json --email <correo> --aplicar
+```

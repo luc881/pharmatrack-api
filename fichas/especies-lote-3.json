@@ -1,0 +1,75 @@
+{
+  "especies": [
+    {
+      "especie": "Porcellionides pruinosus",
+      "campos": { "common_name": "Isópodo Velvet" },
+      "reemplazar": ["common_name"],
+      "variedades": [
+        {
+          "nombre": "'Orange Powder'",
+          "tambien_como": ["Powder Orange", "Orange Powder"],
+          "descripcion": "Línea de cría naranja del isópodo powder. El tono cambia dentro de un mismo cultivo: va de casi amarillo a naranja oscuro.\n\nComo toda la especie, se ve blanquecino y empolvado justo antes de mudar. No es lo mismo que 'Orange Cream', que tiene un matiz crema; si los juntas, se cruzan."
+        }
+      ]
+    },
+    {
+      "especie": "Armadillidium maculatum",
+      "grupo": "Isópodos",
+      "campos": {
+        "common_name": "Isópodo Cebra",
+        "description": "El isópodo cebra es una cochinilla de bola del sureste de Francia y Mónaco. Su nombre viene del latín maculatus, «manchado»: en la naturaleza tiene manchas claras sobre fondo oscuro, y en cultivo casi siempre se ve a rayas, como una cebra.\n\nMide hasta 18 mm, se hace bolita cuando lo molestas y es tranquilo, fácil de ver y fácil de manejar. Se cree que su patrón imita al milpiés de bola Glomeris marginata, que suelta sustancias de mal sabor.\n\nEs fácil de mantener y cría bien. En cultivo se han seleccionado variedades de color como 'Yellow', con las rayas amarillas en lugar de blancas.",
+        "origin": "Sureste de Francia y Mónaco",
+        "temperature": "18-26 °C",
+        "humidity": "60-75 %",
+        "adult_size": "Hasta 18 mm",
+        "difficulty": "Fácil",
+        "rarity": "Común",
+        "habitat": "Bote o terrario con tapa segura y ventilación en lados opuestos, con malla fina.\n\nBase de al menos 3 cm de tierra orgánica sin pesticidas, mezclada con madera blanca podrida y hojarasca. Encima, hojarasca, musgo y corteza de corcho para esconderse.\n\nMantén un tercio a la mitad del bote húmedo y el resto más seco, para que elijan. Le gusta un poco más húmedo que a otros Armadillidium. Temperatura ambiente, de 18 a 26 °C.",
+        "diet": "Base: hojarasca de árboles de hoja ancha (encino, roble) y madera blanca podrida, siempre disponibles.\n\nUna o dos veces por semana, poca cantidad de verdura o fruta (zanahoria, calabacita, calabaza, chícharo, manzana) y proteína (hojuelas de pescado, camarón seco). Esta especie agradece la proteína.\n\nCalcio siempre: hueso de jibia, cascarón de huevo molido o piedra caliza. Retira lo que no se coman al día siguiente.",
+        "notes": "Cría de forma prolífica, con camadas grandes. Las crías salen de la bolsa de la hembra ya formadas.\n\nBuena especie para empezar con cochinillas de bola y para exhibición: es activa y se deja ver. Para conservar una variedad de color pura, críala separada de las demás.\n\nRespira por unos pulmones en las patas traseras (las manchas blancas debajo): no la sumerjas ni le pongas recipientes de agua donde se pueda ahogar."
+      },
+      "variedades": [
+        {
+          "nombre": "'Yellow'",
+          "tambien_como": ["Yellow Zebra"],
+          "descripcion": "Variedad de cultivo con las rayas amarillas en lugar de blancas, sobre el fondo oscuro de la especie.\n\nNo existe en la naturaleza: se seleccionó en cautiverio. Se cuida igual que la especie."
+        }
+      ]
+    },
+    {
+      "especie": "Nesodillo arcangelii",
+      "tambien_como": ["Nesodillo archangeli", "Nesodillo archangelii"],
+      "grupo": "Isópodos",
+      "campos": {
+        "common_name": "Isópodo Shiro Utsuri",
+        "description": "Isópodo asiático de la familia Armadillidae, famoso en el hobby por su patrón blanco y negro tipo dálmata. El nombre Shiro Utsuri viene de una variedad de carpa koi japonesa con esos mismos colores.\n\nPrimero se vendió como Cubaris sp. 'Shiro Utsuri'. En 2022 se identificó como Nesodillo arcangelii, especie descrita por Verhoeff en 1928; su nombre también se escribe archangelii.\n\nLlega a medir unos 20 mm, es fácil de mantener y madura en unos 3 meses. Trepa por hojas y ramitas si le das espacio vertical.",
+        "origin": "Asia oriental; la línea del hobby se desarrolló en Japón",
+        "temperature": "16-27 °C",
+        "humidity": "55-70 %",
+        "adult_size": "Hasta 20 mm",
+        "difficulty": "Fácil",
+        "rarity": "Poco común",
+        "habitat": "Bote de isópodos de buen tamaño con ventilación moderada y tapa segura.\n\nTierra orgánica con madera blanca podrida y hojarasca, más musgo. Mantén un tercio del bote húmedo con musgo y el resto más seco.\n\nAprovecha la altura: ponle corteza, hojas y ramitas para trepar. Temperatura de 16 a 27 °C.",
+        "diet": "Base: hojarasca y madera blanca podrida, siempre disponibles. También come musgo y liquen.\n\nComplementa con verdura, fruta y hojuelas de pescado, y dale proteína dos veces por semana.\n\nCalcio siempre disponible. Retira lo fresco que no se coman.",
+        "notes": "Madura sexualmente en unos 3 meses. Su ritmo de cría es moderado: no esperes una explosión como con los Porcellionides.\n\nEs más activo de noche y temprano en la mañana.\n\nSi lo compraste como Cubaris sp. 'Shiro Utsuri', es el mismo animal."
+      }
+    },
+    {
+      "especie": "Cristarmadillidium muricatum",
+      "grupo": "Isópodos",
+      "campos": {
+        "common_name": "Cochinilla Espinosa",
+        "description": "Isópodo pequeño del este de España e Ibiza, cubierto de tubérculos en forma de espinas que le sirven de defensa contra depredadores. Su color base es un naranja deslavado.\n\nMide apenas 6 a 7 mm. En la naturaleza vive sobre todo en cuevas de roca caliza, aunque también en suelos calizos fuera de ellas.\n\nEs fácil de mantener, pero cría poco y crece despacio: es una especie para tener con paciencia.",
+        "origin": "Este de España (de Murcia a Valencia) e Ibiza",
+        "temperature": "17-30 °C",
+        "humidity": "50-70 %",
+        "adult_size": "6-7 mm",
+        "difficulty": "Intermedia",
+        "rarity": "Rara",
+        "habitat": "Bote pequeño con tapa segura y ventilación moderada.\n\nTierra orgánica con madera blanca podrida y hojarasca. Mantén la mitad del bote húmeda con musgo (ahí mudan) y la otra mitad más seca, con corteza en medio.\n\nSu medio natural es calizo: agrega piedra caliza o calcio en el sustrato. Aguanta de 17 a 30 °C.",
+        "diet": "Base: hojarasca y madera blanca podrida, siempre disponibles. También come musgo, liquen y hongos.\n\nComplementa con verdura, fruta u hojuelas de pescado, y dale proteína dos veces por semana.\n\nCalcio siempre disponible: hueso de jibia, piedra caliza o concha de ostión.",
+        "notes": "Cría poco y crece despacio. Una colonia tarda en crecer, así que no la dividas pronto.\n\nEs tranquila y más activa de noche y temprano. Por su tamaño, revisa bien antes de tirar sustrato viejo.\n\nRecomendada para quien ya mantiene isópodos y quiere algo poco común."
+      }
+    }
+  ]
+}

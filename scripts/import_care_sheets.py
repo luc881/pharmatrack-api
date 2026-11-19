@@ -77,11 +77,12 @@ def plan(client, headers, entries, publish: bool = False) -> list[dict]:
         entry = dict(raw)
         wanted = entry.pop("especie", None)
         species_id = entry.pop("species_id", None)
+        aliases = entry.pop("tambien_como", None) or []  # otros nombres con que pudo darse de alta
         label = wanted or f"species_id {species_id}"
         item = {"n": index, "especie": label, "errors": []}
 
         sp = next((s for s in species if s["id"] == species_id), None) if species_id \
-            else by_name.get(_plain(wanted))
+            else next((by_name[_plain(n)] for n in (wanted, *aliases) if _plain(n) in by_name), None)
         if not sp:
             item.update(action="error", errors=[f"La especie «{label}» no existe en el sistema."])
             result.append(item)
