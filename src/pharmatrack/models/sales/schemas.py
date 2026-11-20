@@ -56,6 +56,9 @@ class SaleCheckoutItem(BaseModel):
     quantity: Decimal = Field(..., gt=0)
     discount: Decimal = Field(0, ge=0)
     description: Optional[str] = None
+    # Precio al vuelo de la venta rápida (solo admin): esta línea se cobra a
+    # este precio; el producto no cambia
+    unit_price: Optional[Decimal] = Field(None, ge=0)
 
     model_config = ConfigDict(extra="forbid")
 

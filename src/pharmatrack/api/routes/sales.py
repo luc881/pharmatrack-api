@@ -494,6 +494,11 @@ def checkout(request: Request, body: SaleCheckout, db: db_dependency, token_data
     if not db.query(Branch).filter_by(id=body.branch_id).first():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Branch ID does not exist.")
 
+    # Cobrar a otro precio que el del producto: solo un administrador
+    if any(i.unit_price is not None for i in body.items) and token_data.get("user_role") != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Solo un administrador puede cambiar el precio al cobrar.")
+
     sale = Sale(
         user_id=token_data["id"],
         branch_id=body.branch_id,

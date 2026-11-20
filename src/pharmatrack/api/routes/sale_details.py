@@ -17,11 +17,12 @@ from ...models.sale_details.orm import SaleDetail
 from ...models.sales.orm import Sale
 
 
-def _check_max_discount(product, quantity, discount) -> None:
+def _check_max_discount(product, quantity, discount, price_unit=None) -> None:
     """El descuento de línea no puede superar el tope del producto (%)."""
     if product.max_discount is None or not discount:
         return
-    max_abs = (Decimal(product.price_retail) * Decimal(quantity)
+    price = Decimal(product.price_retail) if price_unit is None else price_unit
+    max_abs = (price * Decimal(quantity)
                * Decimal(str(product.max_discount)) / Decimal(100))
     if Decimal(discount) > max_abs:
         raise HTTPException(
@@ -50,9 +51,11 @@ def build_sale_detail(db, sale: Sale, line) -> SaleDetail:
     if not product:
         raise HTTPException(status_code=404, detail="Associated product not found")
 
-    _check_max_discount(product, line.quantity, line.discount or 0)
+    # el precio al vuelo (venta rápida, ya validado en checkout) o el del producto
+    custom = getattr(line, "unit_price", None)
+    price_unit = Decimal(product.price_retail) if custom is None else Decimal(custom)
+    _check_max_discount(product, line.quantity, line.discount or 0, price_unit)
 
-    price_unit = Decimal(product.price_retail)
     line_subtotal = (price_unit * Decimal(line.quantity)) - Decimal(line.discount or 0)
 
     tax = Decimal(0)
