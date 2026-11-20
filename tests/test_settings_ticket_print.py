@@ -5,19 +5,20 @@ from .utils import client
 def test_sin_guardar_trae_defaults(auth_headers):
     res = client.get("/api/v1/settings/ticket-print", headers=auth_headers)
     assert res.status_code == 200
-    assert res.json() == {"width": 80, "offset": 0, "saved": False}
+    assert res.json() == {"width": 80, "offset": 0, "inset": 0, "saved": False}
 
 
 def test_guarda_y_lee_lo_del_usuario(auth_headers):
     res = client.put("/api/v1/settings/ticket-print",
-                     json={"width": 58, "offset": -1.3000001}, headers=auth_headers)
+                     json={"width": 58, "offset": -1.3000001, "inset": 8}, headers=auth_headers)
     assert res.status_code == 200
     got = client.get("/api/v1/settings/ticket-print", headers=auth_headers).json()
-    assert got == {"width": 58, "offset": -1.3, "saved": True}
+    assert got == {"width": 58, "offset": -1.3, "inset": 8, "saved": True}
 
 
 def test_rechaza_rollo_o_ajuste_fuera_de_rango(auth_headers):
-    for body in ({"width": 70, "offset": 0}, {"width": 58, "offset": 9}):
+    for body in ({"width": 70, "offset": 0}, {"width": 58, "offset": 9},
+                 {"width": 80, "offset": 0, "inset": 30}):
         res = client.put("/api/v1/settings/ticket-print", json=body, headers=auth_headers)
         assert res.status_code == 422
 
