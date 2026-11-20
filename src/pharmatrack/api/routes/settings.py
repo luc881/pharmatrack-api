@@ -113,8 +113,9 @@ def update_email_ticket(body: EmailTicketTemplate, db: db_dependency):
 class TicketPrintSettings(BaseModel):
     width: Literal[58, 80] = 80
     offset: float = Field(0, ge=-8, le=8, description="Ajuste horizontal en mm")
-    # cabezales que imprimen pálido en la orilla: se angosta el ticket
-    inset: float = Field(0, ge=0, le=24, description="Milímetros que se le quitan al ancho")
+    # el contenido se imprime a este % para dejar margen en el papel (cabezales
+    # que imprimen pálido en la orilla); None = el del dashboard para ese rollo
+    scale: Optional[int] = Field(None, ge=50, le=100, description="Tamaño del contenido en %")
 
 
 def _ticket_print_key(user: dict) -> str:
@@ -134,7 +135,6 @@ def read_ticket_print(db: db_dependency, user: user_dependency):
             summary="Guardar rollo y ajuste de la impresora de tickets del usuario")
 def update_ticket_print(body: TicketPrintSettings, db: db_dependency, user: user_dependency):
     body.offset = round(body.offset, 1)
-    body.inset = round(body.inset, 1)
     row = db.get(AppSetting, _ticket_print_key(user))
     if not row:
         row = AppSetting(key=_ticket_print_key(user), value="{}")
