@@ -153,10 +153,10 @@ def test_checkout_de_cero_pesos_va_sin_pagos(auth_headers, test_branch, test_pro
     assert float(res.json()["total"]) == 0
 
 
-def _admin_headers(user):
+def _admin_headers(user, role="admin"):
     from datetime import timedelta
     from pharmatrack.utils.security import create_jwt_token
-    token = create_jwt_token(username=user.email, user_id=user.id, role="admin",
+    token = create_jwt_token(username=user.email, user_id=user.id, role=role,
                              expires_delta=timedelta(minutes=30))
     return {"Authorization": f"Bearer {token}"}
 
@@ -175,6 +175,15 @@ def test_checkout_precio_al_vuelo_de_un_admin(test_branch, test_product, test_pr
     assert float(detail.price_unit) == 150
     assert float(res.json()["subtotal"]) == 450
     assert float(test_product.price_retail) == 20
+
+
+def test_checkout_precio_al_vuelo_de_un_superadmin(test_branch, test_product, test_product_batch,
+                                                   test_user_with_role_permissions_branch_auth):
+    body = _body(test_branch, test_product)
+    body["items"][0]["unit_price"] = "150.00"
+    res = client.post(URL, json=body, headers=_admin_headers(
+        test_user_with_role_permissions_branch_auth, role="superadmin"))
+    assert res.status_code == status.HTTP_201_CREATED, res.text
 
 
 def test_checkout_precio_al_vuelo_solo_admin(auth_headers, test_branch, test_product,
