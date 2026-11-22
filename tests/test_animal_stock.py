@@ -115,3 +115,29 @@ def test_manual_zero_stock_marks_sold_and_restock_reactivates(auth_headers):
     # Negativo sigue rechazado
     res = animals_put(str(animal["id"]), json={"stock": -1}, headers=auth_headers)
     assert res.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_cancelar_una_venta_regresa_el_stock_y_el_animal(
+    auth_headers, db_session, test_user_with_role_permissions_branch_auth, test_branch
+):
+    """Se arrepintieron después de cobrar: la venta queda cancelada (fuera del
+    corte) y lo vendido vuelve a estar disponible."""
+    _, _, _, sp, _ = _make_taxonomy(auth_headers)
+    colony = _make_colony_species(auth_headers, sp)
+    animal = _create_animal(auth_headers, colony["id"], stock=2)
+    sale = _draft_sale(db_session, test_user_with_role_permissions_branch_auth,
+                       test_branch, animal, 2)
+    assert client.post(f"/api/v1/sales/{sale.id}/complete", headers=auth_headers).status_code == 200
+    assert animals_get(str(animal["id"]), headers=auth_headers).json()["status"] == "sold"
+
+    res = client.post(f"/api/v1/sales/{sale.id}/cancel", headers=auth_headers)
+    assert res.status_code == status.HTTP_200_OK, res.text
+    assert res.json()["status"] == "cancelled"
+    refreshed = animals_get(str(animal["id"]), headers=auth_headers).json()
+    assert refreshed["status"] == "available"
+    assert refreshed["stock"] == 2
+
+    # dos veces no regresa el stock dos veces
+    again = client.post(f"/api/v1/sales/{sale.id}/cancel", headers=auth_headers)
+    assert again.status_code == status.HTTP_400_BAD_REQUEST
+    assert animals_get(str(animal["id"]), headers=auth_headers).json()["stock"] == 2

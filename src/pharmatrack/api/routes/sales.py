@@ -386,6 +386,66 @@ def complete_sale(sale_id: int, db: db_dependency):
     return sale
 
 
+# =========================================================
+# POST /{sale_id}/cancel — se arrepintieron después de cobrar
+# =========================================================
+@router.post(
+    "/{sale_id}/cancel",
+    response_model=SaleResponse,
+    status_code=status.HTTP_200_OK,
+    dependencies=CAN_DELETE_SALES,
+)
+def cancel_sale(sale_id: int, db: db_dependency):
+    """Regresa a sus lotes lo que se descontó, reactiva los animales que
+    vuelven a tener stock y deja la venta CANCELLED: queda en el historial,
+    fuera del corte y los reportes (solo cuentan COMPLETED)."""
+    from ...models.animals.orm import Animal
+    from ...models.product_batch.orm import ProductBatch
+    from ...models.refund_products.orm import RefundProduct
+    from ...models.sale_batch_usage.orm import SaleBatchUsage
+    from ...models.sale_details.orm import SaleDetail
+    from ...utils.sales_stock import expand_bundle_product_ids
+    from pharmatrack.types.animals import AnimalStatusEnum
+
+    sale = db.query(Sale).filter(Sale.id == sale_id).with_for_update().first()
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+    if sale.status != SaleStatusEnum.COMPLETED:
+        raise HTTPException(status_code=400, detail="Solo se puede cancelar una venta completada.")
+
+    detail_ids = [d.id for d in db.query(SaleDetail.id).filter(SaleDetail.sale_id == sale_id)]
+    if db.query(RefundProduct.id).filter(RefundProduct.sale_detail_id.in_(detail_ids)).first():
+        raise HTTPException(status_code=400,
+                            detail="La venta tiene devoluciones; no se puede cancelar.")
+
+    usages = db.query(SaleBatchUsage).filter(SaleBatchUsage.sale_detail_id.in_(detail_ids)).all()
+    for usage in usages:
+        batch = db.query(ProductBatch).filter(ProductBatch.id == usage.batch_id).with_for_update().first()
+        if batch:
+            batch.quantity += usage.quantity_used
+    db.flush()
+
+    # Vendido (stock 0) que vuelve a tener piezas: otra vez disponible
+    product_ids = [d.product_id for d in db.query(SaleDetail.product_id).filter(
+        SaleDetail.sale_id == sale_id)]
+    effective_ids = expand_bundle_product_ids(db, product_ids)
+    with_stock = [pid for (pid,) in db.query(ProductBatch.product_id)
+                  .filter(ProductBatch.product_id.in_(effective_ids))
+                  .group_by(ProductBatch.product_id)
+                  .having(func.sum(ProductBatch.quantity) > 0)]
+    if with_stock:
+        db.query(Animal).filter(
+            Animal.product_id.in_(with_stock),
+            Animal.status == AnimalStatusEnum.SOLD.value,
+        ).update({Animal.status: AnimalStatusEnum.AVAILABLE.value}, synchronize_session=False)
+
+    sale.status = SaleStatusEnum.CANCELLED
+    db.commit()
+    db.refresh(sale)
+    logger.info("Sale cancelled id=%s", sale.id)
+    return sale
+
+
 def _complete(db, sale: Sale) -> None:
     """Valida, descuenta stock y deja la venta COMPLETED, sin commit. La usan
     POST /{id}/complete y POST /checkout."""
