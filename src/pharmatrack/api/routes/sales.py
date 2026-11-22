@@ -653,6 +653,13 @@ def delete(sale_id: int, db: db_dependency):
     if not existing_sale:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sale not found.")
 
+    # Borrarla no regresa su stock a los lotes: primero se cancela
+    if existing_sale.status == SaleStatusEnum.COMPLETED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Una venta cobrada no se borra: Cancela la venta (regresa lo vendido al inventario).",
+        )
+
     from ...models.refund_products.orm import RefundProduct
     from ...models.sale_details.orm import SaleDetail
 

@@ -141,3 +141,23 @@ def test_cancelar_una_venta_regresa_el_stock_y_el_animal(
     again = client.post(f"/api/v1/sales/{sale.id}/cancel", headers=auth_headers)
     assert again.status_code == status.HTTP_400_BAD_REQUEST
     assert animals_get(str(animal["id"]), headers=auth_headers).json()["stock"] == 2
+
+
+def test_una_venta_completada_no_se_borra_se_cancela(
+    auth_headers, db_session, test_user_with_role_permissions_branch_auth, test_branch
+):
+    """Borrarla perdería su stock (no regresa a los lotes)."""
+    _, _, _, sp, _ = _make_taxonomy(auth_headers)
+    colony = _make_colony_species(auth_headers, sp)
+    animal = _create_animal(auth_headers, colony["id"], stock=2)
+    sale = _draft_sale(db_session, test_user_with_role_permissions_branch_auth,
+                       test_branch, animal, 1)
+    assert client.post(f"/api/v1/sales/{sale.id}/complete", headers=auth_headers).status_code == 200
+
+    res = client.delete(f"/api/v1/sales/{sale.id}", headers=auth_headers)
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Cancela" in res.json()["detail"]
+
+    assert client.post(f"/api/v1/sales/{sale.id}/cancel", headers=auth_headers).status_code == 200
+    assert client.delete(f"/api/v1/sales/{sale.id}", headers=auth_headers).status_code == 204
+    assert animals_get(str(animal["id"]), headers=auth_headers).json()["stock"] == 2
