@@ -1,6 +1,6 @@
-from fastapi import Depends, HTTPException, APIRouter, Request
+from fastapi import Depends, HTTPException, APIRouter, Request, Response
 from typing import Annotated, Optional
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from datetime import date, datetime
@@ -299,6 +299,56 @@ def report_by_owner(request: Request, db: db_dependency, date_from: date, date_t
                                             units=float(units), amount=amount))
     # Propio primero; después por nombre
     return sorted(owners.values(), key=lambda c: (c.consignor_id is not None, c.owner.lower()))
+
+
+# =========================================================
+# GET /export — Excel del periodo
+# =========================================================
+# Va antes de /{sale_id}: si no, "export" se leería como un id.
+@router.get(
+    "/export",
+    summary="Excel con todas las ventas del periodo y lo que se vendió en cada una",
+    status_code=status.HTTP_200_OK,
+    response_class=Response,
+    dependencies=CAN_READ_SALES,
+)
+@limiter.limit(LIMIT_READ)
+def export_sales(
+    request: Request,
+    db: db_dependency,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    status_filter: Optional[SaleStatusEnum] = None,
+):
+    from datetime import time, timedelta
+    from ...models.sale_details.orm import SaleDetail
+    from ...models.suppliers.orm import Supplier
+    from pharmatrack.utils.sales_export import MX_OFFSET, sales_workbook
+
+    query = db.query(Sale).options(
+        selectinload(Sale.sale_details).joinedload(SaleDetail.product),
+        selectinload(Sale.sale_payments),
+        joinedload(Sale.user),
+        joinedload(Sale.branch),
+    )
+    if date_from is not None:
+        query = query.filter(Sale.date_sale >= datetime.combine(date_from, time.min) + MX_OFFSET)
+    if date_to is not None:
+        query = query.filter(
+            Sale.date_sale < datetime.combine(date_to, time.min) + timedelta(days=1) + MX_OFFSET)
+    if status_filter is not None:
+        query = query.filter(Sale.status == status_filter)
+
+    period = " ".join(filter(None, [
+        date_from and f"del {date_from:%d/%m/%Y}",
+        date_to and f"al {date_to:%d/%m/%Y}",
+    ])) or "Todas"
+    owners = dict(db.query(Supplier.id, Supplier.name).tuples().all())
+    return Response(
+        sales_workbook(query.order_by(Sale.date_sale, Sale.id).all(), owners, period),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="ventas.xlsx"'},
+    )
 
 
 # =========================================================
