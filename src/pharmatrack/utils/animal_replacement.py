@@ -19,6 +19,7 @@ from ..models.sale_details.orm import SaleDetail
 from ..models.sales.orm import Sale
 from ..types.animals import AnimalStatusEnum
 from ..types.sales import SaleStatusEnum
+from .mx_day import utc_iso
 
 SOLD_STATES = (SaleStatusEnum.COMPLETED, SaleStatusEnum.PARTIALLY_REFUNDED)
 CDMX = timezone(timedelta(hours=-6))
@@ -48,7 +49,7 @@ def commitments(db: Session, animal: Animal) -> dict:
     sale = usage.sale_detail.sale if usage else None
     return {
         "status": animal.status,
-        "sale": {"id": sale.id, "date_sale": sale.date_sale} if sale else None,
+        "sale": {"id": sale.id, "date_sale": utc_iso(sale.date_sale)} if sale else None,
         "deliveries": [
             {"id": d.id, "buyer_name": d.buyer_name, "scheduled_date": d.scheduled_date}
             for d in pending_deliveries(db, animal.id)

@@ -78,13 +78,13 @@ def test_checkout_guarda_sold_at(auth_headers, test_branch, test_product, test_p
     body = _body(test_branch, test_product, sold_at="2026-11-13T18:30:00Z")
     res = client.post(URL, json=body, headers=auth_headers)
     assert res.status_code == status.HTTP_201_CREATED, res.text
-    assert res.json()["date_sale"].startswith("2026-11-13T18:30:00")
+    assert res.json()["date_sale"] == "2026-11-13T18:30:00+00:00"
 
 
 def test_checkout_convierte_sold_at_a_utc(auth_headers, test_branch, test_product, test_product_batch):
     body = _body(test_branch, test_product, sold_at="2026-11-13T12:30:00-06:00")
     res = client.post(URL, json=body, headers=auth_headers)
-    assert res.json()["date_sale"].startswith("2026-11-13T18:30:00")
+    assert res.json()["date_sale"] == "2026-11-13T18:30:00+00:00"
 
 
 def test_checkout_con_reloj_adelantado_usa_la_hora_del_servidor(auth_headers, test_branch, test_product, test_product_batch):
@@ -96,7 +96,7 @@ def test_checkout_con_reloj_adelantado_usa_la_hora_del_servidor(auth_headers, te
     res = client.post(URL, json=_body(test_branch, test_product, sold_at=future), headers=auth_headers)
     assert res.status_code == status.HTTP_201_CREATED, res.text
     sold = datetime.fromisoformat(res.json()["date_sale"])
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(timezone.utc)
     assert abs(now - sold) < timedelta(minutes=5)
 
 
@@ -105,7 +105,7 @@ def test_checkout_sin_sold_at_usa_la_hora_actual(auth_headers, test_branch, test
 
     res = client.post(URL, json=_body(test_branch, test_product), headers=auth_headers)
     sold = datetime.fromisoformat(res.json()["date_sale"])
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(timezone.utc)
     assert abs(now - sold) < timedelta(minutes=5)
 
 

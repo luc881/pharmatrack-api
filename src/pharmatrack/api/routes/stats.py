@@ -19,6 +19,7 @@ from ...models.branches.orm import Branch
 from ...utils.permissions import CAN_READ_DASHBOARD
 from ...utils.rate_limit import limiter, LIMIT_READ
 from ...utils.batch_stats import expiring_soon_count, expired_count
+from ...utils.mx_day import MX_OFFSET, mx_today
 from pharmatrack.types.sales import SaleStatusEnum
 
 
@@ -104,20 +105,20 @@ def _cost_expr():
 )
 @limiter.limit(LIMIT_READ)
 def get_dashboard_stats(request: Request, db: db_dependency):
-    today = date.today()
+    today = mx_today()
 
     # ── sales_by_month ────────────────────────────────────────────────────────
     first_of_twelve_months_ago = today.replace(day=1) - timedelta(days=365)
 
     sales_by_month_rows = (
         db.query(
-            func.to_char(Sale.date_sale, "YYYY-MM").label("month"),
+            func.to_char(Sale.date_sale - MX_OFFSET, "YYYY-MM").label("month"),
             func.sum(Sale.total).label("revenue"),
             func.count(Sale.id).label("count"),
         )
         .filter(
             Sale.status == SaleStatusEnum.COMPLETED,
-            Sale.date_sale >= first_of_twelve_months_ago,
+            Sale.date_sale - MX_OFFSET >= first_of_twelve_months_ago,
         )
         .group_by("month")
         .order_by("month")
@@ -127,7 +128,7 @@ def get_dashboard_stats(request: Request, db: db_dependency):
     # Cost per month via separate query to avoid double-counting Sale.total
     cost_by_month_rows = (
         db.query(
-            func.to_char(Sale.date_sale, "YYYY-MM").label("month"),
+            func.to_char(Sale.date_sale - MX_OFFSET, "YYYY-MM").label("month"),
             func.coalesce(func.sum(_cost_expr()), 0).label("cost"),
         )
         .join(SaleDetail, SaleDetail.sale_id == Sale.id)
@@ -135,7 +136,7 @@ def get_dashboard_stats(request: Request, db: db_dependency):
         .join(ProductBatch, ProductBatch.id == SaleBatchUsage.batch_id)
         .filter(
             Sale.status == SaleStatusEnum.COMPLETED,
-            Sale.date_sale >= first_of_twelve_months_ago,
+            Sale.date_sale - MX_OFFSET >= first_of_twelve_months_ago,
         )
         .group_by("month")
         .all()
@@ -221,8 +222,8 @@ def get_dashboard_stats(request: Request, db: db_dependency):
             .join(ProductBatch, ProductBatch.id == SaleBatchUsage.batch_id)
             .filter(
                 Sale.status == SaleStatusEnum.COMPLETED,
-                Sale.date_sale >= start,
-                Sale.date_sale < end,
+                Sale.date_sale - MX_OFFSET >= start,
+                Sale.date_sale - MX_OFFSET < end,
             )
             .first()
         )
@@ -236,8 +237,8 @@ def get_dashboard_stats(request: Request, db: db_dependency):
             )
             .filter(
                 Sale.status == SaleStatusEnum.COMPLETED,
-                Sale.date_sale >= start,
-                Sale.date_sale < end,
+                Sale.date_sale - MX_OFFSET >= start,
+                Sale.date_sale - MX_OFFSET < end,
             )
             .first()
         )
@@ -280,7 +281,7 @@ def get_dashboard_stats(request: Request, db: db_dependency):
         .join(ProductCategory, ProductCategory.id == Product.product_category_id)
         .filter(
             Sale.status == SaleStatusEnum.COMPLETED,
-            Sale.date_sale >= first_of_twelve_months_ago,
+            Sale.date_sale - MX_OFFSET >= first_of_twelve_months_ago,
         )
         .group_by(ProductCategory.name)
         .order_by(func.sum(SaleDetail.total).desc())
@@ -302,7 +303,7 @@ def get_dashboard_stats(request: Request, db: db_dependency):
         .join(Branch, Branch.id == Sale.branch_id)
         .filter(
             Sale.status == SaleStatusEnum.COMPLETED,
-            Sale.date_sale >= first_of_twelve_months_ago,
+            Sale.date_sale - MX_OFFSET >= first_of_twelve_months_ago,
         )
         .group_by(Branch.name)
         .order_by(func.sum(Sale.total).desc())

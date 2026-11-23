@@ -16,6 +16,7 @@ from ...models.product_batch.orm import ProductBatch
 from ...utils.permissions import CAN_READ_DASHBOARD
 from ...utils.rate_limit import limiter, LIMIT_READ
 from ...utils.batch_stats import expiring_soon_count, expired_count
+from ...utils.mx_day import MX_OFFSET, mx_today, utc_iso
 from pharmatrack.types.sales import SaleStatusEnum
 
 
@@ -60,7 +61,7 @@ class DashboardSummary(BaseModel):
 )
 @limiter.limit(LIMIT_READ)
 def get_dashboard_summary(request: Request, db: db_dependency):
-    today = date.today()
+    today = mx_today()
     first_of_month = today.replace(day=1)
     in_30_days = today + timedelta(days=30)
 
@@ -72,7 +73,7 @@ def get_dashboard_summary(request: Request, db: db_dependency):
         )
         .filter(
             Sale.status == SaleStatusEnum.COMPLETED,
-            Sale.date_sale >= first_of_month,
+            Sale.date_sale - MX_OFFSET >= first_of_month,
         )
         .first()
     )
@@ -101,7 +102,7 @@ def get_dashboard_summary(request: Request, db: db_dependency):
     recent_sales = [
         RecentSale(
             id=sale.id,
-            date_sale=sale.date_sale.isoformat(),
+            date_sale=utc_iso(sale.date_sale),
             total=float(sale.total),
             status=sale.status,
             user_name=user_name,

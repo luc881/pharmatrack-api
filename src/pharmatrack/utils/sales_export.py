@@ -1,5 +1,4 @@
 """Excel de ventas: resumen, una fila por venta y una fila por producto vendido."""
-from datetime import timedelta
 from io import BytesIO
 
 from openpyxl import Workbook
@@ -8,9 +7,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from pharmatrack.types.sales import PaymentMethodEnum, SaleStatusEnum
-
-# Los días son los de México (UTC-6, sin horario de verano); la base guarda UTC
-MX_OFFSET = timedelta(hours=6)
+from pharmatrack.utils.mx_day import MX_OFFSET
 
 STATUS_LABEL = {
     SaleStatusEnum.DRAFT: "Borrador",
@@ -85,6 +82,7 @@ def _table(sheet, columns, rows):
     sheet.freeze_panes = "B2"
     sheet.auto_filter.ref = sheet.dimensions
     sheet.page_setup.orientation = "landscape"
+    sheet.page_setup.paperSize = sheet.PAPERSIZE_LETTER
     sheet.page_setup.fitToHeight = 0
     sheet.sheet_properties.pageSetUpPr.fitToPage = True
     sheet.print_title_rows = "1:1"
@@ -141,6 +139,7 @@ def _summary(sheet, sales, owner_of, period):
         sheet.column_dimensions[column].width = width
     for cell in sheet["B"]:
         cell.alignment = Alignment(horizontal="right")
+    sheet.page_setup.paperSize = sheet.PAPERSIZE_LETTER
     sheet.page_setup.fitToHeight = 0
     sheet.sheet_properties.pageSetUpPr.fitToPage = True
 

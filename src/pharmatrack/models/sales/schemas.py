@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator
 from pharmatrack.models.products.schemas import PaginatedResponse, PaginationParams
 from pharmatrack.models.sale_payments.schemas import SalePaymentBase
 from pharmatrack.types.sales import SaleStatusEnum
+from pharmatrack.utils.mx_day import UtcDatetime
 
 
 # =========================================================
@@ -137,9 +138,9 @@ class SaleUpdate(BaseModel):
 # =========================================================
 class SaleResponse(SaleBase):
     id: int
-    date_sale: datetime
-    created_at: datetime
-    updated_at: datetime
+    date_sale: UtcDatetime
+    created_at: UtcDatetime
+    updated_at: UtcDatetime
 
     model_config = ConfigDict(
         from_attributes=True,

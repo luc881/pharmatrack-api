@@ -238,7 +238,8 @@ def email_ticket(sale_id: int, body: EmailTicketRequest, db: db_dependency):
     ]
     total = float(sale.total or sum(i["subtotal"] for i in items))
     change = sum(p["amount"] for p in payments) - total
-    date_str = (sale.date_sale or sale.created_at).strftime("%d/%m/%Y %H:%M")
+    from pharmatrack.utils.mx_day import MX_OFFSET
+    date_str = (sale.date_sale - MX_OFFSET).strftime("%d/%m/%Y %H:%M")
 
     try:
         send_ticket_email(body.email, sale_id, date_str, items, payments, total, change,
@@ -323,7 +324,8 @@ def export_sales(
     from datetime import time, timedelta
     from ...models.sale_details.orm import SaleDetail
     from ...models.suppliers.orm import Supplier
-    from pharmatrack.utils.sales_export import MX_OFFSET, sales_workbook
+    from pharmatrack.utils.mx_day import MX_OFFSET
+    from pharmatrack.utils.sales_export import sales_workbook
 
     query = db.query(Sale).options(
         selectinload(Sale.sale_details).joinedload(SaleDetail.product),

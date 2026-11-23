@@ -90,3 +90,25 @@ def test_export_un_texto_con_igual_no_es_formula(auth_headers, test_branch, test
 
 def test_export_pide_sesion():
     assert client.get(EXPORT).status_code in (401, 403)
+
+
+# =========================================================
+# Los reportes cuentan el día y el mes de México
+# =========================================================
+def test_dashboard_y_estadisticas_cuentan_el_mes_de_mexico(
+        auth_headers, test_branch, test_product_category, db_session):
+    from pharmatrack.utils.mx_day import mx_today
+
+    _, mine, _ = _mixed(auth_headers, test_product_category.id, db_session)
+    # 8 pm del último día del mes pasado en México: en UTC ya es día 1
+    first = mx_today().replace(day=1)
+    _checkout(auth_headers, test_branch, [(mine["id"], 1)], sold_at=f"{first}T02:00:00Z")
+
+    stats = client.get("/api/v1/stats/dashboard", headers=auth_headers)
+    assert stats.status_code == 200, stats.text
+    last_month = (first - timedelta(days=1)).strftime("%Y-%m")
+    assert [r["month"] for r in stats.json()["sales_by_month"]] == [last_month]
+
+    recent = client.get("/api/v1/dashboard/stats", headers=auth_headers)
+    assert recent.status_code == 200, recent.text
+    assert recent.json()["recent_sales"][0]["date_sale"] == f"{first}T02:00:00+00:00"
